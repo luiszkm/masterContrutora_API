@@ -48,13 +48,14 @@ func (r *ObraRepositoryPostgres) BuscarDashboardPorID(ctx context.Context, id st
 			GROUP BY obra_id
 		),
 		etapa_atual AS (
-			-- CTE para encontrar a etapa que está "Em Andamento"
-			SELECT
-				obra_id,
-				nome,
-				data_fim_prevista
-			FROM etapas
-			WHERE status = 'Em Andamento'
+		SELECT
+			obra_id,
+			nome,
+			data_fim_prevista
+		FROM etapas
+		WHERE status = 'Em Andamento'
+		ORDER BY data_inicio_prevista DESC -- Pega a mais recente, por exemplo
+		LIMIT 1 -- Garante que apenas uma linha será retornada
 		)
 		-- Query Principal que junta tudo
 		SELECT
@@ -171,4 +172,28 @@ func (r *ObraRepositoryPostgres) BuscarPorID(ctx context.Context, id string) (*o
 	}
 
 	return &obra, nil
+}
+func (r *ObraRepositoryPostgres) ListarObras(ctx context.Context) ([]*dto.ObraListItemDTO, error) {
+	const op = "repository.postgres.ListarObras"
+
+	query := `SELECT id, nome, cliente, status FROM obras ORDER BY nome ASC`
+
+	rows, err := r.db.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	defer rows.Close()
+
+	// Usamos pgx.CollectRows para escanear todas as linhas em um slice de forma eficiente.
+	obras, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (*dto.ObraListItemDTO, error) {
+		var item dto.ObraListItemDTO
+		err := row.Scan(&item.ID, &item.Nome, &item.Cliente, &item.Status)
+		return &item, err
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("%s: falha ao escanear obras: %w", op, err)
+	}
+
+	return obras, nil
 }

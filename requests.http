@@ -4,8 +4,9 @@
 # @name As variáveis globais serão definidas dinamicamente pelas requisições.
 @hostname = http://localhost:8080
 @token =
-@obraId =
-@etapaId =
+@obraId =34631410-3a92-4f9e-9cd5-8fcd63ff0a74
+@etapaId =f77558d9-a8ea-4706-bb18-f06eaaa57c01
+@funcionarioId =f761b03c-ef47-4af4-93a7-271cd324431a
 
 # ===================================================================
 # [FLUXO 1] - AUTENTICAÇÃO
@@ -52,7 +53,6 @@ Content-Type: application/json
 # O ID da obra criada será capturado na variável 'obraId'.
 POST {{hostname}}/obras
 Content-Type: application/json
-Authorization: Bearer {{token}}
 
 {
     "nome": "Residencial Dinâmico",
@@ -73,6 +73,10 @@ Authorization: Bearer {{token}}
 GET {{hostname}}/obras/{{obraId}}
 Authorization: Bearer {{token}}
 
+###
+# @name ListarTodasAsObras
+# Busca uma lista simplificada de todas as obras cadastradas.
+GET {{hostname}}/obras
 
 ###
 # ===================================================================
@@ -97,6 +101,15 @@ Authorization: Bearer {{token}}
     client.global.set("etapaId", response.body.id);
 %}
 
+###
+# @name MoverEtapaParaEmAndamento
+# 6. Atualiza o status da etapa para "Em Andamento".
+PATCH {{hostname}}/obras/{{obraId}}/etapas/{{etapaId}}
+Content-Type: application/json
+
+{
+    "status": "Em Andamento"
+}
 
 ###
 # @name AtualizarStatusEtapa
@@ -116,3 +129,48 @@ Authorization: Bearer {{token}}
 # O "percentualConcluido" agora deve ser 100.
 GET {{hostname}}/obras/{{obraId}}
 Authorization: Bearer {{token}}
+
+
+
+###
+# ===================================================================
+# [FLUXO 3] - PESSOAL E ALOCAÇÕES
+# ===================================================================
+
+###
+# @name CadastrarFuncionario
+# 5. Cadastra um novo funcionário para poder alocá-lo.
+# O ID do funcionário será capturado na variável 'funcionarioId'.
+POST {{hostname}}/funcionarios
+Content-Type: application/json
+
+{
+    "nome": "João da Silva",
+    "cpf": "111.222.333-44",
+    "cargo": "Engenheiro Civil",
+    "salario": 9500.00,
+    "diaria": 75.00
+}
+
+> {%
+    client.global.set("funcionarioId", response.body.ID);
+%}
+
+
+###
+# @name AlocarFuncionario
+# 6. Aloca o funcionário que acabamos de criar na nossa obra.
+# A URL usa {{obraId}} e o corpo usa {{funcionarioId}}.
+POST {{hostname}}/obras/{{obraId}}/alocacoes
+Content-Type: application/json
+
+{
+    "funcionarioId": "{{funcionarioId}}",
+    "dataInicioAlocacao": "2025-07-05"
+}
+
+###
+# @name VerificarDashboardCompleto
+# 7. Busca o dashboard novamente.
+# O campo 'funcionariosAlocados' agora deve ser 1.
+GET {{hostname}}/obras/{{obraId}}

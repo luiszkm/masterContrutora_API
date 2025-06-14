@@ -9,35 +9,50 @@ import (
 
 	"github.com/google/uuid" // Usaremos UUID para os IDs.
 	"github.com/luiszkm/masterCostrutora/internal/domain/obras"
+	"github.com/luiszkm/masterCostrutora/internal/domain/pessoal"
 	"github.com/luiszkm/masterCostrutora/internal/service/obras/dto" // Importa o pacote de DTO
 	// Importa o pacote de DTO
 )
 
 type Querier interface {
 	BuscarDashboardPorID(ctx context.Context, id string) (*dto.ObraDashboard, error)
+	ListarObras(ctx context.Context) ([]*dto.ObraListItemDTO, error) // NOVO MÉTODO
+
 }
-type EtapaRepository interface {
-	Salvar(ctx context.Context, etapa *obras.Etapa) error
-	BuscarPorID(ctx context.Context, etapaID string) (*obras.Etapa, error) // NOVO
-	Atualizar(ctx context.Context, etapa *obras.Etapa) error               // NOVO
+type PessoalFinder interface {
+	BuscarPorID(ctx context.Context, funcionarioID string) (*pessoal.Funcionario, error)
 }
 
 // Service encapsula a lógica de negócio para o contexto de Obras.
 type Service struct {
-	obraRepo  obras.Repository
-	etapaRepo EtapaRepository
-	querier   Querier
-	logger    *slog.Logger
+	obraRepo      obras.ObrasRepository
+	etapaRepo     obras.EtapaRepository
+	alocacaoRepo  obras.AlocacaoRepository
+	pessoalFinder PessoalFinder
+	querier       Querier
+	logger        *slog.Logger
 }
 
 // NovoServico é o construtor para o serviço de obras.
-func NovoServico(obraRepo obras.Repository, etapaRepo EtapaRepository, querier Querier, logger *slog.Logger) *Service {
+func NovoServico(obraRepo obras.ObrasRepository, etapaRepo obras.EtapaRepository,
+	alocacaoRepo obras.AlocacaoRepository, pessoalFinder PessoalFinder, querier Querier, logger *slog.Logger) *Service {
 	return &Service{
-		obraRepo:  obraRepo,
-		etapaRepo: etapaRepo,
-		querier:   querier,
-		logger:    logger,
+		alocacaoRepo:  alocacaoRepo,
+		pessoalFinder: pessoalFinder,
+		obraRepo:      obraRepo,
+		etapaRepo:     etapaRepo,
+		querier:       querier,
+		logger:        logger,
 	}
+}
+func (s *Service) ListarObras(ctx context.Context) ([]*dto.ObraListItemDTO, error) {
+	const op = "service.obras.ListarObras"
+
+	obras, err := s.querier.ListarObras(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	return obras, nil
 }
 
 // CriarNovaObra é o caso de uso para registrar uma nova construção.
@@ -116,7 +131,6 @@ func (s *Service) AdicionarEtapa(ctx context.Context, obraID string, input dto.A
 
 	return novaEtapa, nil
 }
-
 func (s *Service) AtualizarStatusEtapa(ctx context.Context, etapaID string, input dto.AtualizarStatusEtapaInput) (*obras.Etapa, error) {
 	const op = "service.obras.AtualizarStatusEtapa"
 
@@ -139,4 +153,38 @@ func (s *Service) AtualizarStatusEtapa(ctx context.Context, etapaID string, inpu
 
 	s.logger.InfoContext(ctx, "status da etapa atualizado", "etapa_id", etapa.ID, "novo_status", etapa.Status)
 	return etapa, nil
+}
+func (s *Service) AlocarFuncionario(ctx context.Context, obraID string, input dto.AlocarFuncionarioInput) (*obras.Alocacao, error) {
+	const op = "service.obras.AlocarFuncionario"
+
+	// --- Lógica de Negócio e Validação ---
+	// 1. Verifica se a obra existe (podemos usar o querier para isso)
+	_, err := s.querier.BuscarDashboardPorID(ctx, obraID)
+	if err != nil {
+		return nil, fmt.Errorf("%s: obra não encontrada: %w", op, err)
+	}
+	// 2. Verifica se o funcionário existe (colaboração entre contextos!)
+	_, err = s.pessoalFinder.BuscarPorID(ctx, input.FuncionarioID)
+	if err != nil {
+		return nil, fmt.Errorf("%s: funcionário não encontrado: %w", op, err)
+	}
+
+	inicio, err := time.Parse("2006-01-02", input.DataInicioAlocacao)
+	if err != nil {
+		return nil, fmt.Errorf("%s: formato de data inválido: %w", op, err)
+	}
+
+	novaAlocacao := &obras.Alocacao{
+		ID:                 uuid.NewString(),
+		ObraID:             obraID,
+		FuncionarioID:      input.FuncionarioID,
+		DataInicioAlocacao: inicio,
+		// DataFimAlocacao fica nula por padrão
+	}
+
+	if err := s.alocacaoRepo.Salvar(ctx, novaAlocacao); err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	s.logger.InfoContext(ctx, "funcionário alocado com sucesso", "alocacao_id", novaAlocacao.ID)
+	return novaAlocacao, nil
 }

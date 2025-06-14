@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/google/uuid"
+	"github.com/luiszkm/masterCostrutora/internal/authz"
 	"github.com/luiszkm/masterCostrutora/internal/domain/identidade"
 	dto "github.com/luiszkm/masterCostrutora/internal/service/identidade/dtos"
 )
@@ -51,13 +52,14 @@ func (s *Service) Registrar(ctx context.Context, input dto.RegistrarUsuarioInput
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
+	permissoes := authz.GetPermissoesParaPapel(authz.PapelAdmin)
 
 	novoUsuario := &identidade.Usuario{
 		ID:         uuid.NewString(),
 		Nome:       input.Nome,
 		Email:      input.Email,
 		SenhaHash:  hash,
-		Permissoes: []string{"obras:ler"}, // Permissões padrão
+		Permissoes: permissoes,
 		Ativo:      true,
 	}
 

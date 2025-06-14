@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/luiszkm/masterCostrutora/internal/domain/identidade"
@@ -107,13 +108,15 @@ func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Email ou senha inválidos", http.StatusUnauthorized)
 		return
 	}
+	isSecure := os.Getenv("APP_ENV") == "production"
+
 	// 1. Criamos o cookie com o token.
 	cookie := http.Cookie{
 		Name:     "jwt-token", // Nome do cookie
 		Value:    tokenString,
 		Expires:  time.Now().Add(time.Hour * 8), // Duração do cookie
 		HttpOnly: true,                          // Impede o acesso via JavaScript (CRUCIAL para segurança)
-		Secure:   true,                          // Garante que o cookie só seja enviado via HTTPS
+		Secure:   isSecure,                      // Garante que o cookie só seja enviado via HTTPS
 		SameSite: http.SameSiteLaxMode,          // Ajuda a proteger contra ataques CSRF
 		Path:     "/",                           // O cookie será válido para todo o site
 	}

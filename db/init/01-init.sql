@@ -36,6 +36,18 @@ CREATE TABLE IF NOT EXISTS usuarios (
     ativo BOOLEAN NOT NULL DEFAULT TRUE
 );
 
+-- file: migrations/000005_create_funcionarios_table.up.sql
+CREATE TABLE IF NOT EXISTS funcionarios (
+    id UUID PRIMARY KEY,
+    nome VARCHAR(255) NOT NULL,
+    cpf VARCHAR(14) NOT NULL UNIQUE, -- Ex: 123.456.789-00
+    cargo VARCHAR(100) NOT NULL,
+    data_contratacao DATE NOT NULL,
+    salario NUMERIC(10, 2) NOT NULL,
+    diaria NUMERIC(10, 2) NOT NULL,
+    status VARCHAR(50) NOT NULL
+);
+
 -- Adiciona índices nas colunas de chave estrangeira para otimizar as buscas (JOINs).
 CREATE INDEX IF NOT EXISTS idx_etapas_obra_id ON etapas(obra_id);
 CREATE INDEX IF NOT EXISTS idx_alocacoes_obra_id ON alocacoes(obra_id);

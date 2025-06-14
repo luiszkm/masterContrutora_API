@@ -3,20 +3,20 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
 	"os"
 
 	// Importações organizadas por função
-	"github.com/go-chi/chi"
-	"github.com/go-chi/chi/middleware"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 
 	// Importações internas do projeto
+
 	obras_handler "github.com/luiszkm/masterCostrutora/internal/handler/http/obras"
+	"github.com/luiszkm/masterCostrutora/internal/handler/http/router"
 	"github.com/luiszkm/masterCostrutora/internal/infrastructure/repository/postgres"
 	obras_repository "github.com/luiszkm/masterCostrutora/internal/infrastructure/repository/postgres"
 	obras_service "github.com/luiszkm/masterCostrutora/internal/service/obras"
@@ -25,6 +25,9 @@ import (
 
 	identidade_handler "github.com/luiszkm/masterCostrutora/internal/handler/http/identidade"
 	identidade_service "github.com/luiszkm/masterCostrutora/internal/service/identidade"
+
+	pessoal_handler "github.com/luiszkm/masterCostrutora/internal/handler/http/pessoal"
+	pessoal_service "github.com/luiszkm/masterCostrutora/internal/service/pessoal"
 )
 
 func main() {
@@ -63,47 +66,31 @@ func main() {
 	// Aqui conectamos as implementações concretas com as interfaces.
 
 	// Repositório
-	obraRepo := obras_repository.NovaObraRepository(dbpool, logger.With("component", "ObraRepository"))
-	etapaRepo := postgres.NovoEtapaRepository(dbpool, logger.With("component", "EtapaRepository"))
+	obraRepo := obras_repository.NovaObraRepository(dbpool, logger)
+	etapaRepo := postgres.NovoEtapaRepository(dbpool, logger)
 	usuarioRepo := postgres.NewUsuarioRepository(dbpool, logger)
+	funcionarioRepo := postgres.NovoFuncionarioRepository(dbpool, logger)
+	alocacaoRepo := postgres.NovoAlocacaoRepository(dbpool, logger)
 
 	// Serviço
-	obraSvc := obras_service.NovoServico(obraRepo, etapaRepo, obraRepo, logger.With("component", "ObrasService"))
+	obraSvc := obras_service.NovoServico(obraRepo, etapaRepo, alocacaoRepo, funcionarioRepo, obraRepo, logger)
 	identidadeSvc := identidade_service.NovoServico(usuarioRepo, passwordHasher, jwtService, logger.With("component", "IdentidadeService"))
+	pessoalSvc := pessoal_service.NovoServico(funcionarioRepo, logger.With("component", "PessoalService"))
 
 	// Handler HTTP
 	obraHandler := obras_handler.NovoObrasHandler(obraSvc, logger.With("component", "ObrasHandler"))
 	identidadeHandler := identidade_handler.NovoIdentidadeHandler(identidadeSvc, logger.With("component", "IdentidadeHandler"))
+	pessoalHandler := pessoal_handler.NovoPessoalHandler(pessoalSvc, logger.With("component", "PessoalHandler"))
 
 	// 5. Configuração do Servidor HTTP e Roteamento
+	routerCfg := router.Config{
+		JwtService:        jwtService,
+		IdentidadeHandler: identidadeHandler,
+		ObrasHandler:      obraHandler,
+		PessoalHandler:    pessoalHandler,
+	}
+	r := router.New(routerCfg)
 
-	r := chi.NewRouter()
-
-	// Adiciona um middleware para logar cada requisição (boa prática)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer) // Recupera de panics e retorna um 500
-	// Rota de Health Check
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintln(w, "status: ok")
-	})
-	// Rotas Públicas
-	r.Post("/usuarios/registrar", identidadeHandler.HandleRegistrar)
-	r.Post("/usuarios/login", identidadeHandler.HandleLogin)
-
-	r.Route("/obras", func(r chi.Router) {
-		r.Use(jwtService.AuthMiddleware)
-
-		r.Post("/", obraHandler.HandleCriarObra) // POST /obras
-
-		// Rotas que dependem de um ID de obra
-		r.Route("/{obraId}", func(r chi.Router) {
-			r.Get("/", obraHandler.HandleBuscarObra)                             // GET /obras/{obraId}
-			r.Post("/etapas", obraHandler.HandleAdicionarEtapa)                  // POST /obras/{obraId}/etapas
-			r.Patch("/etapas/{etapaId}", obraHandler.HandleAtualizarEtapaStatus) // PATCH /obras/{obraId}/etapas/{etapaId}
-
-		})
-	})
 	server := &http.Server{
 		Addr:    ":8080",
 		Handler: r,

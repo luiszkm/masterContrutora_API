@@ -1,5 +1,5 @@
 // file: internal/handler/http/obras.go
-package http
+package obras
 
 import (
 	"context"
@@ -8,37 +8,41 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/luiszkm/masterCostrutora/internal/domain/obras"
+	"github.com/luiszkm/masterCostrutora/internal/handler/web"
 	"github.com/luiszkm/masterCostrutora/internal/infrastructure/repository/postgres"
 	"github.com/luiszkm/masterCostrutora/internal/service/obras/dto"
 )
 
 // ObrasService define a interface que o handler espera do serviço.
 // Isso permite testar o handler com um serviço mock.
-type ObrasService interface {
+type Service interface {
 	CriarNovaObra(ctx context.Context, input dto.CriarNovaObraInput) (*obras.Obra, error)
 	BuscarDashboard(ctx context.Context, id string) (*dto.ObraDashboard, error)
 	AdicionarEtapa(ctx context.Context, obraID string, input dto.AdicionarEtapaInput) (*obras.Etapa, error)
 	AtualizarStatusEtapa(ctx context.Context, etapaID string, input dto.AtualizarStatusEtapaInput) (*obras.Etapa, error)
+	AlocarFuncionario(ctx context.Context, obraID string, input dto.AlocarFuncionarioInput) (*obras.Alocacao, error)
+	ListarObras(ctx context.Context) ([]*dto.ObraListItemDTO, error)
 }
 
 // ObrasHandler gerencia as requisições HTTP para o contexto de Obras.
-type ObrasHandler struct {
-	service ObrasService
+type Handler struct {
+	service Service
 	logger  *slog.Logger
 }
 
 // NovoObrasHandler cria um novo handler para obras.
-func NovoObrasHandler(s ObrasService, l *slog.Logger) *ObrasHandler {
-	return &ObrasHandler{
+func NovoObrasHandler(s Service, l *slog.Logger) *Handler {
+	return &Handler{
 		service: s,
 		logger:  l,
 	}
 }
 
 // HandleCriarObra trata a criação de uma nova obra.
-func (h *ObrasHandler) HandleCriarObra(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) HandleCriarObra(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
 		return
@@ -47,7 +51,7 @@ func (h *ObrasHandler) HandleCriarObra(w http.ResponseWriter, r *http.Request) {
 	var input dto.CriarNovaObraInput
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		h.logger.Error("falha ao decodificar payload", "erro", err)
-		http.Error(w, "Payload inválido", http.StatusBadRequest)
+		web.RespondError(w, r, "ERRO_INTERNO", "Payload inválido", http.StatusBadRequest)
 		return
 	}
 
@@ -56,7 +60,7 @@ func (h *ObrasHandler) HandleCriarObra(w http.ResponseWriter, r *http.Request) {
 		// Aqui poderíamos ter uma lógica mais granular para mapear
 		// erros de serviço para status HTTP (ex: 400, 409, etc).
 		h.logger.ErrorContext(r.Context(), "falha ao criar obra", "erro", err)
-		http.Error(w, "Erro interno ao processar sua requisição", http.StatusInternalServerError)
+		web.RespondError(w, r, "ERRO_INTERNO", "Erro interno ao processar sua requisição", http.StatusInternalServerError)
 		return
 	}
 
@@ -67,7 +71,7 @@ func (h *ObrasHandler) HandleCriarObra(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *ObrasHandler) HandleAdicionarEtapa(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) HandleAdicionarEtapa(w http.ResponseWriter, r *http.Request) {
 	obraID := chi.URLParam(r, "obraId")
 	if obraID == "" {
 		http.Error(w, "ID da obra na URL é obrigatório", http.StatusBadRequest)
@@ -77,43 +81,44 @@ func (h *ObrasHandler) HandleAdicionarEtapa(w http.ResponseWriter, r *http.Reque
 	var input dto.AdicionarEtapaInput
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		h.logger.Error("falha ao decodificar payload da etapa", "erro", err)
-		http.Error(w, "Payload inválido", http.StatusBadRequest)
+		web.RespondError(w, r, "ERRO_INTERNO", "Payload inválido", http.StatusBadRequest)
 		return
 	}
 
 	etapa, err := h.service.AdicionarEtapa(r.Context(), obraID, input)
 	if err != nil {
 		h.logger.ErrorContext(r.Context(), "falha ao adicionar etapa", "erro", err)
-		http.Error(w, "Erro interno ao processar sua requisição", http.StatusInternalServerError)
+		web.RespondError(w, r, "ERRO_INTERNO", "Erro interno ao processar sua requisição", http.StatusInternalServerError)
 		return
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(etapa)
+	web.Respond(w, r, etapa, http.StatusCreated)
 }
 
-func (h *ObrasHandler) HandleBuscarObra(w http.ResponseWriter, r *http.Request) {
-	// A forma correta e segura de pegar o parâmetro da URL com chi
-	id := chi.URLParam(r, "obraId")
-	if id == "" {
-		http.Error(w, "ID da obra é obrigatório", http.StatusBadRequest)
-		return
-	}
+func (h *Handler) HandleBuscarObra(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "obraId")
 
-	dashboard, err := h.service.BuscarDashboard(r.Context(), id)
+	id, err := uuid.Parse(idStr)
 	if err != nil {
-		h.logger.ErrorContext(r.Context(), "falha ao buscar dashboard da obra", "erro", err, "obra_id", id)
-		http.Error(w, "Erro interno ao buscar a obra", http.StatusInternalServerError)
+		web.RespondError(w, r, "ID_INVALIDO", "O ID da obra fornecido na URL não é um UUID válido", http.StatusBadRequest)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(dashboard)
+	dashboard, err := h.service.BuscarDashboard(r.Context(), id.String())
+	if err != nil {
+		if errors.Is(err, postgres.ErrNaoEncontrado) {
+			web.RespondError(w, r, "OBRA_NAO_ENCONTRADA", "Obra não encontrada", http.StatusNotFound)
+			return
+		}
+
+		h.logger.ErrorContext(r.Context(), "falha ao buscar dashboard da obra", "erro", err, "obra_id", id)
+		web.RespondError(w, r, "ERRO_INTERNO", "Erro interno ao buscar a obra", http.StatusInternalServerError)
+		return
+	}
+
+	web.Respond(w, r, dashboard, http.StatusOK)
 }
 
-func (h *ObrasHandler) HandleAtualizarEtapaStatus(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) HandleAtualizarEtapaStatus(w http.ResponseWriter, r *http.Request) {
 	etapaID := chi.URLParam(r, "etapaId")
 
 	var input dto.AtualizarStatusEtapaInput
@@ -125,15 +130,43 @@ func (h *ObrasHandler) HandleAtualizarEtapaStatus(w http.ResponseWriter, r *http
 	etapa, err := h.service.AtualizarStatusEtapa(r.Context(), etapaID, input)
 	if err != nil {
 		if errors.Is(err, postgres.ErrNaoEncontrado) {
-			http.Error(w, "Etapa não encontrada", http.StatusNotFound)
+			web.RespondError(w, r, "ETAPA_NAO_ENCONTRADA", "Etapa não encontrada", http.StatusNotFound)
 			return
 		}
 		h.logger.ErrorContext(r.Context(), "falha ao atualizar etapa", "erro", err)
-		http.Error(w, "Erro interno ao processar sua requisição", http.StatusInternalServerError)
+		web.RespondError(w, r, "ERRO_INTERNO", "Erro interno ao processar sua requisição", http.StatusInternalServerError)
+		return
+	}
+	web.Respond(w, r, etapa, http.StatusOK)
+}
+
+func (h *Handler) HandleAlocarFuncionario(w http.ResponseWriter, r *http.Request) {
+	obraID := chi.URLParam(r, "obraId")
+
+	var input dto.AlocarFuncionarioInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		web.RespondError(w, r, "PAYLOAD_INVALIDO", "Payload inválido", http.StatusBadRequest)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(etapa)
+	alocacao, err := h.service.AlocarFuncionario(r.Context(), obraID, input)
+	if err != nil {
+		// TODO: Tratar erros específicos (obra ou funcionário não encontrado) com 404
+		h.logger.ErrorContext(r.Context(), "falha ao alocar funcionário", "erro", err)
+		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao alocar funcionário", http.StatusInternalServerError)
+		return
+	}
+
+	web.Respond(w, r, alocacao, http.StatusCreated)
+}
+
+func (h *Handler) HandleListarObras(w http.ResponseWriter, r *http.Request) {
+	obras, err := h.service.ListarObras(r.Context())
+	if err != nil {
+		h.logger.ErrorContext(r.Context(), "falha ao listar obras", "erro", err)
+		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao listar obras", http.StatusInternalServerError)
+		return
+	}
+
+	web.Respond(w, r, obras, http.StatusOK)
 }

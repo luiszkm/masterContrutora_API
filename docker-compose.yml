@@ -1,0 +1,22 @@
+# file: docker-compose.yml
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: masterconstrutora-db
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mastercostrutora_db
+    ports:
+      - "5432:5432"
+    volumes:
+      # Usando ${PWD} para garantir que o caminho absoluto seja usado.
+      # Verifique se a pasta 'db/init' existe na raiz do seu projeto.
+      - ${PWD}/db/init:/docker-entrypoint-initdb.d
+      # Usando um volume nomeado simples para os dados.
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

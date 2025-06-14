@@ -1,0 +1,118 @@
+# requests.http
+
+###
+# @name As variáveis globais serão definidas dinamicamente pelas requisições.
+@hostname = http://localhost:8080
+@token =
+@obraId =
+@etapaId =
+
+# ===================================================================
+# [FLUXO 1] - AUTENTICAÇÃO
+# ===================================================================
+
+###
+# @name Registrar
+# 1. Registra um novo usuário no sistema.
+POST {{hostname}}/usuarios/registrar
+Content-Type: application/json
+
+{
+    "nome": "Usuário de Teste",
+    "email": "teste@construtora.com",
+    "senha": "senha_forte_123",
+    "confirmarSenha": "senha_forte_123"
+}
+
+###
+# @name Login
+# 2. Faz o login para obter o token de acesso (JWT).
+# O token retornado será capturado na variável global 'token'.
+POST {{hostname}}/usuarios/login
+Content-Type: application/json
+
+{
+    "email": "teste@construtora.com",
+    "senha": "senha_forte_123"
+}
+
+> {%
+    client.global.set("token", response.body.accessToken);
+%}
+
+###
+# ===================================================================
+# [FLUXO 2] - OBRAS (ROTAS PROTEGIDAS)
+# Note o cabeçalho 'Authorization' em todas as requisições abaixo.
+# ===================================================================
+
+###
+# @name CriarObra
+# 3. Cria uma nova obra usando o token obtido.
+# O ID da obra criada será capturado na variável 'obraId'.
+POST {{hostname}}/obras
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "nome": "Residencial Dinâmico",
+    "cliente": "Cliente Teste",
+    "endereco": "Rua dos Testes, 101",
+    "dataInicio": "2025-10-01"
+}
+
+> {%
+    client.global.set("obraId", response.body.id);
+%}
+
+
+###
+# @name BuscarDashboard
+# 4. Busca o dashboard da obra que acabamos de criar.
+# Note que a URL usa a variável {{obraId}} que foi capturada acima.
+GET {{hostname}}/obras/{{obraId}}
+Authorization: Bearer {{token}}
+
+
+###
+# ===================================================================
+# [FLUXO 3] - ETAPAS (ROTAS PROTEGIDAS)
+# ===================================================================
+
+###
+# @name AdicionarEtapa
+# 5. Adiciona uma etapa à obra criada.
+# O ID da etapa criada será capturado na variável 'etapaId'.
+POST {{hostname}}/obras/{{obraId}}/etapas
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "nome": "Fundações e Alicerce",
+    "dataInicioPrevista": "2025-10-05",
+    "dataFimPrevista": "2025-10-30"
+}
+
+> {%
+    client.global.set("etapaId", response.body.id);
+%}
+
+
+###
+# @name AtualizarStatusEtapa
+# 6. Atualiza o status da etapa que acabamos de criar.
+# A URL usa tanto {{obraId}} quanto {{etapaId}}.
+PATCH {{hostname}}/obras/{{obraId}}/etapas/{{etapaId}}
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "status": "Concluída"
+}
+
+###
+# @name VerificarProgresso
+# 7. Busca o dashboard novamente para ver o progresso atualizado.
+# O "percentualConcluido" agora deve ser 100.
+GET {{hostname}}/obras/{{obraId}}
+Authorization: Bearer {{token}}

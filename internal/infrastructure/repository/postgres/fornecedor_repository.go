@@ -18,7 +18,25 @@ type FornecedorRepositoryPostgres struct {
 	logger *slog.Logger
 }
 
-func NovoFornecedorRepository(db *pgxpool.Pool, logger *slog.Logger) *FornecedorRepositoryPostgres {
+// BuscarPorID implements suprimentos.FornecedorRepository.
+func (r *FornecedorRepositoryPostgres) BuscarPorID(ctx context.Context, id string) (*suprimentos.Fornecedor, error) {
+	const op = "repository.postgres.fornecedor.BuscarPorID"
+	query := `SELECT id, nome, cnpj, categoria, contato, email, status FROM fornecedores WHERE id = $1`
+	row := r.db.QueryRow(ctx, query, id)
+
+	var f suprimentos.Fornecedor
+	err := row.Scan(&f.ID, &f.Nome, &f.CNPJ, &f.Categoria, &f.Contato, &f.Email, &f.Status)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("%s: fornecedor não encontrado com ID %s", op, id)
+		}
+		return nil, fmt.Errorf("%s: falha ao escanear fornecedor: %w", op, err)
+	}
+
+	return &f, nil
+}
+
+func NovoFornecedorRepository(db *pgxpool.Pool, logger *slog.Logger) suprimentos.FornecedorRepository {
 	return &FornecedorRepositoryPostgres{db: db, logger: logger}
 }
 

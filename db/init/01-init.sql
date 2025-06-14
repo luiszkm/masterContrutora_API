@@ -65,8 +65,30 @@ CREATE TABLE IF NOT EXISTS materiais (
     unidade_de_medida VARCHAR(20) NOT NULL,
     categoria VARCHAR(100) NOT NULL
 );
+-- Tabela principal do orçamento
+CREATE TABLE IF NOT EXISTS orcamentos (
+    id UUID PRIMARY KEY,
+    numero VARCHAR(50) NOT NULL UNIQUE,
+    etapa_id UUID NOT NULL REFERENCES etapas(id),
+    fornecedor_id UUID NOT NULL REFERENCES fornecedores(id),
+    valor_total NUMERIC(15, 2) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    data_emissao TIMESTAMPTZ NOT NULL
+);
+
+-- Tabela para os itens do orçamento
+CREATE TABLE IF NOT EXISTS orcamento_itens (
+    id UUID PRIMARY KEY,
+    orcamento_id UUID NOT NULL REFERENCES orcamentos(id) ON DELETE CASCADE,
+    material_id UUID NOT NULL REFERENCES materiais(id),
+    quantidade NUMERIC(10, 2) NOT NULL,
+    valor_unitario NUMERIC(10, 2) NOT NULL
+);
+
 
 -- Adiciona índices nas colunas de chave estrangeira para otimizar as buscas (JOINs).
 CREATE INDEX IF NOT EXISTS idx_etapas_obra_id ON etapas(obra_id);
+CREATE INDEX IF NOT EXISTS idx_orcamentos_etapa_id ON orcamentos(etapa_id);
+
 CREATE INDEX IF NOT EXISTS idx_alocacoes_obra_id ON alocacoes(obra_id);
 CREATE INDEX IF NOT EXISTS idx_materiais_categoria ON materiais(categoria);

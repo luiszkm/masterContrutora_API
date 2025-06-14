@@ -23,6 +23,14 @@ type ObraRepositoryPostgres struct {
 
 var ErrNaoEncontrado = errors.New("recurso não encontrado")
 
+// NovaObraRepository cria uma nova instância do repositório de obras.
+func NovaObraRepository(db *pgxpool.Pool, logger *slog.Logger) obras.ObrasRepository {
+	return &ObraRepositoryPostgres{
+		db:     db,
+		logger: logger,
+	}
+}
+
 // BuscarDashboardPorID implements obras.Querier.
 func (r *ObraRepositoryPostgres) BuscarDashboardPorID(ctx context.Context, id string) (*dto.ObraDashboard, error) {
 	const op = "repository.postgres.BuscarDashboardPorID"
@@ -30,55 +38,67 @@ func (r *ObraRepositoryPostgres) BuscarDashboardPorID(ctx context.Context, id st
 	// Usamos CTEs (WITH clauses) para tornar a query mais legível e modular.
 	// Cada CTE calcula um pedaço da informação que precisamos.
 	query := `
-		WITH etapa_stats AS (
-			-- CTE para calcular o percentual de conclusão
-			SELECT
-				obra_id,
-				CAST(COUNT(CASE WHEN status = 'Concluída' THEN 1 END) AS FLOAT) / GREATEST(COUNT(*), 1) * 100 AS percentual_concluido
-			FROM etapas
-			GROUP BY obra_id
-		),
-		alocacao_stats AS (
-			-- CTE para contar os funcionários atualmente alocados
-			SELECT
-				obra_id,
-				COUNT(*) AS funcionarios_alocados
-			FROM alocacoes
-			WHERE data_fim_alocacao IS NULL OR data_fim_alocacao >= CURRENT_DATE
-			GROUP BY obra_id
-		),
-		etapa_atual AS (
-		SELECT
-			obra_id,
-			nome,
-			data_fim_prevista
-		FROM etapas
-		WHERE status = 'Em Andamento'
-		ORDER BY data_inicio_prevista DESC -- Pega a mais recente, por exemplo
-		LIMIT 1 -- Garante que apenas uma linha será retornada
-		)
-		-- Query Principal que junta tudo
-		SELECT
-			o.id,
-			o.nome,
-			o.status,
-			ea.nome,
-			ea.data_fim_prevista,
-			COALESCE(es.percentual_concluido, 0),
-			COALESCE(als.funcionarios_alocados, 0)
-		FROM
-			obras o
-		LEFT JOIN etapa_stats es ON o.id = es.obra_id
-		LEFT JOIN alocacao_stats als ON o.id = als.obra_id
-		LEFT JOIN etapa_atual ea ON o.id = ea.obra_id
-		WHERE
-			o.id = $1
-	`
-
+    WITH etapa_stats AS (
+        -- CTE para calcular o percentual de conclusão
+        SELECT
+            obra_id,
+            CAST(COUNT(CASE WHEN status = 'Concluída' THEN 1 END) AS FLOAT) / GREATEST(COUNT(*), 1) * 100 AS percentual_concluido
+        FROM etapas
+        GROUP BY obra_id
+    ),
+    alocacao_stats AS (
+        -- CTE para contar os funcionários atualmente alocados
+        SELECT
+            obra_id,
+            COUNT(*) AS funcionarios_alocados
+        FROM alocacoes
+        WHERE data_fim_alocacao IS NULL OR data_fim_alocacao >= CURRENT_DATE
+        GROUP BY obra_id
+    ),
+    etapa_atual AS (
+        -- CTE para encontrar a etapa que está "Em Andamento"
+        SELECT
+            obra_id,
+            nome,
+            data_fim_prevista
+        FROM etapas
+        WHERE status = 'Em Andamento'
+        ORDER BY data_inicio_prevista DESC
+        LIMIT 1
+    ),
+    orcamento_stats AS (
+        -- CTE para calcular os dados financeiros a partir dos orçamentos.
+        SELECT
+            e.obra_id,
+            COALESCE(SUM(o.valor_total) FILTER (WHERE o.status IN ('Aprovado', 'Pago')), 0) AS orcamento_total_aprovado,
+            COALESCE(SUM(o.valor_total) FILTER (WHERE o.status = 'Pago'), 0) AS custo_total_realizado
+        FROM orcamentos o
+        JOIN etapas e ON o.etapa_id = e.id
+        GROUP BY e.obra_id
+    )
+    -- Query Principal que junta tudo. Começa aqui, FORA da CTE anterior.
+    SELECT
+        o.id,
+        o.nome,
+        o.status,
+        ea.nome,
+        ea.data_fim_prevista,
+        COALESCE(es.percentual_concluido, 0),
+        COALESCE(als.funcionarios_alocados, 0),
+        COALESCE(os.orcamento_total_aprovado, 0),
+        COALESCE(os.custo_total_realizado, 0)
+    FROM
+        obras o
+    LEFT JOIN etapa_stats es ON o.id = es.obra_id
+    LEFT JOIN alocacao_stats als ON o.id = als.obra_id
+    LEFT JOIN etapa_atual ea ON o.id = ea.obra_id
+    LEFT JOIN orcamento_stats os ON o.id = os.obra_id
+    WHERE
+        o.id = $1
+`
 	row := r.db.QueryRow(ctx, query, id)
 
 	var dashboard dto.ObraDashboard
-	// Usamos tipos sql.Null* para escanear colunas que podem ser nulas (vindas dos LEFT JOINs).
 	var etapaAtualNome sql.NullString
 	var dataFimPrevistaEtapa sql.NullTime
 
@@ -90,8 +110,9 @@ func (r *ObraRepositoryPostgres) BuscarDashboardPorID(ctx context.Context, id st
 		&dataFimPrevistaEtapa,
 		&dashboard.PercentualConcluido,
 		&dashboard.FuncionariosAlocados,
+		&dashboard.OrcamentoTotalAprovado,
+		&dashboard.CustoTotalRealizado,
 	)
-
 	if err != nil {
 		// Tratamento específico para o erro "não encontrado".
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -112,21 +133,12 @@ func (r *ObraRepositoryPostgres) BuscarDashboardPorID(ctx context.Context, id st
 		dashboard.DiasParaPrazoEtapa = &dias
 	}
 
-	// TODO: Substituir por cálculos reais quando os agregados Financeiro e Suprimentos existirem.
-	dashboard.CustoTotalRealizado = 150000.75
-	dashboard.OrcamentoTotalAprovado = 200000.00
+	dashboard.BalancoFinanceiro = dashboard.OrcamentoTotalAprovado - dashboard.CustoTotalRealizado
+	dashboard.UltimaAtualizacao = time.Now()
 	dashboard.BalancoFinanceiro = dashboard.OrcamentoTotalAprovado - dashboard.CustoTotalRealizado
 	dashboard.UltimaAtualizacao = time.Now()
 
 	return &dashboard, nil
-}
-
-// NovaObraRepository cria uma nova instância do repositório de obras.
-func NovaObraRepository(db *pgxpool.Pool, logger *slog.Logger) *ObraRepositoryPostgres {
-	return &ObraRepositoryPostgres{
-		db:     db,
-		logger: logger,
-	}
 }
 
 // Salvar agora insere a obra no banco de dados.

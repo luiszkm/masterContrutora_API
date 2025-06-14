@@ -28,14 +28,14 @@ type Hasher interface {
 
 // Service depende das interfaces, não das implementações concretas.
 type Service struct {
-	repo       identidade.Repository
+	repo       identidade.UsuarioRepository
 	hasher     Hasher
 	jwtService JWTService
 	logger     *slog.Logger
 }
 
 // NovoServico agora está alinhado com as interfaces.
-func NovoServico(repo identidade.Repository, hasher Hasher, jwtService JWTService, logger *slog.Logger) *Service {
+func NovoServico(repo identidade.UsuarioRepository, hasher Hasher, jwtService JWTService, logger *slog.Logger) *Service {
 	return &Service{
 		repo:       repo,
 		hasher:     hasher,

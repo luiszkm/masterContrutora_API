@@ -18,7 +18,7 @@ type EtapaRepositoryPostgres struct {
 	logger *slog.Logger
 }
 
-func NovoEtapaRepository(db *pgxpool.Pool, logger *slog.Logger) *EtapaRepositoryPostgres {
+func NovoEtapaRepository(db *pgxpool.Pool, logger *slog.Logger) obras.EtapaRepository {
 	return &EtapaRepositoryPostgres{
 		db:     db,
 		logger: logger,

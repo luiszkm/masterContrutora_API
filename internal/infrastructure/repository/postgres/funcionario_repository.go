@@ -16,6 +16,10 @@ type FuncionarioRepositoryPostgres struct {
 	logger *slog.Logger
 }
 
+func NovoFuncionarioRepository(db *pgxpool.Pool, logger *slog.Logger) pessoal.FuncionarioRepository {
+	return &FuncionarioRepositoryPostgres{db: db, logger: logger}
+}
+
 // BuscarPorID implements obras.PessoalFinder.
 func (r *FuncionarioRepositoryPostgres) BuscarPorID(ctx context.Context, funcionarioID string) (*pessoal.Funcionario, error) {
 
@@ -36,10 +40,6 @@ func (r *FuncionarioRepositoryPostgres) BuscarPorID(ctx context.Context, funcion
 		return nil, fmt.Errorf("%s: erro ao buscar funcionário: %w", op, err)
 	}
 	return &f, nil
-}
-
-func NovoFuncionarioRepository(db *pgxpool.Pool, logger *slog.Logger) *FuncionarioRepositoryPostgres {
-	return &FuncionarioRepositoryPostgres{db: db, logger: logger}
 }
 
 func (r *FuncionarioRepositoryPostgres) Salvar(ctx context.Context, f *pessoal.Funcionario) error {

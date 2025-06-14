@@ -1,12 +1,17 @@
-# requests.http
-
 ###
-# @name As variáveis globais serão definidas dinamicamente pelas requisições.
+# @name Variáveis Globais
+# Estas variáveis serão preenchidas dinamicamente ao executar as requisições em ordem.
 @hostname = http://localhost:8080
 @token =
-@obraId =34631410-3a92-4f9e-9cd5-8fcd63ff0a74
-@etapaId =f77558d9-a8ea-4706-bb18-f06eaaa57c01
-@funcionarioId =f761b03c-ef47-4af4-93a7-271cd324431a
+@obraId =ddeebb3e-56ef-4b50-b4b2-cf4df6c8edc2
+@etapaId =991fc27a-d1b4-4340-8e45-d3a851dc3408
+@funcionarioId =86b55e37-9631-4bec-9c65-84cff24f214d
+@fornecedorId = b897fce2-551d-4ce1-9b66-f12548eea6c3
+@materialId = 011be798-3f83-4080-b027-67101f759364
+@materialId2 = 290d8e9e-10db-4d10-b738-510555c937d4
+
+@orcamentoId = 57e52f03-cb2c-462c-81ba-95a5cf3e88ec
+
 
 # ===================================================================
 # [FLUXO 1] - AUTENTICAÇÃO
@@ -14,13 +19,13 @@
 
 ###
 # @name Registrar
-# 1. Registra um novo usuário no sistema.
+# 1. Registra um novo usuário administrador.
 POST {{hostname}}/usuarios/registrar
 Content-Type: application/json
 
 {
-    "nome": "Usuário de Teste",
-    "email": "teste@construtora.com",
+    "nome": "Admin Geral",
+    "email": "admin@construtora.com",
     "senha": "senha_forte_123",
     "confirmarSenha": "senha_forte_123"
 }
@@ -28,12 +33,12 @@ Content-Type: application/json
 ###
 # @name Login
 # 2. Faz o login para obter o token de acesso (JWT).
-# O token retornado será capturado na variável global 'token'.
+# O token retornado no corpo JSON será capturado na variável 'token'.
 POST {{hostname}}/usuarios/login
 Content-Type: application/json
 
 {
-    "email": "teste@construtora.com",
+    "email": "admin@construtora.com",
     "senha": "senha_forte_123"
 }
 
@@ -44,39 +49,39 @@ Content-Type: application/json
 ###
 # ===================================================================
 # [FLUXO 2] - OBRAS (ROTAS PROTEGIDAS)
-# Note o cabeçalho 'Authorization' em todas as requisições abaixo.
+# Note que agora todas as rotas usam o cabeçalho 'Cookie'.
 # ===================================================================
 
 ###
 # @name CriarObra
-# 3. Cria uma nova obra usando o token obtido.
+# 3. Cria uma nova obra usando o token.
 # O ID da obra criada será capturado na variável 'obraId'.
 POST {{hostname}}/obras
 Content-Type: application/json
+Cookie: jwt-token={{token}}
 
 {
-    "nome": "Residencial Dinâmico",
-    "cliente": "Cliente Teste",
-    "endereco": "Rua dos Testes, 101",
+    "nome": "Residencial Jardins (Teste)",
+    "cliente": "Cliente de Teste",
+    "endereco": "Rua dos Testes, 123",
     "dataInicio": "2025-10-01"
 }
 
 > {%
-    client.global.set("obraId", response.body.id);
+    client.global.set("obraId", response.body.ID);
 %}
-
-
-###
-# @name BuscarDashboard
-# 4. Busca o dashboard da obra que acabamos de criar.
-# Note que a URL usa a variável {{obraId}} que foi capturada acima.
-GET {{hostname}}/obras/{{obraId}}
-Authorization: Bearer {{token}}
 
 ###
 # @name ListarTodasAsObras
-# Busca uma lista simplificada de todas as obras cadastradas.
+# 4. Lista todas as obras cadastradas.
 GET {{hostname}}/obras
+Cookie: jwt-token={{token}}
+
+###
+# @name BuscarDashboard
+# 5. Busca o dashboard da obra que acabamos de criar.
+GET {{hostname}}/obras/{{obraId}}
+Cookie: jwt-token={{token}}
 
 ###
 # ===================================================================
@@ -85,11 +90,11 @@ GET {{hostname}}/obras
 
 ###
 # @name AdicionarEtapa
-# 5. Adiciona uma etapa à obra criada.
+# 6. Adiciona uma etapa à obra criada.
 # O ID da etapa criada será capturado na variável 'etapaId'.
 POST {{hostname}}/obras/{{obraId}}/etapas
 Content-Type: application/json
-Authorization: Bearer {{token}}
+Cookie: jwt-token={{token}}
 
 {
     "nome": "Fundações e Alicerce",
@@ -98,51 +103,33 @@ Authorization: Bearer {{token}}
 }
 
 > {%
-    client.global.set("etapaId", response.body.id);
+    client.global.set("etapaId", response.body.ID);
 %}
 
-###
-# @name MoverEtapaParaEmAndamento
-# 6. Atualiza o status da etapa para "Em Andamento".
-PATCH {{hostname}}/obras/{{obraId}}/etapas/{{etapaId}}
-Content-Type: application/json
-
-{
-    "status": "Em Andamento"
-}
 
 ###
 # @name AtualizarStatusEtapa
-# 6. Atualiza o status da etapa que acabamos de criar.
-# A URL usa tanto {{obraId}} quanto {{etapaId}}.
+# 7. Atualiza o status da etapa que acabamos de criar.
 PATCH {{hostname}}/obras/{{obraId}}/etapas/{{etapaId}}
 Content-Type: application/json
-Authorization: Bearer {{token}}
+Cookie: jwt-token={{token}}
 
 {
     "status": "Concluída"
 }
 
 ###
-# @name VerificarProgresso
-# 7. Busca o dashboard novamente para ver o progresso atualizado.
-# O "percentualConcluido" agora deve ser 100.
-GET {{hostname}}/obras/{{obraId}}
-Authorization: Bearer {{token}}
-
-
-
-###
 # ===================================================================
-# [FLUXO 3] - PESSOAL E ALOCAÇÕES
+# [FLUXO 4] - PESSOAL E ALOCAÇÕES (ROTAS PROTEGIDAS)
 # ===================================================================
 
 ###
 # @name CadastrarFuncionario
-# 5. Cadastra um novo funcionário para poder alocá-lo.
+# 8. Cadastra um novo funcionário para poder alocá-lo.
 # O ID do funcionário será capturado na variável 'funcionarioId'.
 POST {{hostname}}/funcionarios
 Content-Type: application/json
+Cookie: jwt-token={{token}}
 
 {
     "nome": "João da Silva",
@@ -156,81 +143,29 @@ Content-Type: application/json
     client.global.set("funcionarioId", response.body.ID);
 %}
 
-
 ###
 # @name AlocarFuncionario
-# 6. Aloca o funcionário que acabamos de criar na nossa obra.
-# A URL usa {{obraId}} e o corpo usa {{funcionarioId}}.
+# 9. Aloca o funcionário na nossa obra.
 POST {{hostname}}/obras/{{obraId}}/alocacoes
 Content-Type: application/json
+Cookie: jwt-token={{token}}
 
 {
     "funcionarioId": "{{funcionarioId}}",
-    "dataInicioAlocacao": "2025-07-05"
+    "dataInicioAlocacao": "2025-10-05"
 }
 
 ###
-# @name VerificarDashboardCompleto
-# 7. Busca o dashboard novamente.
-# O campo 'funcionariosAlocados' agora deve ser 1.
-GET {{hostname}}/obras/{{obraId}}
-
-###
 # ===================================================================
-# [FLUXO 4] - SUPRIMENTOS / MATERIAIS (ROTAS PROTEGIDAS)
-# ===================================================================
-
-###
-# @name CadastrarMaterial
-# 1. Cadastra um novo material no sistema.
-# O ID do material criado será capturado na variável 'materialId'.
-POST {{hostname}}/materiais
-Content-Type: application/json
-Authorization: Bearer {{token}}
-
-{
-    "nome": "Cimento Portland CP II 50kg",
-    "descricao": "Cimento para uso geral em concretos e argamassas.",
-    "unidadeDeMedida": "un",
-    "categoria": "Estrutural"
-}
-
-> {%
-    client.global.set("materialId", response.body.ID);
-%}
-
-###
-# @name CadastrarOutroMaterial
-# 2. Cadastra outro material para termos uma lista.
-POST {{hostname}}/materiais
-Content-Type: application/json
-Authorization: Bearer {{token}}
-
-{
-    "nome": "Vergalhão de Aço CA-50 10mm",
-    "descricao": "Barra de aço para armaduras de concreto.",
-    "unidadeDeMedida": "barra",
-    "categoria": "Estrutural"
-}
-
-
-###
-# @name ListarMateriais
-# 3. Lista todos os materiais cadastrados no sistema.
-GET {{hostname}}/materiais
-Authorization: Bearer {{token}}
-###
-# ===================================================================
-# [FLUXO 5] - SUPRIMENTOS / FORNECEDORES (ROTAS PROTEGIDAS)
+# [FLUXO 5] - SUPRIMENTOS (ROTAS PROTEGIDAS)
 # ===================================================================
 
 ###
 # @name CadastrarFornecedor
-# 1. Cadastra um novo fornecedor de materiais de construção.
-# Lembre-se de ter um cookie válido na variável 'token_cookie'.
-# O ID será capturado na variável 'fornecedorId'.
+# 10. Cadastra um novo fornecedor.
 POST {{hostname}}/fornecedores
 Content-Type: application/json
+Cookie: jwt-token={{token}}
 
 {
     "nome": "Casa do Construtor Center",
@@ -240,27 +175,82 @@ Content-Type: application/json
     "email": "comercial@casadoconstrutor.com"
 }
 
+###
+# @name ListarFornecedores
+# 11. Lista todos os fornecedores.
+GET {{hostname}}/fornecedores
+Cookie: jwt-token={{token}}
+
+###
+# @name CadastrarMaterial
+# 12. Cadastra um novo material.
+POST {{hostname}}/materiais
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "nome": "Cimento Portland CP II 50kg",
+    "descricao": "Cimento para uso geral em concretos e argamassas.",
+    "unidadeDeMedida": "un",
+    "categoria": "Estrutural"
+}
+
+###
+# @name ListarMateriais
+# 13. Lista todos os materiais.
+GET {{hostname}}/materiais
+Cookie: jwt-token={{token}}
+
+
+###
+# ===================================================================
+# [FLUXO 6] - ORÇAMENTOS (CONECTANDO TUDO)
+# ===================================================================
+
+###
+# @name CriarOrcamento
+# 1. Cria um novo orçamento para uma etapa específica de uma obra.
+# Esta requisição utiliza os IDs capturados nos fluxos anteriores.
+POST {{hostname}}/etapas/{{etapaId}}/orcamentos
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "numero": "ORC-2025-004",
+    "fornecedorId": "{{fornecedorId}}",
+    "itens": [
+        {
+            "materialId": "{{materialId}}",
+            "quantidade": 150,
+            "valorUnitario": 55.75
+        },
+        {
+            "materialId": "{{materialId2}}",
+            "quantidade": 80,
+            "valorUnitario": 120.50
+        }
+    ]
+}
+
 > {%
-    client.global.set("fornecedorId", response.body.ID);
+    client.global.set("orcamentoId", response.body.ID);
 %}
 
 ###
-# @name CadastrarOutroFornecedor
-# 2. Cadastra um segundo fornecedor para popular nossa lista.
-POST {{hostname}}/fornecedores
+# @name VerificarDashboardFinanceiro
+# 2. Busca o dashboard da obra novamente.
+# Agora, os campos financeiros (orcamentoTotalAprovado, etc.) devem
+# estar com valores reais, calculados a partir do orçamento que criamos.
+GET {{hostname}}/obras/{{obraId}}
+Cookie: jwt-token={{token}}
+
+###
+# @name AtualizarStatusOrcamento
+# Atualiza o status de um orçamento para 'Aprovado' ou 'Pago'.
+# Use o {{orcamentoId}} capturado na criação.
+PATCH {{hostname}}/orcamentos/{{orcamentoId}}
 Content-Type: application/json
 
 {
-    "nome": "Elétrica Total Ltda",
-    "cnpj": "98.765.432/0001-11",
-    "categoria": "Materiais Elétricos",
-    "contato": "Mariana Lima",
-    "email": "vendas@eletricatotal.com"
+    "status": "Aprovado"
 }
-
-
-###
-# @name ListarFornecedores
-# 3. Lista todos os fornecedores cadastrados no sistema.
-GET {{hostname}}/fornecedores
-

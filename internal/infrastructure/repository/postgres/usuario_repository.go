@@ -19,7 +19,7 @@ type UsuarioRepositoryPostgres struct {
 }
 
 // NewUsuarioRepository é o construtor para o repositório de usuários.
-func NewUsuarioRepository(db *pgxpool.Pool, logger *slog.Logger) *UsuarioRepositoryPostgres {
+func NewUsuarioRepository(db *pgxpool.Pool, logger *slog.Logger) identidade.UsuarioRepository {
 	return &UsuarioRepositoryPostgres{
 		db:     db,
 		logger: logger,

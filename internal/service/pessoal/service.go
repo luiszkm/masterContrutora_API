@@ -12,11 +12,11 @@ import (
 )
 
 type Service struct {
-	repo   pessoal.Repository
+	repo   pessoal.FuncionarioRepository
 	logger *slog.Logger
 }
 
-func NovoServico(repo pessoal.Repository, logger *slog.Logger) *Service {
+func NovoServico(repo pessoal.FuncionarioRepository, logger *slog.Logger) *Service {
 	return &Service{repo: repo, logger: logger}
 }
 

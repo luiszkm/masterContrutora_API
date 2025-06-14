@@ -18,8 +18,27 @@ type MaterialRepositoryPostgres struct {
 	logger *slog.Logger
 }
 
-func NovoMaterialRepository(db *pgxpool.Pool, logger *slog.Logger) *MaterialRepositoryPostgres {
+func NovoMaterialRepository(db *pgxpool.Pool, logger *slog.Logger) suprimentos.MaterialRepository {
 	return &MaterialRepositoryPostgres{db: db, logger: logger}
+}
+
+// BuscarPorID implements suprimentos.MaterialRepository.
+func (r *MaterialRepositoryPostgres) BuscarPorID(ctx context.Context, id string) (*suprimentos.Material, error) {
+
+	const op = "repository.postgres.material.BuscarPorID"
+	query := `SELECT id, nome, descricao, unidade_de_medida, categoria FROM materiais WHERE id = $1`
+	row := r.db.QueryRow(ctx, query, id)
+
+	var m suprimentos.Material
+	err := row.Scan(&m.ID, &m.Nome, &m.Descricao, &m.UnidadeDeMedida, &m.Categoria)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("%s: material não encontrado com ID %s", op, id)
+		}
+		return nil, fmt.Errorf("%s: falha ao escanear material: %w", op, err)
+	}
+
+	return &m, nil
 }
 
 func (r *MaterialRepositoryPostgres) Salvar(ctx context.Context, m *suprimentos.Material) error {

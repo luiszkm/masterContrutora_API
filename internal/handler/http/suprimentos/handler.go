@@ -4,12 +4,16 @@ package suprimentos
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/luiszkm/masterCostrutora/internal/domain/suprimentos"
-	materialDto "github.com/luiszkm/masterCostrutora/internal/handler/http/suprimentos/dtos"
+	handler_dto "github.com/luiszkm/masterCostrutora/internal/handler/http/suprimentos/dtos"
 	"github.com/luiszkm/masterCostrutora/internal/handler/web"
+	"github.com/luiszkm/masterCostrutora/internal/infrastructure/repository/postgres"
 	"github.com/luiszkm/masterCostrutora/internal/service/suprimentos/dto"
 )
 
@@ -18,6 +22,8 @@ type Service interface {
 	ListarFornecedores(ctx context.Context) ([]*suprimentos.Fornecedor, error)
 	CadastrarMaterial(ctx context.Context, input dto.CadastrarMaterialInput) (*suprimentos.Material, error)
 	ListarMateriais(ctx context.Context) ([]*suprimentos.Material, error)
+	CriarOrcamento(ctx context.Context, etapaID string, input dto.CriarOrcamentoInput) (*suprimentos.Orcamento, error)
+	AtualizarStatusOrcamento(ctx context.Context, orcamentoID string, input dto.AtualizarStatusOrcamentoInput) (*suprimentos.Orcamento, error)
 }
 
 type Handler struct {
@@ -73,7 +79,7 @@ func (h *Handler) HandleListarFornecedores(w http.ResponseWriter, r *http.Reques
 
 // HandleCadastrarMaterial trata a requisição para criar um novo material.
 func (h *Handler) HandleCadastrarMaterial(w http.ResponseWriter, r *http.Request) {
-	var req materialDto.CadastrarMaterialRequest
+	var req handler_dto.CadastrarMaterialRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		web.RespondError(w, r, "PAYLOAD_INVALIDO", "Payload da requisição é inválido", http.StatusBadRequest)
 		return
@@ -96,7 +102,7 @@ func (h *Handler) HandleCadastrarMaterial(w http.ResponseWriter, r *http.Request
 	}
 
 	// Converte o agregado de domínio para um DTO de resposta para não expor o modelo interno.
-	resp := materialDto.MaterialResponse{
+	resp := handler_dto.MaterialResponse{
 		ID:              material.ID,
 		Nome:            material.Nome,
 		Descricao:       material.Descricao,
@@ -117,9 +123,9 @@ func (h *Handler) HandleListarMateriais(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Converte a lista de agregados de domínio para uma lista de DTOs de resposta.
-	resp := make([]materialDto.MaterialResponse, len(materiais))
+	resp := make([]handler_dto.MaterialResponse, len(materiais))
 	for i, m := range materiais {
-		resp[i] = materialDto.MaterialResponse{
+		resp[i] = handler_dto.MaterialResponse{
 			ID:              m.ID,
 			Nome:            m.Nome,
 			Descricao:       m.Descricao,
@@ -129,4 +135,78 @@ func (h *Handler) HandleListarMateriais(w http.ResponseWriter, r *http.Request) 
 	}
 
 	web.Respond(w, r, resp, http.StatusOK)
+}
+
+func (h *Handler) HandleCriarOrcamento(w http.ResponseWriter, r *http.Request) {
+	etapaIDStr := chi.URLParam(r, "etapaId")
+	if _, err := uuid.Parse(etapaIDStr); err != nil {
+		web.RespondError(w, r, "ID_ETAPA_INVALIDO", "O ID da etapa fornecido na URL não é um UUID válido", http.StatusBadRequest)
+		return
+	}
+
+	var req handler_dto.CriarOrcamentoRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		web.RespondError(w, r, "PAYLOAD_INVALIDO", "Payload da requisição é inválido", http.StatusBadRequest)
+		return
+	}
+	// TODO: Adicionar validação mais robusta para os campos da requisição.
+	if req.FornecedorID == "" || len(req.Itens) == 0 {
+		web.RespondError(w, r, "DADOS_OBRIGATORIOS", "fornecedorId e pelo menos um item são obrigatórios", http.StatusBadRequest)
+		return
+	}
+
+	// Converte o DTO do handler para o DTO do serviço
+	itensInput := make([]dto.ItemOrcamentoInput, len(req.Itens))
+	for i, item := range req.Itens {
+		itensInput[i] = dto.ItemOrcamentoInput{
+			MaterialID:    item.MaterialID,
+			Quantidade:    item.Quantidade,
+			ValorUnitario: item.ValorUnitario,
+		}
+	}
+	input := dto.CriarOrcamentoInput{
+		Numero:       req.Numero,
+		FornecedorID: req.FornecedorID,
+		Itens:        itensInput,
+	}
+
+	orcamento, err := h.service.CriarOrcamento(r.Context(), etapaIDStr, input)
+	if err != nil {
+		// Se o erro for de recurso não encontrado (etapa, fornecedor, material), retorna 404.
+		if errors.Is(err, postgres.ErrNaoEncontrado) {
+			web.RespondError(w, r, "RECURSO_NAO_ENCONTRADO", err.Error(), http.StatusNotFound)
+			return
+		}
+		// Para qualquer outro erro, retorna 500.
+		h.logger.ErrorContext(r.Context(), "falha ao criar orçamento", "erro", err)
+		web.RespondError(w, r, "ERRO_INTERNO", "Não foi possível criar o orçamento", http.StatusInternalServerError)
+		return
+	}
+
+	// Usa nosso helper para responder com sucesso.
+	web.Respond(w, r, orcamento, http.StatusCreated)
+}
+func (h *Handler) HandleAtualizarOrcamentoStatus(w http.ResponseWriter, r *http.Request) {
+	orcamentoID := chi.URLParam(r, "orcamentoId")
+
+	var req handler_dto.AtualizarStatusRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		web.RespondError(w, r, "PAYLOAD_INVALIDO", "Payload inválido", http.StatusBadRequest)
+		return
+	}
+
+	input := dto.AtualizarStatusOrcamentoInput{Status: req.Status}
+
+	orcamento, err := h.service.AtualizarStatusOrcamento(r.Context(), orcamentoID, input)
+	if err != nil {
+		if errors.Is(err, postgres.ErrNaoEncontrado) {
+			web.RespondError(w, r, "ORCAMENTO_NAO_ENCONTRADO", "Orçamento não encontrado", http.StatusNotFound)
+			return
+		}
+		h.logger.ErrorContext(r.Context(), "falha ao atualizar orçamento", "erro", err)
+		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao atualizar orçamento", http.StatusInternalServerError)
+		return
+	}
+
+	web.Respond(w, r, orcamento, http.StatusOK)
 }

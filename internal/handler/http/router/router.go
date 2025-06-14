@@ -11,16 +11,18 @@ import (
 	"github.com/luiszkm/masterCostrutora/internal/handler/http/identidade"
 	"github.com/luiszkm/masterCostrutora/internal/handler/http/obras"
 	"github.com/luiszkm/masterCostrutora/internal/handler/http/pessoal"
+	"github.com/luiszkm/masterCostrutora/internal/handler/http/suprimentos"
 
 	"github.com/luiszkm/masterCostrutora/pkg/auth"
 )
 
 // Config contém as dependências necessárias para configurar o roteador.
 type Config struct {
-	JwtService        *auth.JWTService
-	IdentidadeHandler *identidade.Handler
-	ObrasHandler      *obras.Handler
-	PessoalHandler    *pessoal.Handler
+	JwtService         *auth.JWTService
+	IdentidadeHandler  *identidade.Handler
+	ObrasHandler       *obras.Handler
+	PessoalHandler     *pessoal.Handler
+	SuprimentosHandler *suprimentos.Handler
 }
 
 // New cria e configura um novo roteador chi com todas as rotas da aplicação.
@@ -40,11 +42,26 @@ func New(c Config) *chi.Mux {
 	r.Post("/usuarios/login", c.IdentidadeHandler.HandleLogin)
 
 	// --- Rotas de Pessoal (Protegidas) ---
-	// Corrigindo o aninhamento: /funcionarios é uma rota de nível superior.
 	r.Group(func(r chi.Router) {
 		r.Use(c.JwtService.AuthMiddleware)
 		r.Use(auth.Authorize(authz.PermissaoPessoalEscrever))
 		r.Post("/funcionarios", c.PessoalHandler.HandleCadastrarFuncionario)
+	})
+
+	r.Group(func(r chi.Router) {
+		r.Use(c.JwtService.AuthMiddleware)
+
+		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).
+			Post("/fornecedores", c.SuprimentosHandler.HandleCadastrarFornecedor)
+
+		r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).
+			Get("/fornecedores", c.SuprimentosHandler.HandleListarFornecedores)
+
+		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).
+			Post("/materiais", c.SuprimentosHandler.HandleCadastrarMaterial)
+
+		r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).
+			Get("/materiais", c.SuprimentosHandler.HandleListarMateriais)
 	})
 
 	// --- Rotas de Obras (Protegidas) ---
@@ -54,12 +71,17 @@ func New(c Config) *chi.Mux {
 		r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Post("/", c.ObrasHandler.HandleCriarObra)
 
 		r.Route("/{obraId}", func(r chi.Router) {
-			r.With(auth.Authorize(authz.PermissaoObrasLer)).Get("/", c.ObrasHandler.HandleBuscarObra)
-			r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Post("/etapas", c.ObrasHandler.HandleAdicionarEtapa)
-			r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Patch("/etapas/{etapaId}", c.ObrasHandler.HandleAtualizarEtapaStatus)
-			r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Post("/alocacoes", c.ObrasHandler.HandleAlocarFuncionario)
+			r.With(auth.Authorize(authz.PermissaoObrasLer)).
+				Get("/", c.ObrasHandler.HandleBuscarObra)
+			r.With(auth.Authorize(authz.PermissaoObrasEscrever)).
+				Post("/etapas", c.ObrasHandler.HandleAdicionarEtapa)
+			r.With(auth.Authorize(authz.PermissaoObrasEscrever)).
+				Patch("/etapas/{etapaId}", c.ObrasHandler.HandleAtualizarEtapaStatus)
+			r.With(auth.Authorize(authz.PermissaoObrasEscrever)).
+				Post("/alocacoes", c.ObrasHandler.HandleAlocarFuncionario)
 
 		})
+
 	})
 
 	return r

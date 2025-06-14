@@ -48,6 +48,25 @@ CREATE TABLE IF NOT EXISTS funcionarios (
     status VARCHAR(50) NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS fornecedores (
+    id UUID PRIMARY KEY,
+    nome VARCHAR(255) NOT NULL,
+    cnpj VARCHAR(18) NOT NULL UNIQUE, -- Ex: 00.000.000/0001-00
+    categoria VARCHAR(100) NOT NULL,
+    contato VARCHAR(255),
+    email VARCHAR(255),
+    status VARCHAR(50) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS materiais (
+    id UUID PRIMARY KEY,
+    nome VARCHAR(255) NOT NULL,
+    descricao TEXT,
+    unidade_de_medida VARCHAR(20) NOT NULL,
+    categoria VARCHAR(100) NOT NULL
+);
+
 -- Adiciona índices nas colunas de chave estrangeira para otimizar as buscas (JOINs).
 CREATE INDEX IF NOT EXISTS idx_etapas_obra_id ON etapas(obra_id);
 CREATE INDEX IF NOT EXISTS idx_alocacoes_obra_id ON alocacoes(obra_id);
+CREATE INDEX IF NOT EXISTS idx_materiais_categoria ON materiais(categoria);

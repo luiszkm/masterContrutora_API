@@ -28,6 +28,9 @@ import (
 
 	pessoal_handler "github.com/luiszkm/masterCostrutora/internal/handler/http/pessoal"
 	pessoal_service "github.com/luiszkm/masterCostrutora/internal/service/pessoal"
+
+	suprimentos_handler "github.com/luiszkm/masterCostrutora/internal/handler/http/suprimentos"
+	suprimentos_service "github.com/luiszkm/masterCostrutora/internal/service/suprimentos"
 )
 
 func main() {
@@ -71,23 +74,27 @@ func main() {
 	usuarioRepo := postgres.NewUsuarioRepository(dbpool, logger)
 	funcionarioRepo := postgres.NovoFuncionarioRepository(dbpool, logger)
 	alocacaoRepo := postgres.NovoAlocacaoRepository(dbpool, logger)
+	fornecedorRepo := postgres.NovoFornecedorRepository(dbpool, logger)
+	materialRepo := postgres.NovoMaterialRepository(dbpool, logger)
 
 	// Serviço
 	obraSvc := obras_service.NovoServico(obraRepo, etapaRepo, alocacaoRepo, funcionarioRepo, obraRepo, logger)
 	identidadeSvc := identidade_service.NovoServico(usuarioRepo, passwordHasher, jwtService, logger.With("component", "IdentidadeService"))
 	pessoalSvc := pessoal_service.NovoServico(funcionarioRepo, logger.With("component", "PessoalService"))
-
+	fornecedorSvc := suprimentos_service.NovoServico(fornecedorRepo, materialRepo, logger.With("component", "FornecedorService"))
 	// Handler HTTP
 	obraHandler := obras_handler.NovoObrasHandler(obraSvc, logger.With("component", "ObrasHandler"))
 	identidadeHandler := identidade_handler.NovoIdentidadeHandler(identidadeSvc, logger.With("component", "IdentidadeHandler"))
 	pessoalHandler := pessoal_handler.NovoPessoalHandler(pessoalSvc, logger.With("component", "PessoalHandler"))
-
+	suprimentosHandler := suprimentos_handler.NovoSuprimentosHandler(fornecedorSvc, logger.With("component", "SuprimentosHandler"))
+	// Observação: O handler de suprimentos pode ser adicionado posteriormente, se necessário.
 	// 5. Configuração do Servidor HTTP e Roteamento
 	routerCfg := router.Config{
-		JwtService:        jwtService,
-		IdentidadeHandler: identidadeHandler,
-		ObrasHandler:      obraHandler,
-		PessoalHandler:    pessoalHandler,
+		JwtService:         jwtService,
+		IdentidadeHandler:  identidadeHandler,
+		ObrasHandler:       obraHandler,
+		PessoalHandler:     pessoalHandler,
+		SuprimentosHandler: suprimentosHandler,
 	}
 	r := router.New(routerCfg)
 

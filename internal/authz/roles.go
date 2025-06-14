@@ -4,11 +4,11 @@ package authz
 // Permissoes define todas as permissões granulares possíveis no sistema.
 // Usamos constantes para evitar erros de digitação e para ter autocompletar na IDE.
 const (
-	PermissaoObrasLer        = "obras:ler"
-	PermissaoObrasEscrever   = "obras:escrever"
-	PermissaoPessoalEscrever = "pessoal:escrever"
-	// Adicione futuras permissões aqui...
-	// Ex: PermissaoFinanceiroLer = "financeiro:ler"
+	PermissaoObrasLer            = "obras:ler"
+	PermissaoObrasEscrever       = "obras:escrever"
+	PermissaoPessoalEscrever     = "pessoal:escrever"
+	PermissaoSuprimentosLer      = "suprimentos:ler"
+	PermissaoSuprimentosEscrever = "suprimentos:escrever"
 )
 
 // Papel define um nome de papel/função para um conjunto de permissões.
@@ -26,6 +26,8 @@ var mapaDePapeis = map[Papel][]string{
 		PermissaoObrasLer,
 		PermissaoObrasEscrever,
 		PermissaoPessoalEscrever,
+		PermissaoSuprimentosLer,
+		PermissaoSuprimentosEscrever,
 	},
 	PapelVisualizador: {
 		PermissaoObrasLer,

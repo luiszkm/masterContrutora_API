@@ -174,3 +174,93 @@ Content-Type: application/json
 # 7. Busca o dashboard novamente.
 # O campo 'funcionariosAlocados' agora deve ser 1.
 GET {{hostname}}/obras/{{obraId}}
+
+###
+# ===================================================================
+# [FLUXO 4] - SUPRIMENTOS / MATERIAIS (ROTAS PROTEGIDAS)
+# ===================================================================
+
+###
+# @name CadastrarMaterial
+# 1. Cadastra um novo material no sistema.
+# O ID do material criado será capturado na variável 'materialId'.
+POST {{hostname}}/materiais
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "nome": "Cimento Portland CP II 50kg",
+    "descricao": "Cimento para uso geral em concretos e argamassas.",
+    "unidadeDeMedida": "un",
+    "categoria": "Estrutural"
+}
+
+> {%
+    client.global.set("materialId", response.body.ID);
+%}
+
+###
+# @name CadastrarOutroMaterial
+# 2. Cadastra outro material para termos uma lista.
+POST {{hostname}}/materiais
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "nome": "Vergalhão de Aço CA-50 10mm",
+    "descricao": "Barra de aço para armaduras de concreto.",
+    "unidadeDeMedida": "barra",
+    "categoria": "Estrutural"
+}
+
+
+###
+# @name ListarMateriais
+# 3. Lista todos os materiais cadastrados no sistema.
+GET {{hostname}}/materiais
+Authorization: Bearer {{token}}
+###
+# ===================================================================
+# [FLUXO 5] - SUPRIMENTOS / FORNECEDORES (ROTAS PROTEGIDAS)
+# ===================================================================
+
+###
+# @name CadastrarFornecedor
+# 1. Cadastra um novo fornecedor de materiais de construção.
+# Lembre-se de ter um cookie válido na variável 'token_cookie'.
+# O ID será capturado na variável 'fornecedorId'.
+POST {{hostname}}/fornecedores
+Content-Type: application/json
+
+{
+    "nome": "Casa do Construtor Center",
+    "cnpj": "12.345.678/0001-99",
+    "categoria": "Materiais Básicos",
+    "contato": "Carlos Andrade",
+    "email": "comercial@casadoconstrutor.com"
+}
+
+> {%
+    client.global.set("fornecedorId", response.body.ID);
+%}
+
+###
+# @name CadastrarOutroFornecedor
+# 2. Cadastra um segundo fornecedor para popular nossa lista.
+POST {{hostname}}/fornecedores
+Content-Type: application/json
+
+{
+    "nome": "Elétrica Total Ltda",
+    "cnpj": "98.765.432/0001-11",
+    "categoria": "Materiais Elétricos",
+    "contato": "Mariana Lima",
+    "email": "vendas@eletricatotal.com"
+}
+
+
+###
+# @name ListarFornecedores
+# 3. Lista todos os fornecedores cadastrados no sistema.
+GET {{hostname}}/fornecedores
+

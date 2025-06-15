@@ -7,6 +7,8 @@ type FornecedorRepository interface {
 	Salvar(ctx context.Context, fornecedor *Fornecedor) error
 	ListarTodos(ctx context.Context) ([]*Fornecedor, error)
 	BuscarPorID(ctx context.Context, id string) (*Fornecedor, error)
+	Atualizar(ctx context.Context, fornecedor *Fornecedor) error // NOVO
+	Deletar(ctx context.Context, id string) error                // NOVO
 }
 
 // MaterialRepository define o contrato para a persistência de Materiais.

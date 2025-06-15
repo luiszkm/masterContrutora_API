@@ -7,6 +7,7 @@ const (
 	PermissaoObrasLer            = "obras:ler"
 	PermissaoObrasEscrever       = "obras:escrever"
 	PermissaoPessoalEscrever     = "pessoal:escrever"
+	PermissaoPessoalLer          = "pessoal:ler"
 	PermissaoSuprimentosLer      = "suprimentos:ler"
 	PermissaoSuprimentosEscrever = "suprimentos:escrever"
 )
@@ -26,6 +27,7 @@ var mapaDePapeis = map[Papel][]string{
 		PermissaoObrasLer,
 		PermissaoObrasEscrever,
 		PermissaoPessoalEscrever,
+		PermissaoPessoalLer,
 		PermissaoSuprimentosLer,
 		PermissaoSuprimentosEscrever,
 	},

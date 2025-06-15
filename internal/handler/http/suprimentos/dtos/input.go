@@ -29,3 +29,11 @@ type ItemRequest struct {
 type AtualizarStatusRequest struct {
 	Status string `json:"status"`
 }
+
+type AtualizarFornecedorRequest struct {
+	Nome      string `json:"nome"`
+	CNPJ      string `json:"cnpj"`
+	Categoria string `json:"categoria"`
+	Contato   string `json:"contato"`
+	Email     string `json:"email"`
+}

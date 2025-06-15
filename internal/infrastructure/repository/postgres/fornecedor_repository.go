@@ -18,6 +18,41 @@ type FornecedorRepositoryPostgres struct {
 	logger *slog.Logger
 }
 
+func NovoFornecedorRepository(db *pgxpool.Pool, logger *slog.Logger) suprimentos.FornecedorRepository {
+	return &FornecedorRepositoryPostgres{db: db, logger: logger}
+}
+
+// Atualizar implements suprimentos.FornecedorRepository.
+func (r *FornecedorRepositoryPostgres) Atualizar(ctx context.Context, fornecedor *suprimentos.Fornecedor) error {
+	const op = "repository.postgres.fornecedor.Atualizar"
+	query := `
+		UPDATE fornecedores
+		SET nome = $1, cnpj = $2, categoria = $3, contato = $4, email = $5, status = $6
+		WHERE id = $7
+	`
+	_, err := r.db.Exec(ctx, query, fornecedor.Nome, fornecedor.CNPJ, fornecedor.Categoria, fornecedor.Contato, fornecedor.Email, fornecedor.Status, fornecedor.ID)
+	if err != nil {
+		return fmt.Errorf("%s: falha ao atualizar fornecedor: %w", op, err)
+	}
+	return nil
+
+}
+
+// Deletar implements suprimentos.FornecedorRepository.
+func (r *FornecedorRepositoryPostgres) Deletar(ctx context.Context, id string) error {
+	const op = "repository.postgres.fornecedor.Deletar"
+	query := `
+		UPDATE fornecedores
+		SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL
+	`
+	_, err := r.db.Exec(ctx, query)
+	if err != nil {
+		return fmt.Errorf("%s: falha ao atualizar fornecedor: %w", op, err)
+	}
+	return nil
+
+}
+
 // BuscarPorID implements suprimentos.FornecedorRepository.
 func (r *FornecedorRepositoryPostgres) BuscarPorID(ctx context.Context, id string) (*suprimentos.Fornecedor, error) {
 	const op = "repository.postgres.fornecedor.BuscarPorID"
@@ -34,10 +69,6 @@ func (r *FornecedorRepositoryPostgres) BuscarPorID(ctx context.Context, id strin
 	}
 
 	return &f, nil
-}
-
-func NovoFornecedorRepository(db *pgxpool.Pool, logger *slog.Logger) suprimentos.FornecedorRepository {
-	return &FornecedorRepositoryPostgres{db: db, logger: logger}
 }
 
 func (r *FornecedorRepositoryPostgres) Salvar(ctx context.Context, f *suprimentos.Fornecedor) error {

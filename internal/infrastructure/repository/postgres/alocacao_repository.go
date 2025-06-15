@@ -31,3 +31,14 @@ func (r *AlocacaoRepositoryPostgres) Salvar(ctx context.Context, a *obras.Alocac
 	}
 	return nil
 }
+func (r *AlocacaoRepositoryPostgres) ExistemAlocacoesAtivasParaFuncionario(ctx context.Context, funcionarioID string) (bool, error) {
+	const op = "repository.postgres.alocacao.ExistemAlocacoesAtivasParaFuncionario"
+	query := `SELECT EXISTS(SELECT 1 FROM alocacoes WHERE funcionario_id = $1 AND (data_fim_alocacao IS NULL OR data_fim_alocacao >= CURRENT_DATE))`
+
+	var existe bool
+	err := r.db.QueryRow(ctx, query, funcionarioID).Scan(&existe)
+	if err != nil {
+		return false, fmt.Errorf("%s: %w", op, err)
+	}
+	return existe, nil
+}

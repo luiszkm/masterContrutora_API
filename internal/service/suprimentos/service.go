@@ -92,6 +92,50 @@ func (s *Service) ListarFornecedores(ctx context.Context) ([]*suprimentos.Fornec
 	return fornecedores, nil
 }
 
+func (s *Service) AtualizarFornecedor(ctx context.Context, input dto.AtualizarFornecedorInput) (*suprimentos.Fornecedor, error) {
+	const op = "service.suprimentos.AtualizarFornecedor"
+	fornecedor, err := s.fornecedorRepo.BuscarPorID(ctx, input.ID)
+	if err != nil {
+		return nil, fmt.Errorf("%s: fornecedor com id [%s] não encontrado: %w", op, input.ID, err)
+	}
+	fornecedor.Nome = input.Nome
+	fornecedor.CNPJ = input.CNPJ
+	fornecedor.Categoria = input.Categoria
+	fornecedor.Contato = input.Contato
+	fornecedor.Email = input.Email
+	fornecedor.Status = input.Status
+	if err := s.fornecedorRepo.Atualizar(ctx, fornecedor); err != nil {
+		return nil, fmt.Errorf("%s: falha ao atualizar fornecedor: %w", op, err)
+	}
+	s.logger.InfoContext(ctx, "fornecedor atualizado", "fornecedor_id", fornecedor.ID)
+	return fornecedor, nil
+}
+func (s *Service) DeletarFornecedor(ctx context.Context, id string) error {
+	const op = "service.suprimentos.DeletarFornecedor"
+	fornecedor, err := s.fornecedorRepo.BuscarPorID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("%s: fornecedor com id [%s] não encontrado: %w", op, id, err)
+	}
+	if fornecedor.Status == "Inativo" {
+		return fmt.Errorf("%s: fornecedor com id [%s] já está inativo", op, id)
+	}
+	if err := s.fornecedorRepo.Deletar(ctx, id); err != nil {
+		return fmt.Errorf("%s: falha ao deletar fornecedor: %w", op, err)
+	}
+	s.logger.InfoContext(ctx, "fornecedor excluído (soft delete)", "fornecedor_id", id)
+	return nil
+}
+
+func (s *Service) BuscarFornecedorPorID(ctx context.Context, id string) (*suprimentos.Fornecedor, error) {
+	const op = "service.suprimentos.BuscarFornecedorPorID"
+	fornecedor, err := s.fornecedorRepo.BuscarPorID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("%s: fornecedor com id [%s] não encontrado: %w", op, id, err)
+	}
+	s.logger.InfoContext(ctx, "fornecedor encontrado", "fornecedor_id", fornecedor.ID)
+	return fornecedor, nil
+}
+
 func (s *Service) CadastrarMaterial(ctx context.Context, input dto.CadastrarMaterialInput) (*suprimentos.Material, error) {
 	novoMaterial := &suprimentos.Material{
 		ID:              uuid.NewString(),
@@ -161,8 +205,6 @@ func (s *Service) CriarOrcamento(ctx context.Context, etapaID string, input dto.
 	return orcamento, nil
 }
 
-// file: internal/service/suprimentos/service.go
-// ...
 func (s *Service) AtualizarStatusOrcamento(ctx context.Context, orcamentoID string, input dto.AtualizarStatusOrcamentoInput) (*suprimentos.Orcamento, error) {
 	const op = "service.suprimentos.AtualizarStatusOrcamento"
 

@@ -35,3 +35,17 @@ func RespondError(w http.ResponseWriter, r *http.Request, codigo string, mensage
 	}
 	Respond(w, r, errResponse, statusCode)
 }
+
+// PaginacaoInfo contém os metadados de uma resposta paginada.
+type PaginacaoInfo struct {
+	TotalItens    int `json:"totalItens"`
+	TotalPaginas  int `json:"totalPages"`
+	PaginaAtual   int `json:"currentPage"`
+	TamanhoPagina int `json:"pageSize"`
+}
+
+// RespostaPaginada é uma estrutura genérica para respostas de lista paginada.
+type RespostaPaginada[T any] struct {
+	Dados     []T           `json:"dados"`
+	Paginacao PaginacaoInfo `json:"paginacao"`
+}

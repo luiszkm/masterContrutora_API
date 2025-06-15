@@ -55,3 +55,60 @@ func (r *FuncionarioRepositoryPostgres) Salvar(ctx context.Context, f *pessoal.F
 	}
 	return nil
 }
+func (r *FuncionarioRepositoryPostgres) Deletar(ctx context.Context, id string) error {
+	const op = "repository.postgres.funcionario.Deletar"
+	query := `UPDATE funcionarios SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL`
+	cmd, err := r.db.Exec(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	if cmd.RowsAffected() == 0 {
+		return ErrNaoEncontrado
+	}
+	return nil
+}
+
+func (r *FuncionarioRepositoryPostgres) Atualizar(ctx context.Context, f *pessoal.Funcionario) error {
+	const op = "repository.postgres.funcionario.Atualizar"
+	query := `
+		UPDATE funcionarios
+		SET nome = $1, cpf = $2, cargo = $3, data_contratacao = $4, salario = $5, diaria = $6, status = $7
+		WHERE id = $8 AND deleted_at IS NULL
+	`
+	cmd, err := r.db.Exec(ctx, query, f.Nome, f.CPF, f.Cargo, f.DataContratacao, f.Salario, f.Diaria, f.Status, f.ID)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	if cmd.RowsAffected() == 0 {
+		return ErrNaoEncontrado
+	}
+	return nil
+}
+func (r *FuncionarioRepositoryPostgres) Listar(ctx context.Context) ([]*pessoal.Funcionario, error) {
+	const op = "repository.postgres.funcionario.Listar"
+	query := `
+		SELECT id, nome, cpf, cargo, data_contratacao, salario, diaria, status
+		FROM funcionarios
+		WHERE deleted_at IS NULL
+	`
+	rows, err := r.db.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	defer rows.Close()
+
+	var funcionarios []*pessoal.Funcionario
+	for rows.Next() {
+		var f pessoal.Funcionario
+		if err := rows.Scan(&f.ID, &f.Nome, &f.CPF, &f.Cargo, &f.DataContratacao, &f.Salario, &f.Diaria, &f.Status); err != nil {
+			return nil, fmt.Errorf("%s: erro ao ler linha: %w", op, err)
+		}
+		funcionarios = append(funcionarios, &f)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: erro ao iterar sobre linhas: %w", op, err)
+	}
+
+	return funcionarios, nil
+}

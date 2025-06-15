@@ -7,17 +7,17 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/google/uuid" // Usaremos UUID para os IDs.
+	"github.com/google/uuid"                                     // Usaremos UUID para os IDs.
+	"github.com/luiszkm/masterCostrutora/internal/domain/common" // Importa o pacote de filtros e paginação
 	"github.com/luiszkm/masterCostrutora/internal/domain/obras"
 	"github.com/luiszkm/masterCostrutora/internal/domain/pessoal"
 	"github.com/luiszkm/masterCostrutora/internal/service/obras/dto" // Importa o pacote de DTO
 	// Importa o pacote de DTO
 )
 
-type Querier interface {
+type ObrasQuerier interface {
 	BuscarDashboardPorID(ctx context.Context, id string) (*dto.ObraDashboard, error)
-	ListarObras(ctx context.Context) ([]*dto.ObraListItemDTO, error) // NOVO MÉTODO
-
+	ListarObras(ctx context.Context, filtros common.ListarFiltros) ([]*dto.ObraListItemDTO, *common.PaginacaoInfo, error)
 }
 type PessoalFinder interface {
 	BuscarPorID(ctx context.Context, funcionarioID string) (*pessoal.Funcionario, error)
@@ -29,31 +29,40 @@ type Service struct {
 	etapaRepo     obras.EtapaRepository
 	alocacaoRepo  obras.AlocacaoRepository
 	pessoalFinder PessoalFinder
-	querier       Querier
+	obrasQuerier  ObrasQuerier
 	logger        *slog.Logger
 }
 
-// NovoServico é o construtor para o serviço de obras.
+// ListarObras implements obras.Service.
+func (s *Service) ListarObras(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*dto.ObraListItemDTO], error) {
+	panic("unimplemented")
+}
+
 func NovoServico(obraRepo obras.ObrasRepository, etapaRepo obras.EtapaRepository,
-	alocacaoRepo obras.AlocacaoRepository, pessoalFinder PessoalFinder, querier Querier, logger *slog.Logger) *Service {
+	alocacaoRepo obras.AlocacaoRepository, pessoalFinder PessoalFinder, obrasQuerier ObrasQuerier, logger *slog.Logger) *Service {
 	return &Service{
 		alocacaoRepo:  alocacaoRepo,
 		pessoalFinder: pessoalFinder,
 		obraRepo:      obraRepo,
 		etapaRepo:     etapaRepo,
-		querier:       querier,
+		obrasQuerier:  obrasQuerier,
 		logger:        logger,
 	}
 }
-func (s *Service) ListarObras(ctx context.Context) ([]*dto.ObraListItemDTO, error) {
-	const op = "service.obras.ListarObras"
 
-	obras, err := s.querier.ListarObras(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
-	return obras, nil
-}
+// func (s *Service) ListarObras(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*dto.ObraListItemDTO], error) {
+// 	const op = "service.obras.ListarObras"
+
+// 	obras, paginacao, err := s.obrasQuerier.ListarObras(ctx, filtros)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("%s: %w", op, err)
+// 	}
+
+// 	return &common.RespostaPaginada[*dto.ObraListItemDTO]{
+// 		Dados:     obras,
+// 		Paginacao: *paginacao,
+// 	}, nil
+// }
 
 // CriarNovaObra é o caso de uso para registrar uma nova construção.
 func (s *Service) CriarNovaObra(ctx context.Context, input dto.CriarNovaObraInput) (*obras.Obra, error) {
@@ -92,7 +101,7 @@ func (s *Service) BuscarDashboard(ctx context.Context, id string) (*dto.ObraDash
 	const op = "service.obras.BuscarDashboard"
 
 	// A lógica agora usa a dependência correta.
-	dashboard, err := s.querier.BuscarDashboardPorID(ctx, id)
+	dashboard, err := s.obrasQuerier.BuscarDashboardPorID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
@@ -159,7 +168,7 @@ func (s *Service) AlocarFuncionario(ctx context.Context, obraID string, input dt
 
 	// --- Lógica de Negócio e Validação ---
 	// 1. Verifica se a obra existe (podemos usar o querier para isso)
-	_, err := s.querier.BuscarDashboardPorID(ctx, obraID)
+	_, err := s.obrasQuerier.BuscarDashboardPorID(ctx, obraID)
 	if err != nil {
 		return nil, fmt.Errorf("%s: obra não encontrada: %w", op, err)
 	}
@@ -187,4 +196,13 @@ func (s *Service) AlocarFuncionario(ctx context.Context, obraID string, input dt
 	}
 	s.logger.InfoContext(ctx, "funcionário alocado com sucesso", "alocacao_id", novaAlocacao.ID)
 	return novaAlocacao, nil
+}
+func (s *Service) DeletarObra(ctx context.Context, id string) error {
+	const op = "service.obras.DeletarObra"
+	// TODO: Adicionar lógica de negócio aqui. Ex: não se pode deletar uma obra com pagamentos pendentes.
+	if err := s.obraRepo.Deletar(ctx, id); err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	s.logger.InfoContext(ctx, "obra movida para a lixeira", "obra_id", id)
+	return nil
 }

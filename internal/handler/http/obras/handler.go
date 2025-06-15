@@ -7,9 +7,11 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/luiszkm/masterCostrutora/internal/domain/common"
 	"github.com/luiszkm/masterCostrutora/internal/domain/obras"
 	"github.com/luiszkm/masterCostrutora/internal/handler/web"
 	"github.com/luiszkm/masterCostrutora/internal/infrastructure/repository/postgres"
@@ -24,7 +26,8 @@ type Service interface {
 	AdicionarEtapa(ctx context.Context, obraID string, input dto.AdicionarEtapaInput) (*obras.Etapa, error)
 	AtualizarStatusEtapa(ctx context.Context, etapaID string, input dto.AtualizarStatusEtapaInput) (*obras.Etapa, error)
 	AlocarFuncionario(ctx context.Context, obraID string, input dto.AlocarFuncionarioInput) (*obras.Alocacao, error)
-	ListarObras(ctx context.Context) ([]*dto.ObraListItemDTO, error)
+	ListarObras(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*dto.ObraListItemDTO], error)
+	DeletarObra(ctx context.Context, obraID string) error
 }
 
 // ObrasHandler gerencia as requisições HTTP para o contexto de Obras.
@@ -161,12 +164,47 @@ func (h *Handler) HandleAlocarFuncionario(w http.ResponseWriter, r *http.Request
 }
 
 func (h *Handler) HandleListarObras(w http.ResponseWriter, r *http.Request) {
-	obras, err := h.service.ListarObras(r.Context())
+	q := r.URL.Query()
+	status := q.Get("status")
+
+	pagina, err := strconv.Atoi(q.Get("page"))
+	if err != nil || pagina < 1 {
+		pagina = 1
+	}
+
+	tamanhoPagina, err := strconv.Atoi(q.Get("pageSize"))
+	if err != nil || tamanhoPagina < 1 || tamanhoPagina > 100 {
+		tamanhoPagina = 20
+	}
+
+	filtros := common.ListarFiltros{
+		Status:        status,
+		Pagina:        pagina,
+		TamanhoPagina: tamanhoPagina,
+	}
+
+	resposta, err := h.service.ListarObras(r.Context(), filtros)
 	if err != nil {
 		h.logger.ErrorContext(r.Context(), "falha ao listar obras", "erro", err)
 		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao listar obras", http.StatusInternalServerError)
 		return
 	}
 
-	web.Respond(w, r, obras, http.StatusOK)
+	web.Respond(w, r, resposta, http.StatusOK)
+}
+
+func (h *Handler) HandleDeletarObra(w http.ResponseWriter, r *http.Request) {
+	obraID := chi.URLParam(r, "obraId")
+
+	if err := h.service.DeletarObra(r.Context(), obraID); err != nil {
+		if errors.Is(err, postgres.ErrNaoEncontrado) {
+			web.RespondError(w, r, "OBRA_NAO_ENCONTRADA", "Obra não encontrada", http.StatusNotFound)
+			return
+		}
+		h.logger.ErrorContext(r.Context(), "falha ao deletar obra", "erro", err)
+		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao deletar obra", http.StatusInternalServerError)
+		return
+	}
+	// Em um DELETE bem-sucedido, a resposta padrão é 204 No Content.
+	web.Respond(w, r, nil, http.StatusNoContent)
 }

@@ -73,10 +73,29 @@ Cookie: jwt-token={{token}}
 
 ###
 # @name ListarTodasAsObras
-# 4. Lista todas as obras cadastradas.
+# 1. Lista as obras usando a paginação padrão (página 1, 20 itens por página).
+#    Não aplica nenhum filtro de status.
 GET {{hostname}}/obras
 Cookie: jwt-token={{token}}
+###
+# @name ListarObrasFiltrandoPorStatus
+# 2. Lista apenas as obras com o status "Em Andamento".
+GET {{hostname}}/obras?status=Em Andamento
+Cookie: jwt-token={{token}}
 
+###
+# @name ListarObrasPaginado
+# 3. Lista as obras, pedindo a segunda página de resultados,
+#    com apenas 5 itens por página.
+GET {{hostname}}/obras?page=2&pageSize=5
+Cookie: jwt-token={{token}}
+
+###
+# @name ListarObrasPaginadoEFiltrado
+# 4. Exemplo completo: busca obras concluídas, na primeira página,
+#    com um limite de 10 itens.
+GET {{hostname}}/obras?status=Concluída&page=1&pageSize=10
+Cookie: jwt-token={{token}}
 ###
 # @name BuscarDashboard
 # 5. Busca o dashboard da obra que acabamos de criar.
@@ -254,3 +273,53 @@ Content-Type: application/json
 {
     "status": "Aprovado"
 }
+
+###
+# ===================================================================
+# [FLUXO 7] - TESTANDO EXCLUSÃO LÓGICA (SOFT DELETE)
+# ===================================================================
+
+# --- CENÁRIO 1: EXCLUSÃO BEM-SUCEDIDA ---
+
+###
+# @name CadastrarFuncionarioParaDeletar
+# 1. Cadastra um novo funcionário especificamente para este teste de exclusão.
+# O ID será capturado na variável 'funcionarioParaDeletarId'.
+POST {{hostname}}/funcionarios
+Content-Type: application/json
+
+{
+    "nome": "Mariana Costa (a ser deletada)",
+    "cpf": "444.555.666-77",
+    "cargo": "Arquiteta",
+    "salario": 8000.00,
+    "diaria": 70.00
+}
+
+> {%
+    client.global.set("funcionarioParaDeletarId", response.body.ID);
+%}
+
+
+###
+# @name DeletarFuncionarioComSucesso
+# 2. Executa o soft delete no funcionário que acabamos de criar.
+# A resposta esperada é um '204 No Content' (sem corpo).
+DELETE {{hostname}}/funcionarios/{{funcionarioId}}
+
+
+###
+# @name VerificarExclusaoNaLista
+# 3. Lista todos os funcionários novamente.
+# A funcionária "Mariana Costa" não deve mais aparecer na lista,
+# provando que o soft delete e a cláusula 'WHERE deleted_at IS NULL' funcionaram.
+GET {{hostname}}/funcionarios
+
+
+# --- CENÁRIO 2: FALHA NA EXCLUSÃO (REGRA DE NEGÓCIO) ---
+
+###
+# @name TentarDeletarFuncionarioAlocado
+# 4. Tenta deletar o funcionário principal dos testes, que já foi alocado a uma obra.
+# A resposta esperada é um '409 Conflict' com uma mensagem de erro.
+DELETE {{hostname}}/funcionarios/{{funcionarioId}}

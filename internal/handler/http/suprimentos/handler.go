@@ -24,6 +24,9 @@ type Service interface {
 	ListarMateriais(ctx context.Context) ([]*suprimentos.Material, error)
 	CriarOrcamento(ctx context.Context, etapaID string, input dto.CriarOrcamentoInput) (*suprimentos.Orcamento, error)
 	AtualizarStatusOrcamento(ctx context.Context, orcamentoID string, input dto.AtualizarStatusOrcamentoInput) (*suprimentos.Orcamento, error)
+	AtualizarFornecedor(ctx context.Context, id string, input dto.AtualizarFornecedorInput) (*suprimentos.Fornecedor, error)
+	DeletarFornecedor(ctx context.Context, id string) error
+	BuscarPorID(ctx context.Context, id string) (*suprimentos.Fornecedor, error)
 }
 
 type Handler struct {
@@ -209,4 +212,81 @@ func (h *Handler) HandleAtualizarOrcamentoStatus(w http.ResponseWriter, r *http.
 	}
 
 	web.Respond(w, r, orcamento, http.StatusOK)
+}
+
+func (h *Handler) HandleAtualizarFornecedor(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		web.RespondError(w, r, "ID_FORNECEDOR_INVALIDO", "O ID do fornecedor não pode ser vazio", http.StatusBadRequest)
+		return
+	}
+
+	var req handler_dto.AtualizarFornecedorRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		web.RespondError(w, r, "PAYLOAD_INVALIDO", "Payload inválido", http.StatusBadRequest)
+		return
+	}
+
+	input := dto.AtualizarFornecedorInput{
+		ID:        id,
+		Nome:      req.Nome,
+		CNPJ:      req.CNPJ,
+		Categoria: req.Categoria,
+		Contato:   req.Contato,
+		Email:     req.Email,
+	}
+
+	fornecedor, err := h.service.AtualizarFornecedor(r.Context(), id, input)
+	if err != nil {
+		if errors.Is(err, postgres.ErrNaoEncontrado) {
+			web.RespondError(w, r, "FORNECEDOR_NAO_ENCONTRADO", "Fornecedor não encontrado", http.StatusNotFound)
+			return
+		}
+		h.logger.ErrorContext(r.Context(), "falha ao atualizar fornecedor", "erro", err)
+		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao atualizar fornecedor", http.StatusInternalServerError)
+		return
+	}
+
+	web.Respond(w, r, fornecedor, http.StatusOK)
+}
+
+func (h *Handler) HandleDeletarFornecedor(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		web.RespondError(w, r, "ID_FORNECEDOR_INVALIDO", "O ID do fornecedor não pode ser vazio", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.service.DeletarFornecedor(r.Context(), id); err != nil {
+		if errors.Is(err, postgres.ErrNaoEncontrado) {
+			web.RespondError(w, r, "FORNECEDOR_NAO_ENCONTRADO", "Fornecedor não encontrado", http.StatusNotFound)
+			return
+		}
+		h.logger.ErrorContext(r.Context(), "falha ao deletar fornecedor", "erro", err)
+		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao deletar fornecedor", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent) // 204 No Content
+}
+
+func (h *Handler) HandleBuscarFornecedor(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		web.RespondError(w, r, "ID_FORNECEDOR_INVALIDO", "O ID do fornecedor não pode ser vazio", http.StatusBadRequest)
+		return
+	}
+
+	fornecedor, err := h.service.BuscarPorID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, postgres.ErrNaoEncontrado) {
+			web.RespondError(w, r, "FORNECEDOR_NAO_ENCONTRADO", "Fornecedor não encontrado", http.StatusNotFound)
+			return
+		}
+		h.logger.ErrorContext(r.Context(), "falha ao buscar fornecedor", "erro", err)
+		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao buscar fornecedor", http.StatusInternalServerError)
+		return
+	}
+
+	web.Respond(w, r, fornecedor, http.StatusOK)
 }

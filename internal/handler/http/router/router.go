@@ -46,10 +46,17 @@ func New(c Config) *chi.Mux {
 
 		// --- Recursos de Pessoal ---
 		r.With(auth.Authorize(authz.PermissaoPessoalEscrever)).Post("/funcionarios", c.PessoalHandler.HandleCadastrarFuncionario)
-
+		r.With(auth.Authorize(authz.PermissaoPessoalEscrever)).Delete("/funcionarios/{id}", c.PessoalHandler.HandleDeletarFuncionario)
+		r.With(auth.Authorize(authz.PermissaoPessoalLer)).Get("/funcionarios", c.PessoalHandler.HandleListarFuncionarios)
+		r.With(auth.Authorize(authz.PermissaoPessoalEscrever)).Put("/funcionarios/{id}", c.PessoalHandler.HandleAtualizarFuncionario)
+		r.With(auth.Authorize(authz.PermissaoPessoalLer)).Get("/funcionarios/{id}", c.PessoalHandler.HandleBuscarFuncionario)
 		// --- Recursos de Suprimentos ---
 		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).Post("/fornecedores", c.SuprimentosHandler.HandleCadastrarFornecedor)
 		r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).Get("/fornecedores", c.SuprimentosHandler.HandleListarFornecedores)
+		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).Put("/fornecedores/{id}", c.SuprimentosHandler.HandleAtualizarFornecedor)
+		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).Delete("/fornecedores/{id}", c.SuprimentosHandler.HandleDeletarFornecedor)
+		r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).Get("/fornecedores/{id}", c.SuprimentosHandler.HandleBuscarFornecedor)
+		// --- Recursos de Materiais ---
 		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).Post("/materiais", c.SuprimentosHandler.HandleCadastrarMaterial)
 		r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).Get("/materiais", c.SuprimentosHandler.HandleListarMateriais)
 
@@ -61,6 +68,8 @@ func New(c Config) *chi.Mux {
 			// Sub-recursos de uma obra específica
 			r.Route("/{obraId}", func(r chi.Router) {
 				r.With(auth.Authorize(authz.PermissaoObrasLer)).Get("/", c.ObrasHandler.HandleBuscarObra)
+				r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Delete("/", c.ObrasHandler.HandleDeletarObra) // NOVA ROTA
+
 				r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Post("/etapas", c.ObrasHandler.HandleAdicionarEtapa)
 				r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Post("/alocacoes", c.ObrasHandler.HandleAlocarFuncionario)
 			})

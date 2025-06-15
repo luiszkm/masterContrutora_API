@@ -7,13 +7,17 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/luiszkm/masterCostrutora/internal/domain/common"
 	"github.com/luiszkm/masterCostrutora/internal/domain/obras"
 	"github.com/luiszkm/masterCostrutora/internal/service/obras/dto"
 )
+
+var ErrNaoEncontrado = errors.New("recurso não encontrado")
 
 // ObraRepositoryPostgres é a implementação do repositório de Obras para o PostgreSQL.
 type ObraRepositoryPostgres struct {
@@ -21,14 +25,71 @@ type ObraRepositoryPostgres struct {
 	logger *slog.Logger
 }
 
-var ErrNaoEncontrado = errors.New("recurso não encontrado")
+func NovaObraRepository(db *pgxpool.Pool, logger *slog.Logger) *ObraRepositoryPostgres {
+	return &ObraRepositoryPostgres{db: db, logger: logger}
+}
 
-// NovaObraRepository cria uma nova instância do repositório de obras.
-func NovaObraRepository(db *pgxpool.Pool, logger *slog.Logger) obras.ObrasRepository {
-	return &ObraRepositoryPostgres{
-		db:     db,
-		logger: logger,
+func (r *ObraRepositoryPostgres) ListarObras(ctx context.Context, filtros common.ListarFiltros) ([]*dto.ObraListItemDTO, *common.PaginacaoInfo, error) {
+	const op = "repository.postgres.ListarObras"
+
+	var args []interface{}
+	var countArgs []interface{} // Slice separado para os argumentos da contagem
+	paramCount := 1
+
+	queryBuilder := strings.Builder{}
+	queryBuilder.WriteString("SELECT id, nome, cliente, status FROM obras WHERE deleted_at IS NULL")
+
+	countQueryBuilder := strings.Builder{}
+	countQueryBuilder.WriteString("SELECT COUNT(*) FROM obras WHERE deleted_at IS NULL")
+
+	if filtros.Status != "" {
+		queryBuilder.WriteString(fmt.Sprintf(" AND status = $%d", paramCount))
+		countQueryBuilder.WriteString(fmt.Sprintf(" AND status = $%d", paramCount))
+		// Adiciona o argumento a ambos os slices
+		args = append(args, filtros.Status)
+		countArgs = append(countArgs, filtros.Status)
+		paramCount++
 	}
+
+	var totalItens int
+	err := r.db.QueryRow(ctx, countQueryBuilder.String(), countArgs...).Scan(&totalItens)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s: erro ao contar obras: %w", op, err)
+	}
+
+	paginacao := common.NewPaginacaoInfo(totalItens, filtros.Pagina, filtros.TamanhoPagina)
+	// Se não houver itens, retornamos uma lista vazia e a paginação correta.
+	if totalItens == 0 {
+		return []*dto.ObraListItemDTO{}, paginacao, nil
+	}
+
+	offset := (filtros.Pagina - 1) * filtros.TamanhoPagina
+	queryBuilder.WriteString(fmt.Sprintf(" ORDER BY nome ASC LIMIT $%d OFFSET $%d", paramCount, paramCount+1))
+	args = append(args, filtros.TamanhoPagina, offset)
+
+	rows, err := r.db.Query(ctx, queryBuilder.String(), args...)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s: erro ao listar obras: %w", op, err)
+	}
+	defer rows.Close()
+
+	// SIMPLIFICAÇÃO: Usamos pgx.CollectRows para escanear diretamente para a struct do DTO.
+	obrasList, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByPos[dto.ObraListItemDTO])
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return []*dto.ObraListItemDTO{}, paginacao, nil
+		}
+		return nil, nil, fmt.Errorf("%s: falha ao escanear obras: %w", op, err)
+	}
+
+	// Não precisamos mais do loop de conversão no final.
+	return obrasList, paginacao, nil
+}
+
+type ListarObrasFiltros struct {
+	Status        string
+	Pagina        int
+	TamanhoPagina int
 }
 
 // BuscarDashboardPorID implements obras.Querier.
@@ -95,6 +156,7 @@ func (r *ObraRepositoryPostgres) BuscarDashboardPorID(ctx context.Context, id st
     LEFT JOIN orcamento_stats os ON o.id = os.obra_id
     WHERE
         o.id = $1
+	AND o.deleted_at IS NULL
 `
 	row := r.db.QueryRow(ctx, query, id)
 
@@ -185,27 +247,17 @@ func (r *ObraRepositoryPostgres) BuscarPorID(ctx context.Context, id string) (*o
 
 	return &obra, nil
 }
-func (r *ObraRepositoryPostgres) ListarObras(ctx context.Context) ([]*dto.ObraListItemDTO, error) {
-	const op = "repository.postgres.ListarObras"
 
-	query := `SELECT id, nome, cliente, status FROM obras ORDER BY nome ASC`
+func (r *ObraRepositoryPostgres) Deletar(ctx context.Context, id string) error {
+	const op = "repository.postgres.obra.Deletar"
+	query := `UPDATE obras SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL`
 
-	rows, err := r.db.Query(ctx, query)
+	cmd, err := r.db.Exec(ctx, query, id)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return fmt.Errorf("%s: %w", op, err)
 	}
-	defer rows.Close()
-
-	// Usamos pgx.CollectRows para escanear todas as linhas em um slice de forma eficiente.
-	obras, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (*dto.ObraListItemDTO, error) {
-		var item dto.ObraListItemDTO
-		err := row.Scan(&item.ID, &item.Nome, &item.Cliente, &item.Status)
-		return &item, err
-	})
-
-	if err != nil {
-		return nil, fmt.Errorf("%s: falha ao escanear obras: %w", op, err)
+	if cmd.RowsAffected() == 0 {
+		return ErrNaoEncontrado // Usa nosso erro padrão se a obra não existir ou já estiver deletada
 	}
-
-	return obras, nil
+	return nil
 }

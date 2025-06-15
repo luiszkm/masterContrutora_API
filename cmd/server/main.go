@@ -78,8 +78,15 @@ func main() {
 
 	// Serviços
 	identidadeSvc := identidade_service.NovoServico(usuarioRepo, passwordHasher, jwtService, logger)
-	pessoalSvc := pessoal_service.NovoServico(funcionarioRepo, logger)
-	obraSvc := obras_service.NovoServico(obraRepo, etapaRepo, alocacaoRepo, funcionarioRepo, obraRepo, logger)
+	pessoalSvc := pessoal_service.NovoServico(funcionarioRepo, alocacaoRepo, logger)
+	obraSvc := obras_service.NovoServico(
+		obraRepo,
+		etapaRepo,
+		alocacaoRepo,
+		funcionarioRepo, // PessoalFinder implementado por FuncionarioRepository
+		obraRepo,
+		logger,
+	)
 
 	// CORREÇÃO: A chamada para NovoServico de Suprimentos agora inclui
 	// os "Finders" necessários para a validação na criação de orçamentos.

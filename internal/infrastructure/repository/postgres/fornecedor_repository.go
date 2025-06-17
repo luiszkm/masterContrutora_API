@@ -43,7 +43,9 @@ func (r *FornecedorRepositoryPostgres) Deletar(ctx context.Context, id string) e
 	const op = "repository.postgres.fornecedor.Deletar"
 	query := `
 		UPDATE fornecedores
-		SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL
+		SET deleted_at = NOW(), 
+			status = 'Inativo'
+		 WHERE id = $1 AND deleted_at IS NULL
 	`
 	_, err := r.db.Exec(ctx, query)
 	if err != nil {

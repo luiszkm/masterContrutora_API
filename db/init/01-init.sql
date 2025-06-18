@@ -143,7 +143,17 @@ NOT NULL REFERENCES materiais
     valor_unitario NUMERIC
 (10, 2) NOT NULL
 );
-
+-- file: migrations/00011_create_pagamentos_table.up.sql
+CREATE TABLE IF NOT EXISTS registros_pagamento (
+    id UUID PRIMARY KEY,
+    funcionario_id UUID NOT NULL REFERENCES funcionarios(id),
+    obra_id UUID NOT NULL REFERENCES obras(id),
+    periodo_referencia VARCHAR(100) NOT NULL,
+    valor_calculado NUMERIC(10, 2) NOT NULL,
+    data_de_efetivacao TIMESTAMPTZ NOT NULL,
+    -- conta_bancaria_id futuramente referenciará uma tabela de contas.
+    conta_bancaria_id UUID NOT NULL
+);
 
 -- Adiciona índices nas colunas de chave estrangeira para otimizar as buscas (JOINs).
 CREATE INDEX
@@ -159,3 +169,5 @@ IF NOT EXISTS idx_alocacoes_obra_id ON alocacoes
 CREATE INDEX
 IF NOT EXISTS idx_materiais_categoria ON materiais
 (categoria);
+CREATE INDEX IF NOT EXISTS idx_pagamentos_funcionario_id ON registros_pagamento(funcionario_id);
+CREATE INDEX IF NOT EXISTS idx_pagamentos_obra_id ON registros_pagamento(obra_id);

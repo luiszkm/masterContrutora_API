@@ -129,14 +129,21 @@ func (r *ObraRepositoryPostgres) BuscarDashboardPorID(ctx context.Context, id st
     ),
     orcamento_stats AS (
         -- CTE para calcular os dados financeiros a partir dos orçamentos.
-        SELECT
-            e.obra_id,
-            COALESCE(SUM(o.valor_total) FILTER (WHERE o.status IN ('Aprovado', 'Pago')), 0) AS orcamento_total_aprovado,
-            COALESCE(SUM(o.valor_total) FILTER (WHERE o.status = 'Pago'), 0) AS custo_total_realizado
-        FROM orcamentos o
-        JOIN etapas e ON o.etapa_id = e.id
-        GROUP BY e.obra_id
-    )
+   		SELECT
+				e.obra_id,
+				COALESCE(SUM(o.valor_total) FILTER (WHERE o.status IN ('Aprovado', 'Pago')), 0) AS orcamento_total_aprovado
+			FROM orcamentos o
+			JOIN etapas e ON o.etapa_id = e.id
+			GROUP BY e.obra_id
+    ),
+	pagamento_stats AS (
+			-- NOVA CTE: Calcula o custo real somando os pagamentos efetivados.
+			SELECT
+				obra_id,
+				COALESCE(SUM(valor_calculado), 0) AS custo_real
+			FROM registros_pagamento
+			GROUP BY obra_id
+		)
     -- Query Principal que junta tudo. Começa aqui, FORA da CTE anterior.
     SELECT
         o.id,
@@ -154,6 +161,7 @@ func (r *ObraRepositoryPostgres) BuscarDashboardPorID(ctx context.Context, id st
     LEFT JOIN alocacao_stats als ON o.id = als.obra_id
     LEFT JOIN etapa_atual ea ON o.id = ea.obra_id
     LEFT JOIN orcamento_stats os ON o.id = os.obra_id
+	LEFT JOIN pagamento_stats ps ON o.id = ps.obra_id
     WHERE
         o.id = $1
 	AND o.deleted_at IS NULL

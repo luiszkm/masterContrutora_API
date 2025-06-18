@@ -12,6 +12,7 @@ import (
 	"github.com/joho/godotenv"
 
 	// --- Importações Internas Padronizadas ---
+
 	"github.com/luiszkm/masterCostrutora/internal/events"
 	"github.com/luiszkm/masterCostrutora/internal/handler/http/router"
 	"github.com/luiszkm/masterCostrutora/internal/infrastructure/repository/postgres"
@@ -21,11 +22,13 @@ import (
 
 	// Usaremos um único nome 'postgres' para o pacote de repositório para clareza
 
+	financeiro_handler "github.com/luiszkm/masterCostrutora/internal/handler/http/financeiro"
 	identidade_handler "github.com/luiszkm/masterCostrutora/internal/handler/http/identidade"
 	obras_handler "github.com/luiszkm/masterCostrutora/internal/handler/http/obras"
 	pessoal_handler "github.com/luiszkm/masterCostrutora/internal/handler/http/pessoal"
 	suprimentos_handler "github.com/luiszkm/masterCostrutora/internal/handler/http/suprimentos"
 
+	financeiro_service "github.com/luiszkm/masterCostrutora/internal/service/financeiro"
 	identidade_service "github.com/luiszkm/masterCostrutora/internal/service/identidade"
 	obras_service "github.com/luiszkm/masterCostrutora/internal/service/obras"
 	pessoal_service "github.com/luiszkm/masterCostrutora/internal/service/pessoal"
@@ -75,10 +78,12 @@ func main() {
 	fornecedorRepo := postgres.NovoFornecedorRepository(dbpool, logger)
 	materialRepo := postgres.NovoMaterialRepository(dbpool, logger)
 	orcamentoRepo := postgres.NovoOrcamentoRepository(dbpool, logger)
+	financeiroRepo := postgres.NovoRegistroPagamentoRepository(dbpool, logger)
 
 	// Serviços
 	identidadeSvc := identidade_service.NovoServico(usuarioRepo, passwordHasher, jwtService, logger)
 	pessoalSvc := pessoal_service.NovoServico(funcionarioRepo, alocacaoRepo, logger)
+	financeiroSvc := financeiro_service.NovoServico(financeiroRepo, funcionarioRepo, obraRepo, logger)
 	obraSvc := obras_service.NovoServico(
 		obraRepo,
 		etapaRepo,
@@ -105,6 +110,7 @@ func main() {
 	identidadeHandler := identidade_handler.NovoIdentidadeHandler(identidadeSvc, logger)
 	pessoalHandler := pessoal_handler.NovoPessoalHandler(pessoalSvc, logger)
 	obraHandler := obras_handler.NovoObrasHandler(obraSvc, logger)
+	finaceiroHandler := financeiro_handler.NovoFinanceiroHandler(financeiroSvc, logger)
 	// CORREÇÃO: Usando a variável com nome correto 'suprimentosSvc'.
 	suprimentosHandler := suprimentos_handler.NovoSuprimentosHandler(suprimentosSvc, logger)
 
@@ -119,6 +125,7 @@ func main() {
 		ObrasHandler:       obraHandler,
 		PessoalHandler:     pessoalHandler,
 		SuprimentosHandler: suprimentosHandler,
+		FinanceiroHandler:  finaceiroHandler,
 	}
 	r := router.New(routerCfg)
 

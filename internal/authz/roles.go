@@ -10,6 +10,8 @@ const (
 	PermissaoPessoalLer          = "pessoal:ler"
 	PermissaoSuprimentosLer      = "suprimentos:ler"
 	PermissaoSuprimentosEscrever = "suprimentos:escrever"
+	PermissaoFinanceiroLer       = "financeiro:ler"
+	PermissaoFinanceiroEscrever  = "financeiro:escrever"
 )
 
 // Papel define um nome de papel/função para um conjunto de permissões.
@@ -30,9 +32,14 @@ var mapaDePapeis = map[Papel][]string{
 		PermissaoPessoalLer,
 		PermissaoSuprimentosLer,
 		PermissaoSuprimentosEscrever,
+		PermissaoFinanceiroLer,
+		PermissaoFinanceiroEscrever,
 	},
 	PapelVisualizador: {
 		PermissaoObrasLer,
+		PermissaoPessoalLer,
+		PermissaoSuprimentosLer,
+		PermissaoFinanceiroLer,
 	},
 	// O PapelAdmin é especial e terá todas as permissões.
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/luiszkm/masterCostrutora/internal/authz"
+	"github.com/luiszkm/masterCostrutora/internal/handler/http/financeiro"
 	"github.com/luiszkm/masterCostrutora/internal/handler/http/identidade"
 	"github.com/luiszkm/masterCostrutora/internal/handler/http/obras"
 	"github.com/luiszkm/masterCostrutora/internal/handler/http/pessoal"
@@ -21,6 +22,7 @@ type Config struct {
 	ObrasHandler       *obras.Handler
 	PessoalHandler     *pessoal.Handler
 	SuprimentosHandler *suprimentos.Handler
+	FinanceiroHandler  *financeiro.Handler
 }
 
 func New(c Config) *chi.Mux {
@@ -85,6 +87,9 @@ func New(c Config) *chi.Mux {
 
 		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).
 			Patch("/orcamentos/{orcamentoId}", c.SuprimentosHandler.HandleAtualizarOrcamentoStatus)
+		// --- Recursos de Financeiro ---
+		r.With(auth.Authorize(authz.PermissaoFinanceiroEscrever)).Post("/pagamentos", c.FinanceiroHandler.HandleRegistrarPagamento)
+		// r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).Get("/pagamentos", c.FinanceiroHandler.HandleListarPagamentos)
 	})
 
 	return r

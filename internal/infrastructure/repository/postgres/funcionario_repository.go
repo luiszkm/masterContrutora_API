@@ -3,6 +3,7 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log/slog"
 
@@ -25,19 +26,31 @@ func (r *FuncionarioRepositoryPostgres) BuscarPorID(ctx context.Context, funcion
 
 	const op = "repository.postgres.funcionario.BuscarPorID"
 	query := `
-		SELECT id, nome, cpf, cargo, data_contratacao, status
+		SELECT 
+		    id, nome, cpf, telefone, cargo, departamento, data_contratacao, 
+		    valor_diaria, chave_pix, status, desligamento_data, motivo_desligamento, 
+			created_at, updated_at
 		FROM funcionarios
 		WHERE id = $1
 	`
 	row := r.db.QueryRow(ctx, query, funcionarioID)
 
 	var f pessoal.Funcionario
-	err := row.Scan(&f.ID, &f.Nome, &f.CPF, &f.Cargo, &f.DataContratacao, &f.Status)
+	var desligamento_data sql.NullTime
+
+	err := row.Scan(
+		&f.ID, &f.Nome, &f.CPF, &f.Telefone, &f.Cargo, &f.Departamento, &f.DataContratacao,
+		&f.ValorDiaria, &f.ChavePix, &f.Status, &desligamento_data, &f.MotivoDesligamento,
+		&f.CreatedAt, &f.UpdatedAt,
+	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("%s: funcionário não encontrado com ID %s", op, funcionarioID)
 		}
 		return nil, fmt.Errorf("%s: erro ao buscar funcionário: %w", op, err)
+	}
+	if desligamento_data.Valid {
+		f.DesligamentoData = &desligamento_data.Time
 	}
 	return &f, nil
 }
@@ -45,10 +58,15 @@ func (r *FuncionarioRepositoryPostgres) BuscarPorID(ctx context.Context, funcion
 func (r *FuncionarioRepositoryPostgres) Salvar(ctx context.Context, f *pessoal.Funcionario) error {
 	const op = "repository.postgres.funcionario.Salvar"
 	query := `
-		INSERT INTO funcionarios (id, nome, cpf, cargo, data_contratacao, status)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO funcionarios 
+		    (id, nome, cpf, telefone, cargo, departamento, data_contratacao, valor_diaria, chave_pix, status, created_at, updated_at)
+		VALUES 
+		    ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
 	`
-	_, err := r.db.Exec(ctx, query, f.ID, f.Nome, f.CPF, f.Cargo, f.DataContratacao, f.Status)
+	_, err := r.db.Exec(ctx, query,
+		f.ID, f.Nome, f.CPF, f.Telefone, f.Cargo, f.Departamento,
+		f.DataContratacao, f.ValorDiaria, f.ChavePix, f.Status,
+	)
 	if err != nil {
 		// TODO: Tratar erro de violação de constraint UNIQUE do CPF
 		return fmt.Errorf("%s: %w", op, err)
@@ -57,7 +75,7 @@ func (r *FuncionarioRepositoryPostgres) Salvar(ctx context.Context, f *pessoal.F
 }
 func (r *FuncionarioRepositoryPostgres) Deletar(ctx context.Context, id string) error {
 	const op = "repository.postgres.funcionario.Deletar"
-	query := `UPDATE funcionarios SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL`
+	query := `UPDATE funcionarios SET desligamento_data = NOW() WHERE id = $1 AND desligamento_data IS NULL`
 	cmd, err := r.db.Exec(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
@@ -72,10 +90,15 @@ func (r *FuncionarioRepositoryPostgres) Atualizar(ctx context.Context, f *pessoa
 	const op = "repository.postgres.funcionario.Atualizar"
 	query := `
 		UPDATE funcionarios
-		SET nome = $1, cpf = $2, cargo = $3, data_contratacao = $4, salario = $5, diaria = $6, status = $7
-		WHERE id = $8 AND deleted_at IS NULL
+		SET 
+		    nome = $1, cpf = $2, telefone = $3, cargo = $4, departamento = $5, 
+		    valor_diaria = $6, chave_pix = $7, status = $8, updated_at = NOW()
+		WHERE id = $9 AND desligamento_data IS NULL
 	`
-	cmd, err := r.db.Exec(ctx, query, f.Nome, f.CPF, f.Cargo, f.DataContratacao, f.Status, f.ID)
+	cmd, err := r.db.Exec(ctx, query,
+		f.Nome, f.CPF, f.Telefone, f.Cargo, f.Departamento,
+		f.ValorDiaria, f.ChavePix, f.Status, f.ID,
+	)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
@@ -87,9 +110,9 @@ func (r *FuncionarioRepositoryPostgres) Atualizar(ctx context.Context, f *pessoa
 func (r *FuncionarioRepositoryPostgres) Listar(ctx context.Context) ([]*pessoal.Funcionario, error) {
 	const op = "repository.postgres.funcionario.Listar"
 	query := `
-		SELECT id, nome, cpf, cargo, data_contratacao, status
+		SELECT id, nome, cpf, cargo, departamento, status, valor_diaria
 		FROM funcionarios
-		WHERE deleted_at IS NULL
+		ORDER BY nome ASC
 	`
 	rows, err := r.db.Query(ctx, query)
 	if err != nil {
@@ -100,7 +123,15 @@ func (r *FuncionarioRepositoryPostgres) Listar(ctx context.Context) ([]*pessoal.
 	var funcionarios []*pessoal.Funcionario
 	for rows.Next() {
 		var f pessoal.Funcionario
-		if err := rows.Scan(&f.ID, &f.Nome, &f.CPF, &f.Cargo, &f.DataContratacao, &f.Status); err != nil {
+		if err := rows.Scan(
+			&f.ID,
+			&f.Nome,
+			&f.CPF,
+			&f.Cargo,
+			&f.Departamento,
+			&f.Status,
+			&f.ValorDiaria,
+		); err != nil {
 			return nil, fmt.Errorf("%s: erro ao ler linha: %w", op, err)
 		}
 		funcionarios = append(funcionarios, &f)

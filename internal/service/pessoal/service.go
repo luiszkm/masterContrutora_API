@@ -50,7 +50,7 @@ type AlocacaoFinder interface {
 	ExistemAlocacoesAtivasParaFuncionario(ctx context.Context, funcionarioID string) (bool, error)
 }
 
-func (s *Service) CadastrarFuncionario(ctx context.Context, nome, cpf, cargo, departamento string) (*pessoal.Funcionario, error) {
+func (s *Service) CadastrarFuncionario(ctx context.Context, nome, cpf, cargo, departamento string, diaria float64) (*pessoal.Funcionario, error) {
 	const op = "service.pessoal.CadastrarFuncionario"
 
 	novoFuncionario := &pessoal.Funcionario{
@@ -61,6 +61,7 @@ func (s *Service) CadastrarFuncionario(ctx context.Context, nome, cpf, cargo, de
 		Departamento:    departamento,
 		DataContratacao: time.Now(),
 		Status:          "Ativo",
+		Diaria:          diaria,
 	}
 
 	if err := s.repo.Salvar(ctx, novoFuncionario); err != nil {
@@ -99,23 +100,52 @@ func (s *Service) ListarFuncionarios(ctx context.Context) ([]*pessoal.Funcionari
 	return funcionarios, nil
 }
 
-func (s *Service) AtualizarFuncionario(ctx context.Context, funcionario *pessoal.Funcionario) error {
+func (s *Service) AtualizarFuncionario(ctx context.Context, id string, input dto.AtualizarFuncionarioInput) error {
 	const op = "service.pessoal.AtualizarFuncionario"
 
-	// Verifica se o funcionário existe
-	existente, err := s.repo.BuscarPorID(ctx, funcionario.ID)
+	// Passo 1: Buscar o funcionário que já existe no banco.
+	funcionario, err := s.repo.BuscarPorID(ctx, id)
 	if err != nil {
 		return fmt.Errorf("%s: erro ao buscar funcionário: %w", op, err)
 	}
-	if existente == nil {
-		return fmt.Errorf("%s: funcionário não encontrado com ID %s", op, funcionario.ID)
+
+	// Passo 2: Modificar apenas os campos que foram realmente enviados na requisição.
+	// Para isso, verificamos se os ponteiros no DTO não são nulos.
+	if input.Nome != nil {
+		funcionario.Nome = *input.Nome
+	}
+	if input.CPF != nil {
+		funcionario.CPF = *input.CPF
+	}
+	if input.Cargo != nil {
+		funcionario.Cargo = *input.Cargo
+	}
+	if input.Departamento != nil {
+		funcionario.Departamento = *input.Departamento
+	}
+	if input.ValorDiaria != nil {
+		funcionario.ValorDiaria = *input.ValorDiaria
+	}
+	// ... e assim por diante para todos os outros campos da sua struct de input ...
+	// Exemplo para um campo de data que é string no DTO:
+	if input.DesligamentoData != nil {
+		if *input.DesligamentoData == "" {
+			funcionario.DesligamentoData = nil // Permite limpar a data
+		} else {
+			parsedTime, err := time.Parse(time.RFC3339, *input.DesligamentoData) // ou "2006-01-02"
+			if err != nil {
+				return fmt.Errorf("%s: data de desligamento inválida: %w", op, err)
+			}
+			funcionario.DesligamentoData = &parsedTime
+		}
 	}
 
-	// Atualiza os dados do funcionário
+	// Passo 3: Salvar a entidade completamente modificada de volta no banco.
 	if err := s.repo.Atualizar(ctx, funcionario); err != nil {
-		return fmt.Errorf("%s: erro ao atualizar funcionário: %w", op, err)
+		return fmt.Errorf("%s: %w", op, err)
 	}
-	s.logger.InfoContext(ctx, "funcionário atualizado", "funcionario_id", funcionario.ID)
+
+	s.logger.InfoContext(ctx, "funcionário atualizado com sucesso", "funcionario_id", funcionario.ID)
 	return nil
 }
 

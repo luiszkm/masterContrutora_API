@@ -5,7 +5,7 @@
 @token =
 @obraId =
 @etapaId =
-@funcionarioId =
+@funcionarioId =2710c033-a566-4451-a66e-6b90b338aed8
 @funcionarioParaDeletarId =
 @fornecedorId =
 @materialId =
@@ -56,15 +56,48 @@ Cookie: jwt-token={{token}}
 
 {
     "nome": "João da Silva (Eng. Chefe)",
-    "cpf": "111.222.333-44",
+    "cpf": "111.222.313-11",
     "cargo": "Engenheiro Civil",
-    "salario": 9500.00,
-    "diaria": 75.00
+    "departamento": "Construção Civil",
+    "diaria" : 100.00
 }
 
 > {%
     client.global.set("funcionarioId", response.body.ID);
 %}
+
+### @name BuscarFuncionarios
+# 4.1. Busca todos os funcionários cadastrados.
+GET {{hostname}}/funcionarios
+Cookie: jwt-token={{token}}
+
+# ===================================================================
+### 4.2 Buscar Funcionário Específico
+GET {{hostname}}/funcionarios/{{funcionarioId}}
+Cookie: jwt-token={{token}}
+
+# ===================================================================
+## 4.3 Deletar Funcionário  
+### @name DeletarFuncionario
+
+DELETE {{hostname}}/funcionarios/{{funcionarioId}}
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+# ===================================================================
+### 4.4 Atualizar Funcionário
+
+PUT  {{hostname}}/funcionarios/{{funcionarioId}}
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "nome": "João da Silva (Eng. Chefe Atualizado)",
+    "cpf": "111.222.333-41",
+    "cargo": "Engenheiro Civil",
+    "departamento": "Construção Civil",
+    "diaria" : 120.00
+}
 
 ###
 # @name CadastrarFornecedorPrincipal
@@ -75,7 +108,7 @@ Cookie: jwt-token={{token}}
 
 {
     "nome": "Casa do Construtor Center",
-    "cnpj": "12.345.678/0001-99",
+    "cnpj": "12.345.678/0001-19",
     "categoria": "Materiais Básicos",
     "contato": "Carlos Andrade",
     "email": "comercial@casadoconstrutor.com"

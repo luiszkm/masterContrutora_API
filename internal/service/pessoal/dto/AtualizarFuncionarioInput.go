@@ -1,17 +1,6 @@
-package pessoal
+package dto
 
-type registrarPagamentoRequest struct {
-	ContaBancariaID string `json:"contaBancariaId"`
-}
-
-type cadastrarFuncionarioRequest struct {
-	Nome         string  `json:"nome"`
-	CPF          string  `json:"cpf"`
-	Cargo        string  `json:"cargo"`
-	Departamento string  `json:"departamento"` // Adicionando o campo Departamento
-	Diaria       float64 `json:"diaria"`       // Adicionando o campo Diaria
-}
-type atualizarFuncionarioRequest struct {
+type AtualizarFuncionarioInput struct {
 	Nome                *string  `json:"nome,omitempty"`
 	CPF                 *string  `json:"cpf,omitempty"`
 	Cargo               *string  `json:"cargo,omitempty"`

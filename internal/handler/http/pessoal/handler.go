@@ -15,13 +15,14 @@ import (
 
 	pessoal_service "github.com/luiszkm/masterCostrutora/internal/service/pessoal"
 	"github.com/luiszkm/masterCostrutora/internal/service/pessoal/dto"
+	pessoal_dto "github.com/luiszkm/masterCostrutora/internal/service/pessoal/dto"
 )
 
 type Service interface {
-	CadastrarFuncionario(ctx context.Context, nome, cpf, cargo, departamento string) (*pessoal.Funcionario, error)
+	CadastrarFuncionario(ctx context.Context, nome, cpf, cargo, departamento string, diaria float64) (*pessoal.Funcionario, error)
 	DeletarFuncionario(ctx context.Context, id string) error
 	ListarFuncionarios(ctx context.Context) ([]*pessoal.Funcionario, error)
-	AtualizarFuncionario(ctx context.Context, funcionario *pessoal.Funcionario) error // NOVO
+	AtualizarFuncionario(ctx context.Context, id string, input dto.AtualizarFuncionarioInput) error // NOVO
 	BuscarPorID(ctx context.Context, id string) (*pessoal.Funcionario, error)
 	CriarApontamento(ctx context.Context, input dto.CriarApontamentoInput) (*pessoal.ApontamentoQuinzenal, error)
 	AprovarApontamento(ctx context.Context, apontamentoID string) (*pessoal.ApontamentoQuinzenal, error)
@@ -38,13 +39,6 @@ func NovoPessoalHandler(s Service, l *slog.Logger) *Handler {
 	return &Handler{service: s, logger: l}
 }
 
-type cadastrarFuncionarioRequest struct {
-	Nome         string `json:"nome"`
-	CPF          string `json:"cpf"`
-	Cargo        string `json:"cargo"`
-	Departamento string `json:"departamento"` // Adicionando o campo Departamento
-}
-
 func (h *Handler) HandleCadastrarFuncionario(w http.ResponseWriter, r *http.Request) {
 	var req cadastrarFuncionarioRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -53,7 +47,7 @@ func (h *Handler) HandleCadastrarFuncionario(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	f, err := h.service.CadastrarFuncionario(r.Context(), req.Nome, req.CPF, req.Cargo, req.Departamento)
+	f, err := h.service.CadastrarFuncionario(r.Context(), req.Nome, req.CPF, req.Cargo, req.Departamento, req.Diaria)
 	if err != nil {
 		h.logger.ErrorContext(r.Context(), "falha ao cadastrar funcionário", "erro", err)
 		web.RespondError(w, r, "ERRO_CADASTRAR_FUNCIONARIO", "Erro ao cadastrar funcionário", http.StatusInternalServerError)
@@ -97,24 +91,31 @@ func (h *Handler) HandleListarFuncionarios(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *Handler) HandleAtualizarFuncionario(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "funcionarioId")
+	id := chi.URLParam(r, "id")
 
-	var req cadastrarFuncionarioRequest
+	var req atualizarFuncionarioRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.logger.ErrorContext(r.Context(), "falha ao decodificar payload", "erro", err)
 		web.RespondError(w, r, "PAYLOAD_INVALIDO", "Payload inválido", http.StatusBadRequest)
 		return
 	}
-
-	funcionario := &pessoal.Funcionario{
-		ID:           id,
-		Nome:         req.Nome,
-		CPF:          req.CPF,
-		Cargo:        req.Cargo,
-		Departamento: req.Departamento,
+	input := pessoal_dto.AtualizarFuncionarioInput{
+		Nome:                req.Nome,
+		CPF:                 req.CPF,
+		Cargo:               req.Cargo,
+		Departamento:        req.Departamento,
+		ValorDiaria:         req.Diaria,
+		ChavePix:            req.ChavePix,
+		Status:              req.Status,
+		Telefone:            req.Telefone,
+		MotivoDesligamento:  req.MotivoDesligamento,
+		DataContratacao:     req.DataContratacao,
+		DesligamentoData:    req.DesligamentoData,
+		Observacoes:         req.Observacoes,
+		AvaliacaoDesempenho: req.AvaliacaoDesempenho,
 	}
 
-	if err := h.service.AtualizarFuncionario(r.Context(), funcionario); err != nil {
+	if err := h.service.AtualizarFuncionario(r.Context(), id, input); err != nil {
 		if errors.Is(err, postgres.ErrNaoEncontrado) {
 			web.RespondError(w, r, "FUNCIONARIO_NAO_ENCONTRADO", "Funcionário não encontrado", http.StatusNotFound)
 			return
@@ -128,7 +129,7 @@ func (h *Handler) HandleAtualizarFuncionario(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *Handler) HandleBuscarFuncionario(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "funcionarioId")
+	id := chi.URLParam(r, "id")
 
 	funcionario, err := h.service.BuscarPorID(r.Context(), id)
 	if err != nil {

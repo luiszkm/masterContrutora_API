@@ -44,24 +44,24 @@ type cadastrarFuncionarioRequest struct {
 func (h *Handler) HandleCadastrarFuncionario(w http.ResponseWriter, r *http.Request) {
 	var req cadastrarFuncionarioRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Payload inválido", http.StatusBadRequest)
+		h.logger.ErrorContext(r.Context(), "falha ao decodificar payload", "erro", err)
+		web.RespondError(w, r, "PAYLOAD_INVALIDO", "Payload inválido", http.StatusBadRequest)
 		return
 	}
 
 	f, err := h.service.CadastrarFuncionario(r.Context(), req.Nome, req.CPF, req.Cargo, req.Salario, req.Diaria)
 	if err != nil {
 		h.logger.ErrorContext(r.Context(), "falha ao cadastrar funcionário", "erro", err)
-		http.Error(w, "Erro ao cadastrar funcionário", http.StatusInternalServerError)
+		web.RespondError(w, r, "ERRO_CADASTRAR_FUNCIONARIO", "Erro ao cadastrar funcionário", http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(f)
+	h.logger.InfoContext(r.Context(), "Funcionário cadastrado com sucesso", "funcionarioId", f.ID)
+	web.Respond(w, r, f, http.StatusCreated)
 }
 
 func (h *Handler) HandleDeletarFuncionario(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "funcionarioId")
+	id := chi.URLParam(r, "id")
 
 	err := h.service.DeletarFuncionario(r.Context(), id)
 	if err != nil {
@@ -85,12 +85,11 @@ func (h *Handler) HandleListarFuncionarios(w http.ResponseWriter, r *http.Reques
 	funcionarios, err := h.service.ListarFuncionarios(r.Context())
 	if err != nil {
 		h.logger.ErrorContext(r.Context(), "falha ao listar funcionários", "erro", err)
-		http.Error(w, "Erro ao listar funcionários", http.StatusInternalServerError)
+		web.RespondError(w, r, "ERRO_LISTAR_FUNCIONARIOS", "Erro ao listar funcionários", http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(funcionarios)
+	web.Respond(w, r, funcionarios, http.StatusOK)
 }
 
 func (h *Handler) HandleAtualizarFuncionario(w http.ResponseWriter, r *http.Request) {
@@ -98,7 +97,8 @@ func (h *Handler) HandleAtualizarFuncionario(w http.ResponseWriter, r *http.Requ
 
 	var req cadastrarFuncionarioRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Payload inválido", http.StatusBadRequest)
+		h.logger.ErrorContext(r.Context(), "falha ao decodificar payload", "erro", err)
+		web.RespondError(w, r, "PAYLOAD_INVALIDO", "Payload inválido", http.StatusBadRequest)
 		return
 	}
 
@@ -117,7 +117,7 @@ func (h *Handler) HandleAtualizarFuncionario(w http.ResponseWriter, r *http.Requ
 			return
 		}
 		h.logger.ErrorContext(r.Context(), "falha ao atualizar funcionário", "erro", err)
-		http.Error(w, "Erro ao atualizar funcionário", http.StatusInternalServerError)
+		web.RespondError(w, r, "ERRO_ATUALIZAR_FUNCIONARIO", "Erro ao atualizar funcionário", http.StatusInternalServerError)
 		return
 	}
 
@@ -134,10 +134,8 @@ func (h *Handler) HandleBuscarFuncionario(w http.ResponseWriter, r *http.Request
 			return
 		}
 		h.logger.ErrorContext(r.Context(), "falha ao buscar funcionário", "erro", err)
-		http.Error(w, "Erro ao buscar funcionário", http.StatusInternalServerError)
+		web.RespondError(w, r, "ERRO_BUSCAR_FUNCIONARIO", "Erro ao buscar funcionário", http.StatusInternalServerError)
 		return
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(funcionario)
+	web.Respond(w, r, funcionario, http.StatusOK)
 }

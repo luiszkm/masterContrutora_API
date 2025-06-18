@@ -12,7 +12,7 @@ IF NOT EXISTS obras
     data_inicio DATE NOT NULL,
     data_fim DATE,
     status VARCHAR
-(50) NOT NULL
+(50) NOT NULL,
         deleted_at  TIMESTAMPTZ DEFAULT NULL, -- Para soft delete
 
 );

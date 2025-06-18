@@ -92,11 +92,11 @@ func (s *Service) ListarFornecedores(ctx context.Context) ([]*suprimentos.Fornec
 	return fornecedores, nil
 }
 
-func (s *Service) AtualizarFornecedor(ctx context.Context, input dto.AtualizarFornecedorInput) (*suprimentos.Fornecedor, error) {
+func (s *Service) AtualizarFornecedor(ctx context.Context, id string, input dto.AtualizarFornecedorInput) (*suprimentos.Fornecedor, error) {
 	const op = "service.suprimentos.AtualizarFornecedor"
-	fornecedor, err := s.fornecedorRepo.BuscarPorID(ctx, input.ID)
+	fornecedor, err := s.fornecedorRepo.BuscarPorID(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("%s: fornecedor com id [%s] não encontrado: %w", op, input.ID, err)
+		return nil, fmt.Errorf("%s: fornecedor com id [%s] não encontrado: %w", op, id, err)
 	}
 	fornecedor.Nome = input.Nome
 	fornecedor.CNPJ = input.CNPJ
@@ -126,8 +126,8 @@ func (s *Service) DeletarFornecedor(ctx context.Context, id string) error {
 	return nil
 }
 
-func (s *Service) BuscarFornecedorPorID(ctx context.Context, id string) (*suprimentos.Fornecedor, error) {
-	const op = "service.suprimentos.BuscarFornecedorPorID"
+func (s *Service) BuscarPorID(ctx context.Context, id string) (*suprimentos.Fornecedor, error) {
+	const op = "service.suprimentos.BuscarPorID"
 	fornecedor, err := s.fornecedorRepo.BuscarPorID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("%s: fornecedor com id [%s] não encontrado: %w", op, id, err)

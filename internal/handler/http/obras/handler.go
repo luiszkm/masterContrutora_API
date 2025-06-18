@@ -47,7 +47,8 @@ func NovoObrasHandler(s Service, l *slog.Logger) *Handler {
 // HandleCriarObra trata a criação de uma nova obra.
 func (h *Handler) HandleCriarObra(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
+		h.logger.Warn("Método não permitido", "método", r.Method, "rota", r.URL.Path)
+		web.RespondError(w, r, "METODO_NAO_PERMITIDO", "Método não permitido", http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -77,7 +78,8 @@ func (h *Handler) HandleCriarObra(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) HandleAdicionarEtapa(w http.ResponseWriter, r *http.Request) {
 	obraID := chi.URLParam(r, "obraId")
 	if obraID == "" {
-		http.Error(w, "ID da obra na URL é obrigatório", http.StatusBadRequest)
+		h.logger.Warn("ID da obra não fornecido na URL", "rota", r.URL.Path)
+		web.RespondError(w, r, "ID_OBRA_OBRIGATORIO", "ID da obra na URL é obrigatório", http.StatusBadRequest)
 		return
 	}
 
@@ -126,7 +128,8 @@ func (h *Handler) HandleAtualizarEtapaStatus(w http.ResponseWriter, r *http.Requ
 
 	var input dto.AtualizarStatusEtapaInput
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		http.Error(w, "Payload inválido", http.StatusBadRequest)
+		h.logger.ErrorContext(r.Context(), "falha ao decodificar payload de atualização de etapa", "erro", err)
+		web.RespondError(w, r, "PAYLOAD_INVALIDO", "Payload inválido", http.StatusBadRequest)
 		return
 	}
 

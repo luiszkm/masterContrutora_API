@@ -228,7 +228,6 @@ func (h *Handler) HandleAtualizarFornecedor(w http.ResponseWriter, r *http.Reque
 	}
 
 	input := dto.AtualizarFornecedorInput{
-		ID:        id,
 		Nome:      req.Nome,
 		CNPJ:      req.CNPJ,
 		Categoria: req.Categoria,

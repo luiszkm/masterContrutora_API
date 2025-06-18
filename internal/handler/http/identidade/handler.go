@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/luiszkm/masterCostrutora/internal/domain/identidade"
+	"github.com/luiszkm/masterCostrutora/internal/handler/web"
 	dto "github.com/luiszkm/masterCostrutora/internal/service/identidade/dtos"
 )
 
@@ -54,12 +55,14 @@ func NovoIdentidadeHandler(s Service, l *slog.Logger) *Handler {
 func (h *Handler) HandleRegistrar(w http.ResponseWriter, r *http.Request) {
 	var req registrarRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Payload inválido", http.StatusBadRequest)
+		web.RespondError(w, r, "PAYLOAD_INVALIDO", "Payload inválido", http.StatusBadRequest)
+
 		return
 	}
 
 	if req.Senha != req.ConfirmarSenha {
-		http.Error(w, "As senhas não conferem", http.StatusBadRequest)
+		h.logger.WarnContext(r.Context(), "as senhas não conferem", "email", req.Email)
+		web.RespondError(w, r, "SENHAS_NAO_CONFEREM", "As senhas não conferem", http.StatusBadRequest)
 		return
 	}
 
@@ -73,7 +76,7 @@ func (h *Handler) HandleRegistrar(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// TODO: Tratar erros específicos, como email já existente (409 Conflict).
 		h.logger.ErrorContext(r.Context(), "falha ao registrar usuário", "erro", err)
-		http.Error(w, "Não foi possível registrar o usuário", http.StatusInternalServerError)
+		web.RespondError(w, r, "ERRO_REGISTRO_USUARIO", "Não foi possível registrar o usuário", http.StatusInternalServerError)
 		return
 	}
 
@@ -82,17 +85,15 @@ func (h *Handler) HandleRegistrar(w http.ResponseWriter, r *http.Request) {
 		Nome:  usuario.Nome,
 		Email: usuario.Email,
 	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(resp)
+	web.Respond(w, r, resp, http.StatusCreated)
 }
 
 // HandleLogin trata a autenticação do usuário e retorna um token JWT.
 func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	var req loginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Payload inválido", http.StatusBadRequest)
+		h.logger.WarnContext(r.Context(), "payload inválido no login", "erro", err)
+		web.RespondError(w, r, "PAYLOAD_INVALIDO", "Payload inválido", http.StatusBadRequest)
 		return
 	}
 
@@ -105,7 +106,7 @@ func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// TODO: Tratar erro de credenciais inválidas com status 401.
 		h.logger.WarnContext(r.Context(), "tentativa de login falhou", "email", req.Email, "erro", err)
-		http.Error(w, "Email ou senha inválidos", http.StatusUnauthorized)
+		web.RespondError(w, r, "CREDENCIAIS_INVALIDAS", "Email ou senha inválidos", http.StatusUnauthorized)
 		return
 	}
 	isSecure := os.Getenv("APP_ENV") == "production"

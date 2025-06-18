@@ -1,7 +1,6 @@
 package dto
 
 type AtualizarFornecedorInput struct {
-	ID        string
 	Nome      string
 	CNPJ      string
 	Categoria string

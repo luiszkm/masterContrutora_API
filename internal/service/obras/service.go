@@ -35,7 +35,17 @@ type Service struct {
 
 // ListarObras implements obras.Service.
 func (s *Service) ListarObras(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*dto.ObraListItemDTO], error) {
-	panic("unimplemented")
+	const op = "service.obras.ListarObras"
+
+	obras, paginacao, err := s.obrasQuerier.ListarObras(ctx, filtros)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return &common.RespostaPaginada[*dto.ObraListItemDTO]{
+		Dados:     obras,
+		Paginacao: *paginacao,
+	}, nil
 }
 
 func NovoServico(obraRepo obras.ObrasRepository, etapaRepo obras.EtapaRepository,
@@ -49,20 +59,6 @@ func NovoServico(obraRepo obras.ObrasRepository, etapaRepo obras.EtapaRepository
 		logger:        logger,
 	}
 }
-
-// func (s *Service) ListarObras(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*dto.ObraListItemDTO], error) {
-// 	const op = "service.obras.ListarObras"
-
-// 	obras, paginacao, err := s.obrasQuerier.ListarObras(ctx, filtros)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("%s: %w", op, err)
-// 	}
-
-// 	return &common.RespostaPaginada[*dto.ObraListItemDTO]{
-// 		Dados:     obras,
-// 		Paginacao: *paginacao,
-// 	}, nil
-// }
 
 // CriarNovaObra é o caso de uso para registrar uma nova construção.
 func (s *Service) CriarNovaObra(ctx context.Context, input dto.CriarNovaObraInput) (*obras.Obra, error) {

@@ -6,14 +6,18 @@ import (
 )
 
 type Funcionario struct {
-	ID              string
-	Nome            string
-	CPF             string
-	Cargo           string
-	DataContratacao time.Time
-	// Salario e Diaria podem ser tipos de dinheiro mais complexos no futuro.
-	Salario   float64
-	Diaria    float64
-	Status    string     // "Ativo", "Inativo"
-	DeletedAt *time.Time // Marca de exclusão lógica
+	ID                 string
+	Nome               string
+	CPF                string
+	Telefone           string
+	Cargo              string
+	Departamento       string
+	DataContratacao    time.Time
+	ValorDiaria        float64 // O valor contratual da diária
+	ChavePix           string
+	Status             string     // "Ativo", "Inativo", "Desligado"
+	DesligamentoData   *time.Time // Ponteiro para aceitar data nula
+	MotivoDesligamento string
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }

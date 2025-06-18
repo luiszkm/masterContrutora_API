@@ -79,10 +79,18 @@ func main() {
 	materialRepo := postgres.NovoMaterialRepository(dbpool, logger)
 	orcamentoRepo := postgres.NovoOrcamentoRepository(dbpool, logger)
 	financeiroRepo := postgres.NovoRegistroPagamentoRepository(dbpool, logger)
+	apontamentoRepo := postgres.NovoApontamentoRepository(dbpool, logger)
 
 	// Serviços
 	identidadeSvc := identidade_service.NovoServico(usuarioRepo, passwordHasher, jwtService, logger)
-	pessoalSvc := pessoal_service.NovoServico(funcionarioRepo, alocacaoRepo, logger)
+	pessoalSvc := pessoal_service.NovoServico(
+		funcionarioRepo, // Satisafaz pessoal.FuncionarioRepository
+		apontamentoRepo, // A dependência que estava faltando
+		alocacaoRepo,    // Satisafaz pessoal.AlocacaoFinder
+		obraRepo,        // Satisafaz pessoal.ObraFinder
+		eventBus,        // Satisafaz pessoal.EventPublisher
+		logger,
+	)
 	financeiroSvc := financeiro_service.NovoServico(financeiroRepo, funcionarioRepo, obraRepo, logger)
 	obraSvc := obras_service.NovoServico(
 		obraRepo,

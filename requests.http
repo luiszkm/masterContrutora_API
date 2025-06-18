@@ -3,18 +3,19 @@
 # Estas variáveis serão preenchidas dinamicamente ao executar as requisições em ordem.
 @hostname = http://localhost:8080
 @token =
-@obraId =ddeebb3e-56ef-4b50-b4b2-cf4df6c8edc2
-@etapaId =991fc27a-d1b4-4340-8e45-d3a851dc3408
-@funcionarioId =86b55e37-9631-4bec-9c65-84cff24f214d
-@fornecedorId = b897fce2-551d-4ce1-9b66-f12548eea6c3
-@materialId = 011be798-3f83-4080-b027-67101f759364
-@materialId2 = 290d8e9e-10db-4d10-b738-510555c937d4
-
-@orcamentoId = 57e52f03-cb2c-462c-81ba-95a5cf3e88ec
+@obraId =
+@etapaId =
+@funcionarioId =
+@funcionarioParaDeletarId =
+@fornecedorId =
+@materialId =
+@materialId2 =
+@orcamentoId =
+@apontamentoId =  # Será preenchido após a criação do apontamento
 
 
 # ===================================================================
-# [FLUXO 1] - AUTENTICAÇÃO
+# [FLUXO 1] - AUTENTICAÇÃO E SETUP INICIAL
 # ===================================================================
 
 ###
@@ -32,8 +33,7 @@ Content-Type: application/json
 
 ###
 # @name Login
-# 2. Faz o login para obter o token de acesso (JWT).
-# O token retornado no corpo JSON será capturado na variável 'token'.
+# 2. Faz o login para obter o token que será usado nos cookies.
 POST {{hostname}}/usuarios/login
 Content-Type: application/json
 
@@ -46,112 +46,16 @@ Content-Type: application/json
     client.global.set("token", response.body.accessToken);
 %}
 
-###
-# ===================================================================
-# [FLUXO 2] - OBRAS (ROTAS PROTEGIDAS)
-# Note que agora todas as rotas usam o cabeçalho 'Cookie'.
-# ===================================================================
 
 ###
-# @name CriarObra
-# 3. Cria uma nova obra usando o token.
-# O ID da obra criada será capturado na variável 'obraId'.
-POST {{hostname}}/obras
-Content-Type: application/json
-Cookie: jwt-token={{token}}
-
-{
-    "nome": "Residencial Jardins (Teste)",
-    "cliente": "Cliente de Teste",
-    "endereco": "Rua dos Testes, 123",
-    "dataInicio": "2025-10-01"
-}
-
-> {%
-    client.global.set("obraId", response.body.ID);
-%}
-
-###
-# @name ListarTodasAsObras
-# 1. Lista as obras usando a paginação padrão (página 1, 20 itens por página).
-#    Não aplica nenhum filtro de status.
-GET {{hostname}}/obras
-Cookie: jwt-token={{token}}
-###
-# @name ListarObrasFiltrandoPorStatus
-# 2. Lista apenas as obras com o status "Em Andamento".
-GET {{hostname}}/obras?status=Em Andamento
-Cookie: jwt-token={{token}}
-
-###
-# @name ListarObrasPaginado
-# 3. Lista as obras, pedindo a segunda página de resultados,
-#    com apenas 5 itens por página.
-GET {{hostname}}/obras?page=2&pageSize=5
-Cookie: jwt-token={{token}}
-
-###
-# @name ListarObrasPaginadoEFiltrado
-# 4. Exemplo completo: busca obras concluídas, na primeira página,
-#    com um limite de 10 itens.
-GET {{hostname}}/obras?status=Concluída&page=1&pageSize=10
-Cookie: jwt-token={{token}}
-###
-# @name BuscarDashboard
-# 5. Busca o dashboard da obra que acabamos de criar.
-GET {{hostname}}/obras/{{obraId}}
-Cookie: jwt-token={{token}}
-
-###
-# ===================================================================
-# [FLUXO 3] - ETAPAS (ROTAS PROTEGIDAS)
-# ===================================================================
-
-###
-# @name AdicionarEtapa
-# 6. Adiciona uma etapa à obra criada.
-# O ID da etapa criada será capturado na variável 'etapaId'.
-POST {{hostname}}/obras/{{obraId}}/etapas
-Content-Type: application/json
-Cookie: jwt-token={{token}}
-
-{
-    "nome": "Fundações e Alicerce",
-    "dataInicioPrevista": "2025-10-05",
-    "dataFimPrevista": "2025-10-30"
-}
-
-> {%
-    client.global.set("etapaId", response.body.ID);
-%}
-
-
-###
-# @name AtualizarStatusEtapa
-# 7. Atualiza o status da etapa que acabamos de criar.
-PATCH {{hostname}}/obras/{{obraId}}/etapas/{{etapaId}}
-Content-Type: application/json
-Cookie: jwt-token={{token}}
-
-{
-    "status": "Concluída"
-}
-
-###
-# ===================================================================
-# [FLUXO 4] - PESSOAL E ALOCAÇÕES (ROTAS PROTEGIDAS)
-# ===================================================================
-
-###
-# @name CadastrarFuncionario
-# 8. Cadastra um novo funcionário para poder alocá-lo.
-# O ID do funcionário será capturado na variável 'funcionarioId'.
+# @name CadastrarFuncionarioPrincipal
+# 3. Cadastra o funcionário principal que será usado nos testes.
 POST {{hostname}}/funcionarios
 Content-Type: application/json
 Cookie: jwt-token={{token}}
 
 {
-    "nome": "João da Silva",
+    "nome": "João da Silva (Eng. Chefe)",
     "cpf": "111.222.333-44",
     "cargo": "Engenheiro Civil",
     "salario": 9500.00,
@@ -163,25 +67,8 @@ Cookie: jwt-token={{token}}
 %}
 
 ###
-# @name AlocarFuncionario
-# 9. Aloca o funcionário na nossa obra.
-POST {{hostname}}/obras/{{obraId}}/alocacoes
-Content-Type: application/json
-Cookie: jwt-token={{token}}
-
-{
-    "funcionarioId": "{{funcionarioId}}",
-    "dataInicioAlocacao": "2025-10-05"
-}
-
-###
-# ===================================================================
-# [FLUXO 5] - SUPRIMENTOS (ROTAS PROTEGIDAS)
-# ===================================================================
-
-###
-# @name CadastrarFornecedor
-# 10. Cadastra um novo fornecedor.
+# @name CadastrarFornecedorPrincipal
+# 4. Cadastra o fornecedor principal.
 POST {{hostname}}/fornecedores
 Content-Type: application/json
 Cookie: jwt-token={{token}}
@@ -193,100 +80,173 @@ Cookie: jwt-token={{token}}
     "contato": "Carlos Andrade",
     "email": "comercial@casadoconstrutor.com"
 }
+> {%
+    client.global.set("fornecedorId", response.body.ID);
+%}
 
 ###
-# @name ListarFornecedores
-# 11. Lista todos os fornecedores.
-GET {{hostname}}/fornecedores
-Cookie: jwt-token={{token}}
-
-###
-# @name CadastrarMaterial
-# 12. Cadastra um novo material.
+# @name CadastrarMaterial1
+# 5. Cadastra o primeiro material.
 POST {{hostname}}/materiais
 Content-Type: application/json
 Cookie: jwt-token={{token}}
 
 {
     "nome": "Cimento Portland CP II 50kg",
-    "descricao": "Cimento para uso geral em concretos e argamassas.",
-    "unidadeDeMedida": "un",
+    "descricao": "Cimento para uso geral.",
+    "unidadeDeMedida": "saco",
     "categoria": "Estrutural"
+}
+> {%
+    client.global.set("materialId", response.body.ID);
+%}
+
+
+###
+# @name CadastrarMaterial2
+# 6. Cadastra o segundo material.
+POST {{hostname}}/materiais
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "nome": "Vergalhão de Aço CA-50 10mm",
+    "descricao": "Barra de aço para armaduras de concreto.",
+    "unidadeDeMedida": "barra",
+    "categoria": "Estrutural"
+}
+> {%
+    client.global.set("materialId2", response.body.ID);
+%}
+
+# ===================================================================
+# [FLUXO 2] - CENÁRIO DE UMA OBRA COMPLETA
+# ===================================================================
+
+###
+# @name CriarObraPrincipal
+# 7. Cria a obra principal para os testes.
+POST {{hostname}}/obras
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "nome": "Residencial Vista Verde",
+    "cliente": "Incorporadora Morar Bem",
+    "endereco": "Rua das Palmeiras, 100",
+    "dataInicio": "2025-08-01"
+}
+
+> {%
+    client.global.set("obraId", response.body.ID);
+%}
+
+###
+# @name AdicionarEtapaPrincipal
+# 8. Adiciona uma etapa à obra.
+POST {{hostname}}/obras/{{obraId}}/etapas
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "nome": "Fundações",
+    "dataInicioPrevista": "2025-08-05",
+    "dataFimPrevista": "2025-08-30"
+}
+
+> {%
+    client.global.set("etapaId", response.body.ID);
+%}
+
+###
+# @name AlocarFuncionarioPrincipal
+# 9. Aloca o funcionário principal na obra.
+POST {{hostname}}/obras/{{obraId}}/alocacoes
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "funcionarioId": "{{funcionarioId}}",
+    "dataInicioAlocacao": "2025-08-05"
 }
 
 ###
-# @name ListarMateriais
-# 13. Lista todos os materiais.
-GET {{hostname}}/materiais
-Cookie: jwt-token={{token}}
-
-
-###
-# ===================================================================
-# [FLUXO 6] - ORÇAMENTOS (CONECTANDO TUDO)
-# ===================================================================
-
-###
-# @name CriarOrcamento
-# 1. Cria um novo orçamento para uma etapa específica de uma obra.
-# Esta requisição utiliza os IDs capturados nos fluxos anteriores.
+# @name CriarOrcamentoPrincipal
+# 10. Cria um orçamento para a etapa.
 POST {{hostname}}/etapas/{{etapaId}}/orcamentos
 Content-Type: application/json
 Cookie: jwt-token={{token}}
 
 {
-    "numero": "ORC-2025-004",
     "fornecedorId": "{{fornecedorId}}",
     "itens": [
-        {
-            "materialId": "{{materialId}}",
-            "quantidade": 150,
-            "valorUnitario": 55.75
-        },
-        {
-            "materialId": "{{materialId2}}",
-            "quantidade": 80,
-            "valorUnitario": 120.50
-        }
+        { "materialId": "{{materialId}}", "quantidade": 200, "valorUnitario": 55.75 },
+        { "materialId": "{{materialId2}}", "quantidade": 150, "valorUnitario": 120.50 }
     ]
 }
-
 > {%
     client.global.set("orcamentoId", response.body.ID);
 %}
 
 ###
-# @name VerificarDashboardFinanceiro
-# 2. Busca o dashboard da obra novamente.
-# Agora, os campos financeiros (orcamentoTotalAprovado, etc.) devem
-# estar com valores reais, calculados a partir do orçamento que criamos.
-GET {{hostname}}/obras/{{obraId}}
-Cookie: jwt-token={{token}}
-
-###
-# @name AtualizarStatusOrcamento
-# Atualiza o status de um orçamento para 'Aprovado' ou 'Pago'.
-# Use o {{orcamentoId}} capturado na criação.
+# @name AprovarOrcamento
+# 11. Aprova o orçamento criado.
 PATCH {{hostname}}/orcamentos/{{orcamentoId}}
 Content-Type: application/json
+Cookie: jwt-token={{token}}
 
 {
     "status": "Aprovado"
 }
 
 ###
+# @name RegistrarPagamentoFuncionario
+# 12. Registra um pagamento para o funcionário nesta obra.
+POST {{hostname}}/pagamentos
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "funcionarioId": "{{funcionarioId}}",
+    "obraId": "{{obraId}}",
+    "periodoReferencia": "Agosto/2025",
+    "valorCalculado": 7500.00,
+    "contaBancariaId": "b47a0631-9252-421c-9e27-378393589767"
+}
+
+###
+# @name VerificarDashboardCompleto
+# 13. VERIFICAÇÃO FINAL: Busca o dashboard completo.
+# Todos os campos devem estar preenchidos com dados reais.
+GET {{hostname}}/obras/{{obraId}}
+Cookie: jwt-token={{token}}
+
+
 # ===================================================================
-# [FLUXO 7] - TESTANDO EXCLUSÃO LÓGICA (SOFT DELETE)
+# [FLUXO 3] - TESTANDO LISTAGENS
 # ===================================================================
 
-# --- CENÁRIO 1: EXCLUSÃO BEM-SUCEDIDA ---
+###
+# @name ListarTodasAsObras
+GET {{hostname}}/obras
+Cookie: jwt-token={{token}}
+
+###
+# @name ListarTodosOsFuncionarios
+GET {{hostname}}/funcionarios
+Cookie: jwt-token={{token}}
+
+
+# ===================================================================
+# [FLUXO 4] - TESTANDO EXCLUSÃO (DELETE)
+# ===================================================================
 
 ###
 # @name CadastrarFuncionarioParaDeletar
-# 1. Cadastra um novo funcionário especificamente para este teste de exclusão.
-# O ID será capturado na variável 'funcionarioParaDeletarId'.
+# Cria um funcionário que não será alocado.
 POST {{hostname}}/funcionarios
 Content-Type: application/json
+Cookie: jwt-token={{token}}
 
 {
     "nome": "Mariana Costa (a ser deletada)",
@@ -295,31 +255,52 @@ Content-Type: application/json
     "salario": 8000.00,
     "diaria": 70.00
 }
-
 > {%
     client.global.set("funcionarioParaDeletarId", response.body.ID);
 %}
 
-
 ###
 # @name DeletarFuncionarioComSucesso
-# 2. Executa o soft delete no funcionário que acabamos de criar.
-# A resposta esperada é um '204 No Content' (sem corpo).
-DELETE {{hostname}}/funcionarios/{{funcionarioId}}
-
-
-###
-# @name VerificarExclusaoNaLista
-# 3. Lista todos os funcionários novamente.
-# A funcionária "Mariana Costa" não deve mais aparecer na lista,
-# provando que o soft delete e a cláusula 'WHERE deleted_at IS NULL' funcionaram.
-GET {{hostname}}/funcionarios
-
-
-# --- CENÁRIO 2: FALHA NA EXCLUSÃO (REGRA DE NEGÓCIO) ---
+# Tenta deletar a funcionária não alocada (deve funcionar, 204 No Content).
+DELETE {{hostname}}/funcionarios/{{funcionarioParaDeletarId}}
+Cookie: jwt-token={{token}}
 
 ###
 # @name TentarDeletarFuncionarioAlocado
-# 4. Tenta deletar o funcionário principal dos testes, que já foi alocado a uma obra.
-# A resposta esperada é um '409 Conflict' com uma mensagem de erro.
+# Tenta deletar o funcionário principal, que está alocado (deve falhar, 409 Conflict).
 DELETE {{hostname}}/funcionarios/{{funcionarioId}}
+Cookie: jwt-token={{token}}
+
+
+###
+# @name CriarApontamento
+# Cria um novo apontamento para um funcionário em uma obra.
+POST {{hostname}}/apontamentos
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "funcionarioId": "{{funcionarioId}}",
+    "obraId": "{{obraId}}",
+    "periodoInicio": "2025-06-01",
+    "periodoFim": "2025-06-15"
+}
+###
+# @name AprovarApontamento
+# Aprova o apontamento criado acima.
+# A resposta deve mostrar o status: "APROVADO_PARA_PAGAMENTO"
+PATCH {{hostname}}/apontamentos/{{apontamentoId}}/aprovar
+Cookie: jwt-token={{token}}
+
+###
+# @name RegistrarPagamentoApontamento
+# Paga o apontamento previamente aprovado.
+# A resposta deve mostrar o status: "PAGO"
+# E um evento será disparado para o contexto Financeiro.
+PATCH {{hostname}}/apontamentos/{{apontamentoId}}/pagar
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "contaBancariaId": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+}

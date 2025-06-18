@@ -58,25 +58,58 @@ IF NOT EXISTS usuarios
     ativo BOOLEAN NOT NULL DEFAULT TRUE
 );
 
--- file: migrations/000005_create_funcionarios_table.up.sql
-CREATE TABLE
-IF NOT EXISTS funcionarios
-(
+Com certeza. Com os modelos de domínio da V2 definidos, o próximo passo crucial é alinhar nosso banco de dados com essa nova estrutura. Para um sistema em produção, usaríamos arquivos de migração (up/down), mas para manter a simplicidade do nosso ambiente de desenvolvimento, vamos simplesmente atualizar nosso script de inicialização init.sql.
+
+Faremos duas mudanças principais no banco de dados:
+
+Modificar a Tabela funcionarios: Para alinhá-la com a nova struct Funcionario V2, que foca em dados cadastrais.
+Criar a Nova Tabela apontamentos_quinzenais: Para armazenar os novos agregados que contêm os dados de trabalho periódicos. 
+Passo 2: Atualizar o Banco de Dados
+A maneira mais fácil de garantir que o banco de dados reflita nosso novo modelo é atualizar o script que o cria.
+
+Arquivo atualizado: db/init/01-init.sql
+
+Substitua todo o conteúdo do seu arquivo 01-init.sql por esta versão completa e atualizada.
+
+SQL
+
+-- file: db/init/01-init.sql
+
+-- Recria a tabela de funcionários com a nova estrutura V2
+DROP TABLE IF EXISTS funcionarios CASCADE;
+CREATE TABLE IF NOT EXISTS funcionarios (
     id UUID PRIMARY KEY,
-    nome VARCHAR
-(255) NOT NULL,
-    cpf VARCHAR
-(14) NOT NULL UNIQUE, -- Ex: 123.456.789-00
-    cargo VARCHAR
-(100) NOT NULL,
+    nome VARCHAR(255) NOT NULL,
+    cpf VARCHAR(14) NOT NULL UNIQUE,
+    telefone VARCHAR(20),
+    cargo VARCHAR(100) NOT NULL,
+    departamento VARCHAR(100),
     data_contratacao DATE NOT NULL,
-    salario NUMERIC
-(10, 2) NOT NULL,
-    diaria NUMERIC
-(10, 2) NOT NULL,
-    status VARCHAR
-(50) NOT NULL,
- deleted_at TIMESTAMPT DEFAULT NULL
+    valor_diaria NUMERIC(10, 2) NOT NULL,
+    chave_pix VARCHAR(255),
+    status VARCHAR(50) NOT NULL,
+    desligamento_data TIMESTAMPTZ,
+    motivo_desligamento TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Nova tabela para o agregado ApontamentoQuinzenal
+CREATE TABLE IF NOT EXISTS apontamentos_quinzenais (
+    id UUID PRIMARY KEY,
+    funcionario_id UUID NOT NULL REFERENCES funcionarios(id),
+    obra_id UUID NOT NULL REFERENCES obras(id),
+    periodo_inicio DATE NOT NULL,
+    periodo_fim DATE NOT NULL,
+    dias_trabalhados INT NOT NULL DEFAULT 0,
+    adicionais NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+    descontos NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+    adiantamentos NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+    valor_total_calculado NUMERIC(15, 2) NOT NULL DEFAULT 0.00,
+    status VARCHAR(50) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(funcionario_id, periodo_inicio, periodo_fim) -- Garante que não haja apontamentos duplicados para o mesmo período.
 );
 
 CREATE TABLE

@@ -9,8 +9,10 @@ import (
 	"net/http"
 
 	"github.com/luiszkm/masterCostrutora/internal/domain/financeiro"
+	"github.com/luiszkm/masterCostrutora/internal/events"
 	"github.com/luiszkm/masterCostrutora/internal/handler/web"
 	"github.com/luiszkm/masterCostrutora/internal/infrastructure/repository/postgres"
+	"github.com/luiszkm/masterCostrutora/internal/platform/bus"
 	financeiro_service "github.com/luiszkm/masterCostrutora/internal/service/financeiro"
 	"github.com/luiszkm/masterCostrutora/internal/service/financeiro/dto"
 )
@@ -67,4 +69,27 @@ func (h *Handler) HandleRegistrarPagamento(w http.ResponseWriter, r *http.Reques
 	}
 
 	web.Respond(w, r, pagamento, http.StatusCreated)
+}
+func (h *Handler) HandlePagamentoDeApontamentoRealizado(ctx context.Context, evento bus.Evento) {
+	payload, ok := evento.Payload.(events.PagamentoApontamentoRealizadoPayload)
+	if !ok {
+		h.logger.ErrorContext(ctx, "payload de evento de pagamento inválido", "evento", evento.Nome)
+		return
+	}
+
+	h.logger.Info("EVENTO RECEBIDO PELO CONTEXTO FINANCEIRO!", "funcionario_id", payload.FuncionarioID, "valor", payload.ValorCalculado)
+
+	input := dto.RegistrarPagamentoInput{
+		FuncionarioID:     payload.FuncionarioID,
+		ObraID:            payload.ObraID,
+		PeriodoReferencia: payload.PeriodoReferencia,
+		ValorCalculado:    payload.ValorCalculado,
+		ContaBancariaID:   payload.ContaBancariaID,
+	}
+
+	// Chama o próprio serviço para criar o registro de pagamento.
+	if _, err := h.service.RegistrarPagamento(ctx, input); err != nil {
+		h.logger.ErrorContext(ctx, "falha ao processar evento de pagamento", "erro", err)
+		// Aqui entraria a lógica de retentativas e DLQ do ADR-007.
+	}
 }

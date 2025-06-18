@@ -14,14 +14,19 @@ import (
 	"github.com/luiszkm/masterCostrutora/internal/infrastructure/repository/postgres"
 
 	pessoal_service "github.com/luiszkm/masterCostrutora/internal/service/pessoal"
+	"github.com/luiszkm/masterCostrutora/internal/service/pessoal/dto"
 )
 
 type Service interface {
-	CadastrarFuncionario(ctx context.Context, nome, cpf, cargo string, salario, diaria float64) (*pessoal.Funcionario, error)
+	CadastrarFuncionario(ctx context.Context, nome, cpf, cargo, departamento string) (*pessoal.Funcionario, error)
 	DeletarFuncionario(ctx context.Context, id string) error
 	ListarFuncionarios(ctx context.Context) ([]*pessoal.Funcionario, error)
 	AtualizarFuncionario(ctx context.Context, funcionario *pessoal.Funcionario) error // NOVO
 	BuscarPorID(ctx context.Context, id string) (*pessoal.Funcionario, error)
+	CriarApontamento(ctx context.Context, input dto.CriarApontamentoInput) (*pessoal.ApontamentoQuinzenal, error)
+	AprovarApontamento(ctx context.Context, apontamentoID string) (*pessoal.ApontamentoQuinzenal, error)
+	RegistrarPagamentoApontamento(ctx context.Context, apontamentoID string, contaPagamentoID string) (*pessoal.ApontamentoQuinzenal, error) // NOVO
+
 }
 
 type Handler struct {
@@ -34,11 +39,10 @@ func NovoPessoalHandler(s Service, l *slog.Logger) *Handler {
 }
 
 type cadastrarFuncionarioRequest struct {
-	Nome    string  `json:"nome"`
-	CPF     string  `json:"cpf"`
-	Cargo   string  `json:"cargo"`
-	Salario float64 `json:"salario"`
-	Diaria  float64 `json:"diaria"`
+	Nome         string `json:"nome"`
+	CPF          string `json:"cpf"`
+	Cargo        string `json:"cargo"`
+	Departamento string `json:"departamento"` // Adicionando o campo Departamento
 }
 
 func (h *Handler) HandleCadastrarFuncionario(w http.ResponseWriter, r *http.Request) {
@@ -49,7 +53,7 @@ func (h *Handler) HandleCadastrarFuncionario(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	f, err := h.service.CadastrarFuncionario(r.Context(), req.Nome, req.CPF, req.Cargo, req.Salario, req.Diaria)
+	f, err := h.service.CadastrarFuncionario(r.Context(), req.Nome, req.CPF, req.Cargo, req.Departamento)
 	if err != nil {
 		h.logger.ErrorContext(r.Context(), "falha ao cadastrar funcionário", "erro", err)
 		web.RespondError(w, r, "ERRO_CADASTRAR_FUNCIONARIO", "Erro ao cadastrar funcionário", http.StatusInternalServerError)
@@ -103,12 +107,11 @@ func (h *Handler) HandleAtualizarFuncionario(w http.ResponseWriter, r *http.Requ
 	}
 
 	funcionario := &pessoal.Funcionario{
-		ID:      id,
-		Nome:    req.Nome,
-		CPF:     req.CPF,
-		Cargo:   req.Cargo,
-		Salario: req.Salario,
-		Diaria:  req.Diaria,
+		ID:           id,
+		Nome:         req.Nome,
+		CPF:          req.CPF,
+		Cargo:        req.Cargo,
+		Departamento: req.Departamento,
 	}
 
 	if err := h.service.AtualizarFuncionario(r.Context(), funcionario); err != nil {
@@ -138,4 +141,71 @@ func (h *Handler) HandleBuscarFuncionario(w http.ResponseWriter, r *http.Request
 		return
 	}
 	web.Respond(w, r, funcionario, http.StatusOK)
+}
+
+func (h *Handler) HandleCriarApontamento(w http.ResponseWriter, r *http.Request) {
+	var req dto.CriarApontamentoInput // reusando o DTO do serviço por simplicidade
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		web.RespondError(w, r, "PAYLOAD_INVALIDO", err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	apontamento, err := h.service.CriarApontamento(r.Context(), req)
+	if err != nil {
+		// TODO: Tratar erros específicos, como 404
+		h.logger.ErrorContext(r.Context(), "falha ao criar apontamento", "erro", err)
+		web.RespondError(w, r, "ERRO_INTERNO", err.Error(), http.StatusInternalServerError)
+		return
+	}
+	web.Respond(w, r, apontamento, http.StatusCreated)
+}
+func (h *Handler) HandleAprovarApontamento(w http.ResponseWriter, r *http.Request) {
+	apontamentoID := chi.URLParam(r, "apontamentoId")
+	// Não há corpo na requisição, a ação é implícita pelo endpoint.
+
+	apontamento, err := h.service.AprovarApontamento(r.Context(), apontamentoID)
+	if err != nil {
+		// Trata erros específicos, como 404 ou 409 (conflito de regra de negócio)
+		if errors.Is(err, postgres.ErrNaoEncontrado) {
+			web.RespondError(w, r, "APONTAMENTO_NAO_ENCONTRADO", "Apontamento não encontrado", http.StatusNotFound)
+			return
+		}
+		// Se o erro veio da regra de negócio do domínio (ex: tentar aprovar algo já pago)
+		web.RespondError(w, r, "REGRA_NEGOCIO_VIOLADA", err.Error(), http.StatusConflict)
+		return
+	}
+
+	web.Respond(w, r, apontamento, http.StatusOK)
+}
+
+func (h *Handler) HandleRegistrarPagamentoApontamento(w http.ResponseWriter, r *http.Request) {
+	apontamentoID := chi.URLParam(r, "apontamentoId")
+
+	var req registrarPagamentoRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		web.RespondError(w, r, "PAYLOAD_INVALIDO", "Payload inválido", http.StatusBadRequest)
+		return
+	}
+	if req.ContaBancariaID == "" {
+		web.RespondError(w, r, "DADOS_OBRIGATORIOS", "O campo contaBancariaId é obrigatório", http.StatusBadRequest)
+		return
+	}
+
+	apontamento, err := h.service.RegistrarPagamentoApontamento(r.Context(), apontamentoID, req.ContaBancariaID)
+	if err != nil {
+		if errors.Is(err, postgres.ErrNaoEncontrado) {
+			web.RespondError(w, r, "APONTAMENTO_NAO_ENCONTRADO", "Apontamento não encontrado", http.StatusNotFound)
+			return
+		}
+		// Trata o erro de regra de negócio vindo do método .RegistrarPagamento() do agregado.
+		if errors.Is(err, pessoal_service.ErrFuncionarioAlocado) || err.Error() == "só é possível pagar um apontamento que está 'Aprovado para Pagamento'" {
+			web.RespondError(w, r, "REGRA_NEGOCIO_VIOLADA", err.Error(), http.StatusConflict) // 409 Conflict
+			return
+		}
+		h.logger.ErrorContext(r.Context(), "falha ao registrar pagamento de apontamento", "erro", err)
+		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao registrar pagamento", http.StatusInternalServerError)
+		return
+	}
+
+	web.Respond(w, r, apontamento, http.StatusOK)
 }

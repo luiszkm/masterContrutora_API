@@ -4,14 +4,18 @@ package authz
 // Permissoes define todas as permissões granulares possíveis no sistema.
 // Usamos constantes para evitar erros de digitação e para ter autocompletar na IDE.
 const (
-	PermissaoObrasLer            = "obras:ler"
-	PermissaoObrasEscrever       = "obras:escrever"
-	PermissaoPessoalEscrever     = "pessoal:escrever"
-	PermissaoPessoalLer          = "pessoal:ler"
-	PermissaoSuprimentosLer      = "suprimentos:ler"
-	PermissaoSuprimentosEscrever = "suprimentos:escrever"
-	PermissaoFinanceiroLer       = "financeiro:ler"
-	PermissaoFinanceiroEscrever  = "financeiro:escrever"
+	PermissaoObrasLer                   = "obras:ler"
+	PermissaoObrasEscrever              = "obras:escrever"
+	PermissaoPessoalEscrever            = "pessoal:escrever"
+	PermissaoPessoalLer                 = "pessoal:ler"
+	PermissaoSuprimentosLer             = "suprimentos:ler"
+	PermissaoSuprimentosEscrever        = "suprimentos:escrever"
+	PermissaoFinanceiroLer              = "financeiro:ler"
+	PermissaoFinanceiroEscrever         = "financeiro:escrever"
+	PermissaoPessoalApontamentoEscrever = "pessoal:apontamento:escrever"
+	PermissaoPessoalApontamentoLer      = "pessoal:apontamento:ler"
+	PermissaoPessoalApontamentoAprovar  = "pessoal:apontamento:aprovar"
+	PermissaoPessoalApontamentoPagar    = "pessoal:apontamento:pagar"
 )
 
 // Papel define um nome de papel/função para um conjunto de permissões.
@@ -34,12 +38,16 @@ var mapaDePapeis = map[Papel][]string{
 		PermissaoSuprimentosEscrever,
 		PermissaoFinanceiroLer,
 		PermissaoFinanceiroEscrever,
+		PermissaoPessoalApontamentoEscrever,
+		PermissaoPessoalApontamentoAprovar,
+		PermissaoPessoalApontamentoPagar,
 	},
 	PapelVisualizador: {
 		PermissaoObrasLer,
 		PermissaoPessoalLer,
 		PermissaoSuprimentosLer,
 		PermissaoFinanceiroLer,
+		PermissaoPessoalApontamentoLer,
 	},
 	// O PapelAdmin é especial e terá todas as permissões.
 }

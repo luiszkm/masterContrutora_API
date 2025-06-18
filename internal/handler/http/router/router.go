@@ -61,7 +61,15 @@ func New(c Config) *chi.Mux {
 		// --- Recursos de Materiais ---
 		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).Post("/materiais", c.SuprimentosHandler.HandleCadastrarMaterial)
 		r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).Get("/materiais", c.SuprimentosHandler.HandleListarMateriais)
-
+		// Apontamentos são um recurso de Pessoal
+		r.With(auth.Authorize(authz.PermissaoPessoalApontamentoEscrever)).
+			Post("/apontamentos", c.PessoalHandler.HandleCriarApontamento)
+		r.Route("/apontamentos/{apontamentoId}", func(r chi.Router) {
+			r.With(auth.Authorize(authz.PermissaoPessoalApontamentoAprovar)).
+				Patch("/aprovar", c.PessoalHandler.HandleAprovarApontamento)
+		})
+		r.With(auth.Authorize(authz.PermissaoPessoalApontamentoPagar)).
+			Patch("/pagar", c.PessoalHandler.HandleRegistrarPagamentoApontamento)
 		// --- Recursos de Obras ---
 		r.Route("/obras", func(r chi.Router) {
 			r.With(auth.Authorize(authz.PermissaoObrasLer)).Get("/", c.ObrasHandler.HandleListarObras)

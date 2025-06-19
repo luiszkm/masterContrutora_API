@@ -27,3 +27,11 @@ type OrcamentoRepository interface {
 	ListarTodos(ctx context.Context) ([]*Orcamento, error)
 	Atualizar(ctx context.Context, orcamento *Orcamento) error // NOVO
 }
+
+type CategoriaRepository interface {
+	Salvar(ctx context.Context, categoria *Categoria) error
+	BuscarPorID(ctx context.Context, id string) (*Categoria, error)
+	ListarTodas(ctx context.Context) ([]*Categoria, error)
+	Atualizar(ctx context.Context, categoria *Categoria) error
+	Deletar(ctx context.Context, id string) error
+}

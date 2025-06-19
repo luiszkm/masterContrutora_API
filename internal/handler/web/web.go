@@ -4,6 +4,9 @@ package web
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
+
+	"github.com/luiszkm/masterCostrutora/internal/domain/common"
 )
 
 // ErrorResponse é a estrutura padronizada para erros da API, conforme a documentação.
@@ -11,6 +14,12 @@ type ErrorResponse struct {
 	Codigo   string `json:"codigo"`
 	Mensagem string `json:"mensagem"`
 }
+
+const (
+	defaultPage     = 1
+	defaultPageSize = 20
+	maxPageSize     = 100
+)
 
 // Respond converte um payload Go para JSON e o escreve na resposta HTTP.
 // Esta função centraliza a lógica de resposta de sucesso.
@@ -48,4 +57,32 @@ type PaginacaoInfo struct {
 type RespostaPaginada[T any] struct {
 	Dados     []T           `json:"dados"`
 	Paginacao PaginacaoInfo `json:"paginacao"`
+}
+
+func ParseFiltros(r *http.Request) common.ListarFiltros {
+	q := r.URL.Query()
+
+	// Parse do status (simples, pois é uma string)
+	status := q.Get("status")
+
+	// Parse da página com valor padrão
+	pagina, err := strconv.Atoi(q.Get("page"))
+	if err != nil || pagina < 1 {
+		pagina = defaultPage
+	}
+
+	// Parse do tamanho da página com valor padrão e limite máximo
+	tamanhoPagina, err := strconv.Atoi(q.Get("pageSize"))
+	if err != nil || tamanhoPagina < 1 {
+		tamanhoPagina = defaultPageSize
+	}
+	if tamanhoPagina > maxPageSize {
+		tamanhoPagina = maxPageSize
+	}
+
+	return common.ListarFiltros{
+		Status:        status,
+		Pagina:        pagina,
+		TamanhoPagina: tamanhoPagina,
+	}
 }

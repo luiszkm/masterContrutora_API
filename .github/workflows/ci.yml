@@ -1,0 +1,57 @@
+# file: .github/workflows/ci.yml
+
+# Nome do nosso workflow, que aparecerá na aba "Actions" do GitHub.
+name: Pipeline de Integração Contínua de Go
+
+# Define os gatilhos: este workflow rodará em cada push e pull request.
+on: [push, pull_request]
+
+jobs:
+  build-and-test:
+    # O trabalho rodará em uma máquina virtual Linux (Ubuntu) fornecida pelo GitHub.
+    runs-on: ubuntu-latest
+
+    # 'services' inicia contêineres que ficam disponíveis para os passos do job.
+    # Aqui, iniciamos um banco de dados PostgreSQL para os nossos testes de integração.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        # Define as variáveis de ambiente para o contêiner do banco.
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: mastercostrutora_db
+        # Opções para garantir que o banco esteja pronto antes dos testes começarem.
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432 # Mapeia a porta para que os passos do job possam se conectar
+
+    steps:
+      # Passo 1: Clona o código do seu repositório para a máquina virtual.
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      # Passo 2: Configura o ambiente Go na versão desejada.
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      # Passo 3: (Opcional, mas recomendado) Roda um Linter para verificar a qualidade do código.
+      - name: Rodar Linter
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.58
+
+      # Passo 4: Roda a suíte de testes completa.
+      - name: Rodar Testes
+        # Define as variáveis de ambiente necessárias para o comando de teste.
+        # Note que o host do banco é 'localhost' porque mapeamos a porta no 'services'.
+        env:
+          DATABASE_URL: "postgres://user:password@localhost:5432/mastercostrutora_db?sslmode=disable"
+          JWT_SECRET_KEY: "uma-chave-secreta-para-testes"
+        run: go test -v -race ./...

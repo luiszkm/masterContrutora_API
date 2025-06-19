@@ -15,6 +15,11 @@ import (
 	"github.com/luiszkm/masterCostrutora/internal/service/suprimentos/dto"
 )
 
+var (
+	ErrCategoriaExistente = fmt.Errorf("categoria já existe")
+	ErrFornecedorInativo  = fmt.Errorf("fornecedor está inativo")
+)
+
 type EventPublisher interface {
 	Publicar(ctx context.Context, evento bus.Evento)
 }
@@ -32,6 +37,7 @@ type Service struct {
 	fornecedorRepo   suprimentos.FornecedorRepository
 	materialRepo     suprimentos.MaterialRepository
 	orcamentoRepo    suprimentos.OrcamentoRepository
+	categoriaRepo    suprimentos.CategoriaRepository
 	etapaFinder      EtapaFinder
 	fornecedorFinder FornecedorFinder
 	materialFinder   MaterialFinder
@@ -43,6 +49,7 @@ func NovoServico(
 	fRepo suprimentos.FornecedorRepository,
 	mRepo suprimentos.MaterialRepository,
 	oRepo suprimentos.OrcamentoRepository,
+	catRepo suprimentos.CategoriaRepository,
 	eFinder EtapaFinder,
 	fFinder FornecedorFinder,
 	mFinder MaterialFinder,
@@ -53,6 +60,7 @@ func NovoServico(
 		fornecedorRepo:   fRepo,
 		materialRepo:     mRepo,
 		orcamentoRepo:    oRepo,
+		categoriaRepo:    catRepo,
 		etapaFinder:      eFinder,
 		fornecedorFinder: fFinder,
 		materialFinder:   mFinder,
@@ -235,4 +243,20 @@ func (s *Service) AtualizarStatusOrcamento(ctx context.Context, orcamentoID stri
 
 	s.logger.InfoContext(ctx, "status do orçamento atualizado e evento publicado", "orcamento_id", orcamentoID)
 	return orcamento, nil
+}
+
+func (s *Service) CriarCategoria(ctx context.Context, nome string) (*suprimentos.Categoria, error) {
+	// TODO: Validar se já existe uma categoria com este nome para evitar erro do banco.
+	novaCategoria := &suprimentos.Categoria{
+		ID:   uuid.NewString(),
+		Nome: nome,
+	}
+	if err := s.categoriaRepo.Salvar(ctx, novaCategoria); err != nil {
+		return nil, fmt.Errorf("falha ao salvar categoria: %w", err)
+	}
+	return novaCategoria, nil
+}
+
+func (s *Service) ListarCategorias(ctx context.Context) ([]*suprimentos.Categoria, error) {
+	return s.categoriaRepo.ListarTodas(ctx)
 }

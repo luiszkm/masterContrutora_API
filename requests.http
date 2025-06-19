@@ -3,14 +3,14 @@
 # Estas variáveis serão preenchidas dinamicamente ao executar as requisições em ordem.
 @hostname = http://localhost:8080
 @token =
-@obraId =
+@obraId =36f19cc1-ca69-487e-9910-d5cf6130d882
 @etapaId =
-@funcionarioId =2710c033-a566-4451-a66e-6b90b338aed8
+@funcionarioId =e7fa2f4d-e689-4f30-9ccb-f75c86a49caa
 @funcionarioParaDeletarId =
 @fornecedorId =
 @materialId =
 @materialId2 =
-@orcamentoId =
+@orcamentoId =d3e78e40-5449-432b-b582-0f2ed636ff3c
 @apontamentoId =  # Será preenchido após a criação do apontamento
 
 
@@ -337,3 +337,15 @@ Cookie: jwt-token={{token}}
 {
     "contaBancariaId": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
 }
+
+###
+# @name ListarTodosApontamentos
+# Lista todos os apontamentos do sistema, com paginação.
+GET {{hostname}}/apontamentos?page=1&pageSize=10
+Cookie: jwt-token={{token}}
+
+###
+# @name ListarApontamentosDeUmFuncionario
+# Lista os apontamentos apenas do funcionário principal dos nossos testes.
+GET {{hostname}}/funcionarios/{{funcionarioId}}/apontamentos?status=PAGO
+Cookie: jwt-token={{token}}

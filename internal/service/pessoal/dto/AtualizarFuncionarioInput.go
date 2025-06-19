@@ -14,5 +14,4 @@ type AtualizarFuncionarioInput struct {
 	DesligamentoData    *string  `json:"desligamentoData,omitempty"`
 	Observacoes         *string  `json:"observacoes,omitempty"`
 	AvaliacaoDesempenho *string  `json:"avaliacaoDesempenho,omitempty"`
-	Diaria              *float64 `json:"diaria,omitempty"` // Adicionando o campo Diaria
 }

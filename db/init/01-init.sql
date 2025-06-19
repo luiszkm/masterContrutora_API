@@ -130,7 +130,10 @@ CREATE TABLE IF NOT EXISTS registros_pagamento (
     data_de_efetivacao TIMESTAMPTZ NOT NULL,
     conta_bancaria_id UUID NOT NULL
 );
-
+CREATE TABLE IF NOT EXISTS categorias (
+    id UUID PRIMARY KEY,
+    nome VARCHAR(100) NOT NULL UNIQUE
+);
 -- Adiciona índices para otimizar as buscas (JOINs).
 CREATE INDEX IF NOT EXISTS idx_etapas_obra_id ON etapas(obra_id);
 CREATE INDEX IF NOT EXISTS idx_orcamentos_etapa_id ON orcamentos(etapa_id);

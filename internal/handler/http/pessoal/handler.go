@@ -9,25 +9,27 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"github.com/luiszkm/masterCostrutora/internal/domain/common"
 	"github.com/luiszkm/masterCostrutora/internal/domain/pessoal"
 	"github.com/luiszkm/masterCostrutora/internal/handler/web"
 	"github.com/luiszkm/masterCostrutora/internal/infrastructure/repository/postgres"
 
 	pessoal_service "github.com/luiszkm/masterCostrutora/internal/service/pessoal"
 	"github.com/luiszkm/masterCostrutora/internal/service/pessoal/dto"
-	pessoal_dto "github.com/luiszkm/masterCostrutora/internal/service/pessoal/dto"
 )
 
 type Service interface {
 	CadastrarFuncionario(ctx context.Context, nome, cpf, cargo, departamento string, diaria float64) (*pessoal.Funcionario, error)
 	DeletarFuncionario(ctx context.Context, id string) error
 	ListarFuncionarios(ctx context.Context) ([]*pessoal.Funcionario, error)
-	AtualizarFuncionario(ctx context.Context, id string, input dto.AtualizarFuncionarioInput) error // NOVO
+	AtualizarFuncionario(ctx context.Context, id string, input dto.AtualizarFuncionarioInput) (*pessoal.Funcionario, error)
 	BuscarPorID(ctx context.Context, id string) (*pessoal.Funcionario, error)
 	CriarApontamento(ctx context.Context, input dto.CriarApontamentoInput) (*pessoal.ApontamentoQuinzenal, error)
 	AprovarApontamento(ctx context.Context, apontamentoID string) (*pessoal.ApontamentoQuinzenal, error)
 	RegistrarPagamentoApontamento(ctx context.Context, apontamentoID string, contaPagamentoID string) (*pessoal.ApontamentoQuinzenal, error) // NOVO
-
+	ListarApontamentos(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*pessoal.ApontamentoQuinzenal], error)
+	ListarApontamentosPorFuncionario(ctx context.Context, funcionarioID string, filtros common.ListarFiltros) (*common.RespostaPaginada[*pessoal.ApontamentoQuinzenal], error)
 }
 
 type Handler struct {
@@ -92,40 +94,43 @@ func (h *Handler) HandleListarFuncionarios(w http.ResponseWriter, r *http.Reques
 
 func (h *Handler) HandleAtualizarFuncionario(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	if _, err := uuid.Parse(id); err != nil {
+		web.RespondError(w, r, "ID_INVALIDO", "O ID do funcionário não é um UUID válido", http.StatusBadRequest)
+		return
+	}
 
 	var req atualizarFuncionarioRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.logger.ErrorContext(r.Context(), "falha ao decodificar payload", "erro", err)
 		web.RespondError(w, r, "PAYLOAD_INVALIDO", "Payload inválido", http.StatusBadRequest)
 		return
 	}
-	input := pessoal_dto.AtualizarFuncionarioInput{
-		Nome:                req.Nome,
-		CPF:                 req.CPF,
-		Cargo:               req.Cargo,
-		Departamento:        req.Departamento,
-		ValorDiaria:         req.Diaria,
-		ChavePix:            req.ChavePix,
-		Status:              req.Status,
-		Telefone:            req.Telefone,
-		MotivoDesligamento:  req.MotivoDesligamento,
-		DataContratacao:     req.DataContratacao,
-		DesligamentoData:    req.DesligamentoData,
-		Observacoes:         req.Observacoes,
-		AvaliacaoDesempenho: req.AvaliacaoDesempenho,
+
+	// Mapeia o request do handler para o DTO do serviço.
+	input := dto.AtualizarFuncionarioInput{
+		Nome:               req.Nome,
+		CPF:                req.CPF,
+		Telefone:           req.Telefone,
+		Cargo:              req.Cargo,
+		Departamento:       req.Departamento,
+		ValorDiaria:        req.ValorDiaria,
+		ChavePix:           req.ChavePix,
+		Status:             req.Status,
+		DesligamentoData:   req.DesligamentoData,
+		MotivoDesligamento: req.MotivoDesligamento,
 	}
 
-	if err := h.service.AtualizarFuncionario(r.Context(), id, input); err != nil {
+	funcionario, err := h.service.AtualizarFuncionario(r.Context(), id, input)
+	if err != nil {
 		if errors.Is(err, postgres.ErrNaoEncontrado) {
 			web.RespondError(w, r, "FUNCIONARIO_NAO_ENCONTRADO", "Funcionário não encontrado", http.StatusNotFound)
 			return
 		}
 		h.logger.ErrorContext(r.Context(), "falha ao atualizar funcionário", "erro", err)
-		web.RespondError(w, r, "ERRO_ATUALIZAR_FUNCIONARIO", "Erro ao atualizar funcionário", http.StatusInternalServerError)
+		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao atualizar funcionário", http.StatusInternalServerError)
 		return
 	}
-
-	w.WriteHeader(http.StatusNoContent)
+	// Retorna o objeto completo atualizado.
+	web.Respond(w, r, funcionario, http.StatusOK)
 }
 
 func (h *Handler) HandleBuscarFuncionario(w http.ResponseWriter, r *http.Request) {
@@ -209,4 +214,27 @@ func (h *Handler) HandleRegistrarPagamentoApontamento(w http.ResponseWriter, r *
 	}
 
 	web.Respond(w, r, apontamento, http.StatusOK)
+}
+
+func (h *Handler) HandleListarApontamentos(w http.ResponseWriter, r *http.Request) {
+	// Lógica para extrair filtros da URL (status, page, pageSize)
+	filtros := web.ParseFiltros(r) // Reutilizando a função de parsing de filtros
+
+	resposta, err := h.service.ListarApontamentos(r.Context(), filtros)
+	if err != nil { /* ... tratamento de erro */
+	}
+
+	web.Respond(w, r, resposta, http.StatusOK)
+}
+
+func (h *Handler) HandleListarApontamentosPorFuncionario(w http.ResponseWriter, r *http.Request) {
+	funcionarioID := chi.URLParam(r, "funcionarioId")
+	// Lógica para extrair filtros da URL
+	filtros := web.ParseFiltros(r) // Reutilizando a função de parsing de filtros
+
+	resposta, err := h.service.ListarApontamentosPorFuncionario(r.Context(), funcionarioID, filtros)
+	if err != nil { /* ... tratamento de erro */
+	}
+
+	web.Respond(w, r, resposta, http.StatusOK)
 }

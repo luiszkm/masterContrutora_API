@@ -7,7 +7,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -167,24 +166,25 @@ func (h *Handler) HandleAlocarFuncionario(w http.ResponseWriter, r *http.Request
 }
 
 func (h *Handler) HandleListarObras(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query()
-	status := q.Get("status")
+	// q := r.URL.Query()
+	// status := q.Get("status")
 
-	pagina, err := strconv.Atoi(q.Get("page"))
-	if err != nil || pagina < 1 {
-		pagina = 1
-	}
+	// pagina, err := strconv.Atoi(q.Get("page"))
+	// if err != nil || pagina < 1 {
+	// 	pagina = 1
+	// }
 
-	tamanhoPagina, err := strconv.Atoi(q.Get("pageSize"))
-	if err != nil || tamanhoPagina < 1 || tamanhoPagina > 100 {
-		tamanhoPagina = 20
-	}
+	// tamanhoPagina, err := strconv.Atoi(q.Get("pageSize"))
+	// if err != nil || tamanhoPagina < 1 || tamanhoPagina > 100 {
+	// 	tamanhoPagina = 20
+	// }
 
-	filtros := common.ListarFiltros{
-		Status:        status,
-		Pagina:        pagina,
-		TamanhoPagina: tamanhoPagina,
-	}
+	// filtros := common.ListarFiltros{
+	// 	Status:        status,
+	// 	Pagina:        pagina,
+	// 	TamanhoPagina: tamanhoPagina,
+	// }
+	filtros := web.ParseFiltros(r)
 
 	resposta, err := h.service.ListarObras(r.Context(), filtros)
 	if err != nil {

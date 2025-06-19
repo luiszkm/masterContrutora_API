@@ -52,6 +52,10 @@ func New(c Config) *chi.Mux {
 		r.With(auth.Authorize(authz.PermissaoPessoalLer)).Get("/funcionarios", c.PessoalHandler.HandleListarFuncionarios)
 		r.With(auth.Authorize(authz.PermissaoPessoalEscrever)).Put("/funcionarios/{id}", c.PessoalHandler.HandleAtualizarFuncionario)
 		r.With(auth.Authorize(authz.PermissaoPessoalLer)).Get("/funcionarios/{id}", c.PessoalHandler.HandleBuscarFuncionario)
+		r.Route("/funcionarios/{funcionarioId}", func(r chi.Router) {
+			r.With(auth.Authorize(authz.PermissaoPessoalApontamentoLer)).
+				Get("/apontamentos", c.PessoalHandler.HandleListarApontamentosPorFuncionario)
+		})
 		// --- Recursos de Suprimentos ---
 		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).Post("/fornecedores", c.SuprimentosHandler.HandleCadastrarFornecedor)
 		r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).Get("/fornecedores", c.SuprimentosHandler.HandleListarFornecedores)
@@ -68,6 +72,8 @@ func New(c Config) *chi.Mux {
 			r.With(auth.Authorize(authz.PermissaoPessoalApontamentoAprovar)).
 				Patch("/aprovar", c.PessoalHandler.HandleAprovarApontamento)
 		})
+		r.With(auth.Authorize(authz.PermissaoPessoalApontamentoLer)).
+			Get("/apontamentos", c.PessoalHandler.HandleListarApontamentos)
 		r.With(auth.Authorize(authz.PermissaoPessoalApontamentoPagar)).
 			Patch("/pagar", c.PessoalHandler.HandleRegistrarPagamentoApontamento)
 		// --- Recursos de Obras ---

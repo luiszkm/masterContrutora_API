@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/luiszkm/masterCostrutora/internal/domain/common"
 	"github.com/luiszkm/masterCostrutora/internal/domain/pessoal"
 )
 
@@ -86,4 +88,77 @@ func (r *ApontamentoRepositoryPostgres) Atualizar(ctx context.Context, a *pessoa
 		return ErrNaoEncontrado
 	}
 	return nil
+}
+
+func (r *ApontamentoRepositoryPostgres) Listar(ctx context.Context, filtros common.ListarFiltros) ([]*pessoal.ApontamentoQuinzenal, *common.PaginacaoInfo, error) {
+	// A query base para buscar todos os apontamentos
+	baseQuery := "FROM apontamentos_quinzenais"
+	// Para os filtros, passamos um mapa que será preenchido
+	filterArgs := make(map[string]interface{})
+	if filtros.Status != "" {
+		filterArgs["status"] = filtros.Status
+	}
+
+	return r.listarComFiltros(ctx, baseQuery, filterArgs, filtros)
+}
+
+func (r *ApontamentoRepositoryPostgres) ListarPorFuncionarioID(ctx context.Context, funcionarioID string, filtros common.ListarFiltros) ([]*pessoal.ApontamentoQuinzenal, *common.PaginacaoInfo, error) {
+	// A query base agora filtra por funcionário
+	baseQuery := "FROM apontamentos_quinzenais WHERE funcionario_id = @funcionarioID"
+	filterArgs := map[string]interface{}{"funcionarioID": funcionarioID}
+	if filtros.Status != "" {
+		filterArgs["status"] = filtros.Status
+	}
+
+	return r.listarComFiltros(ctx, baseQuery, filterArgs, filtros)
+}
+
+// listarComFiltros é uma função helper interna para não duplicar a lógica de paginação.
+func (r *ApontamentoRepositoryPostgres) listarComFiltros(ctx context.Context, baseQuery string, filterArgs map[string]interface{}, filtros common.ListarFiltros) ([]*pessoal.ApontamentoQuinzenal, *common.PaginacaoInfo, error) {
+	const op = "repository.postgres.apontamento.listarComFiltros"
+
+	args := pgx.NamedArgs(filterArgs)
+
+	countQueryBuilder := strings.Builder{}
+	countQueryBuilder.WriteString("SELECT COUNT(*) ")
+	countQueryBuilder.WriteString(baseQuery)
+
+	queryBuilder := strings.Builder{}
+	queryBuilder.WriteString("SELECT id, funcionario_id, obra_id, periodo_inicio, periodo_fim, dias_trabalhados, adicionais, descontos, adiantamentos, valor_total_calculado, status, created_at, updated_at ")
+	queryBuilder.WriteString(baseQuery)
+
+	if status, ok := filterArgs["status"]; ok {
+		countQueryBuilder.WriteString(" AND status = @status")
+		queryBuilder.WriteString(" AND status = @status")
+		args["status"] = status
+	}
+
+	var totalItens int
+	err := r.db.QueryRow(ctx, countQueryBuilder.String(), args).Scan(&totalItens)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s: falha ao contar apontamentos: %w", op, err)
+	}
+
+	paginacao := common.NewPaginacaoInfo(totalItens, filtros.Pagina, filtros.TamanhoPagina)
+	if totalItens == 0 {
+		return []*pessoal.ApontamentoQuinzenal{}, paginacao, nil
+	}
+
+	offset := (filtros.Pagina - 1) * filtros.TamanhoPagina
+	queryBuilder.WriteString(" ORDER BY periodo_inicio DESC, created_at DESC LIMIT @limit OFFSET @offset")
+	args["limit"] = filtros.TamanhoPagina
+	args["offset"] = offset
+
+	rows, err := r.db.Query(ctx, queryBuilder.String(), args)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s: %w", op, err)
+	}
+	defer rows.Close()
+
+	apontamentos, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByPos[pessoal.ApontamentoQuinzenal])
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s: falha ao escanear apontamentos: %w", op, err)
+	}
+
+	return apontamentos, paginacao, nil
 }

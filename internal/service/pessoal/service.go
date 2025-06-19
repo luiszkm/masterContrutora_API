@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/luiszkm/masterCostrutora/internal/domain/common"
 	"github.com/luiszkm/masterCostrutora/internal/domain/obras"
 	"github.com/luiszkm/masterCostrutora/internal/domain/pessoal"
 	"github.com/luiszkm/masterCostrutora/internal/events"
@@ -100,22 +101,24 @@ func (s *Service) ListarFuncionarios(ctx context.Context) ([]*pessoal.Funcionari
 	return funcionarios, nil
 }
 
-func (s *Service) AtualizarFuncionario(ctx context.Context, id string, input dto.AtualizarFuncionarioInput) error {
+func (s *Service) AtualizarFuncionario(ctx context.Context, id string, input dto.AtualizarFuncionarioInput) (*pessoal.Funcionario, error) {
 	const op = "service.pessoal.AtualizarFuncionario"
 
-	// Passo 1: Buscar o funcionário que já existe no banco.
+	// 1. Busca o funcionário existente para garantir que ele existe.
 	funcionario, err := s.repo.BuscarPorID(ctx, id)
 	if err != nil {
-		return fmt.Errorf("%s: erro ao buscar funcionário: %w", op, err)
+		return nil, fmt.Errorf("%s: erro ao buscar funcionário para atualização: %w", op, err)
 	}
 
-	// Passo 2: Modificar apenas os campos que foram realmente enviados na requisição.
-	// Para isso, verificamos se os ponteiros no DTO não são nulos.
+	// 2. Atualiza apenas os campos que foram fornecidos (não são nulos).
 	if input.Nome != nil {
 		funcionario.Nome = *input.Nome
 	}
 	if input.CPF != nil {
 		funcionario.CPF = *input.CPF
+	}
+	if input.Telefone != nil {
+		funcionario.Telefone = *input.Telefone
 	}
 	if input.Cargo != nil {
 		funcionario.Cargo = *input.Cargo
@@ -126,27 +129,36 @@ func (s *Service) AtualizarFuncionario(ctx context.Context, id string, input dto
 	if input.ValorDiaria != nil {
 		funcionario.ValorDiaria = *input.ValorDiaria
 	}
-	// ... e assim por diante para todos os outros campos da sua struct de input ...
-	// Exemplo para um campo de data que é string no DTO:
+	if input.ChavePix != nil {
+		funcionario.ChavePix = *input.ChavePix
+	}
+	if input.Status != nil {
+		funcionario.Status = *input.Status
+	}
+	if input.MotivoDesligamento != nil {
+		funcionario.MotivoDesligamento = *input.MotivoDesligamento
+	}
 	if input.DesligamentoData != nil {
 		if *input.DesligamentoData == "" {
 			funcionario.DesligamentoData = nil // Permite limpar a data
 		} else {
-			parsedTime, err := time.Parse(time.RFC3339, *input.DesligamentoData) // ou "2006-01-02"
+			data, err := time.Parse("2006-01-02", *input.DesligamentoData)
 			if err != nil {
-				return fmt.Errorf("%s: data de desligamento inválida: %w", op, err)
+				return nil, fmt.Errorf("%s: formato de data de desligamento inválido: %w", op, err)
 			}
-			funcionario.DesligamentoData = &parsedTime
+			funcionario.DesligamentoData = &data
 		}
 	}
 
-	// Passo 3: Salvar a entidade completamente modificada de volta no banco.
+	funcionario.UpdatedAt = time.Now()
+
+	// 3. Persiste o objeto funcionário completo e atualizado.
 	if err := s.repo.Atualizar(ctx, funcionario); err != nil {
-		return fmt.Errorf("%s: %w", op, err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	s.logger.InfoContext(ctx, "funcionário atualizado com sucesso", "funcionario_id", funcionario.ID)
-	return nil
+	s.logger.InfoContext(ctx, "funcionário atualizado com sucesso", "funcionario_id", id)
+	return funcionario, nil
 }
 
 func (s *Service) BuscarPorID(ctx context.Context, id string) (*pessoal.Funcionario, error) {
@@ -256,4 +268,20 @@ func (s *Service) RegistrarPagamentoApontamento(ctx context.Context, apontamento
 
 	s.logger.InfoContext(ctx, "pagamento de apontamento registrado e evento publicado", "apontamento_id", apontamentoID)
 	return apontamento, nil
+}
+
+func (s *Service) ListarApontamentos(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*pessoal.ApontamentoQuinzenal], error) {
+	apontamentos, paginacao, err := s.apontamentoRepo.Listar(ctx, filtros)
+	if err != nil {
+		return nil, err
+	}
+	return &common.RespostaPaginada[*pessoal.ApontamentoQuinzenal]{Dados: apontamentos, Paginacao: *paginacao}, nil
+}
+
+func (s *Service) ListarApontamentosPorFuncionario(ctx context.Context, funcionarioID string, filtros common.ListarFiltros) (*common.RespostaPaginada[*pessoal.ApontamentoQuinzenal], error) {
+	apontamentos, paginacao, err := s.apontamentoRepo.ListarPorFuncionarioID(ctx, funcionarioID, filtros)
+	if err != nil {
+		return nil, err
+	}
+	return &common.RespostaPaginada[*pessoal.ApontamentoQuinzenal]{Dados: apontamentos, Paginacao: *paginacao}, nil
 }

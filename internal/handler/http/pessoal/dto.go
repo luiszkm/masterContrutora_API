@@ -10,6 +10,9 @@ type cadastrarFuncionarioRequest struct {
 	Cargo        string  `json:"cargo"`
 	Departamento string  `json:"departamento"` // Adicionando o campo Departamento
 	Diaria       float64 `json:"diaria"`       // Adicionando o campo Diaria
+	ChavePix     string  `json:"chavePix"`
+	Observacoes  string  `json:"observacoes"`
+	Telefone     string  `json:"telefone"`
 }
 type atualizarFuncionarioRequest struct {
 	Nome                *string  `json:"nome,omitempty"`

@@ -6,14 +6,16 @@ import (
 )
 
 type Orcamento struct {
-	ID           string
-	Numero       string // Um número de identificação amigável, ex: "ORC-2025-001"
-	EtapaID      string
-	FornecedorID string
-	Itens        []ItemOrcamento
-	ValorTotal   float64
-	Status       string // Ex: "Em Aberto", "Aprovado", "Rejeitado", "Pago"
-	DataEmissao  time.Time
+	ID                 string
+	Numero             string // Um número de identificação amigável, ex: "ORC-2025-001"
+	EtapaID            string
+	FornecedorID       string
+	Itens              []ItemOrcamento
+	ValorTotal         float64
+	Status             string // Ex: "Em Aberto", "Aprovado", "Rejeitado", "Pago"
+	DataEmissao        time.Time
+	CondicoesPagamento string // Ex: "30 dias", "À vista", etc.
+	Observacoes        string // Observações adicionais sobre o orçamento
 }
 
 type ItemOrcamento struct {

@@ -13,6 +13,7 @@ type FuncionarioRepository interface {
 	Deletar(ctx context.Context, id string) error // NOVO
 	Listar(ctx context.Context) ([]*Funcionario, error)
 	Atualizar(ctx context.Context, funcionario *Funcionario) error // NOVO
+
 }
 
 type ApontamentoRepository interface {

@@ -20,6 +20,7 @@ type ApontamentoQuinzenal struct {
 	ObraID              string
 	PeriodoInicio       time.Time
 	PeriodoFim          time.Time
+	Diaria              float64 // Valor da diária
 	DiasTrabalhados     int
 	Adicionais          float64
 	Descontos           float64

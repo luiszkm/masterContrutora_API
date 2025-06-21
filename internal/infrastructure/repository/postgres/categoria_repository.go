@@ -22,6 +22,11 @@ type CategoriaRepositoryPostgres struct {
 	logger *slog.Logger
 }
 
+// ListarTodas implements suprimentos.CategoriaRepository.
+func (r *CategoriaRepositoryPostgres) ListarTodas(ctx context.Context) ([]*suprimentos.Categoria, error) {
+	panic("unimplemented")
+}
+
 // NovoCategoriaRepository é o construtor para o repositório de categorias.
 func NovoCategoriaRepository(db *pgxpool.Pool, logger *slog.Logger) *CategoriaRepositoryPostgres {
 	return &CategoriaRepositoryPostgres{db: db, logger: logger}

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log"
 	"log/slog"
 	"net/http"
 
@@ -20,7 +21,7 @@ import (
 )
 
 type Service interface {
-	CadastrarFuncionario(ctx context.Context, nome, cpf, cargo, departamento string, diaria float64) (*pessoal.Funcionario, error)
+	CadastrarFuncionario(ctx context.Context, nome, cpf, cargo, departamento, telefone, chavePix string, diaria float64) (*pessoal.Funcionario, error)
 	DeletarFuncionario(ctx context.Context, id string) error
 	ListarFuncionarios(ctx context.Context) ([]*pessoal.Funcionario, error)
 	AtualizarFuncionario(ctx context.Context, id string, input dto.AtualizarFuncionarioInput) (*pessoal.Funcionario, error)
@@ -30,6 +31,7 @@ type Service interface {
 	RegistrarPagamentoApontamento(ctx context.Context, apontamentoID string, contaPagamentoID string) (*pessoal.ApontamentoQuinzenal, error) // NOVO
 	ListarApontamentos(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*pessoal.ApontamentoQuinzenal], error)
 	ListarApontamentosPorFuncionario(ctx context.Context, funcionarioID string, filtros common.ListarFiltros) (*common.RespostaPaginada[*pessoal.ApontamentoQuinzenal], error)
+	ListarComUltimoApontamento(ctx context.Context, filtros common.ListarFiltros) ([]*dto.ListagemFuncionarioDTO, *common.PaginacaoInfo, error)
 }
 
 type Handler struct {
@@ -49,7 +51,7 @@ func (h *Handler) HandleCadastrarFuncionario(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	f, err := h.service.CadastrarFuncionario(r.Context(), req.Nome, req.CPF, req.Cargo, req.Departamento, req.Diaria)
+	f, err := h.service.CadastrarFuncionario(r.Context(), req.Nome, req.CPF, req.Cargo, req.Departamento, req.Telefone, req.ChavePix, req.Diaria)
 	if err != nil {
 		h.logger.ErrorContext(r.Context(), "falha ao cadastrar funcionário", "erro", err)
 		web.RespondError(w, r, "ERRO_CADASTRAR_FUNCIONARIO", "Erro ao cadastrar funcionário", http.StatusInternalServerError)
@@ -221,7 +223,10 @@ func (h *Handler) HandleListarApontamentos(w http.ResponseWriter, r *http.Reques
 	filtros := web.ParseFiltros(r) // Reutilizando a função de parsing de filtros
 
 	resposta, err := h.service.ListarApontamentos(r.Context(), filtros)
-	if err != nil { /* ... tratamento de erro */
+	if err != nil {
+		h.logger.ErrorContext(r.Context(), "falha ao listar apontamentos", "erro", err)
+		web.RespondError(w, r, "ERRO_LISTAR_APONTAMENTOS", "Erro ao listar apontamentos", http.StatusInternalServerError)
+		return
 	}
 
 	web.Respond(w, r, resposta, http.StatusOK)
@@ -237,4 +242,20 @@ func (h *Handler) HandleListarApontamentosPorFuncionario(w http.ResponseWriter, 
 	}
 
 	web.Respond(w, r, resposta, http.StatusOK)
+}
+
+func (h *Handler) HandleListarComUltimoApontamento(w http.ResponseWriter, r *http.Request) {
+	// 1. Reutiliza nossa função helper para extrair os filtros da requisição.
+	filtros := web.ParseFiltros(r)
+
+	// 2. Chama o método de serviço correspondente.
+	respostaPaginada, _, err := h.service.ListarComUltimoApontamento(r.Context(), filtros)
+	if err != nil {
+		h.logger.ErrorContext(r.Context(), "falha ao listar funcionários com apontamentos", "erro", err)
+		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao listar funcionários com apontamentos", http.StatusInternalServerError)
+		return
+	}
+	log.Println("Resposta paginada:", respostaPaginada)
+
+	web.Respond(w, r, respostaPaginada, http.StatusOK)
 }

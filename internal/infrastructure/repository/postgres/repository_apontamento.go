@@ -29,13 +29,13 @@ func (r *ApontamentoRepositoryPostgres) Salvar(ctx context.Context, a *pessoal.A
 		INSERT INTO apontamentos_quinzenais (
 			id, funcionario_id, obra_id, periodo_inicio, periodo_fim,
 			dias_trabalhados, adicionais, descontos, adiantamentos,
-			valor_total_calculado, status, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+			valor_total_calculado, status, created_at, updated_at, diaria
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 	`
 	_, err := r.db.Exec(ctx, query,
 		a.ID, a.FuncionarioID, a.ObraID, a.PeriodoInicio, a.PeriodoFim,
 		a.DiasTrabalhados, a.Adicionais, a.Descontos, a.Adiantamentos,
-		a.ValorTotalCalculado, a.Status, a.CreatedAt, a.UpdatedAt,
+		a.ValorTotalCalculado, a.Status, a.CreatedAt, a.UpdatedAt, a.Diaria,
 	)
 	if err != nil {
 		// TODO: Tratar erro de violação da constraint UNIQUE(funcionario_id, periodo_inicio, periodo_fim)
@@ -48,8 +48,8 @@ func (r *ApontamentoRepositoryPostgres) BuscarPorID(ctx context.Context, id stri
 	const op = "repository.postgres.apontamento.BuscarPorID"
 	query := `
 		SELECT id, funcionario_id, obra_id, periodo_inicio, periodo_fim,
-			   dias_trabalhados, adicionais, descontos, adiantamentos,
-			   valor_total_calculado, status, created_at, updated_at
+			dias_trabalhados, adicionais, descontos, adiantamentos,
+			valor_total_calculado, status, created_at, updated_at, diaria
 		FROM apontamentos_quinzenais WHERE id = $1`
 
 	row := r.db.QueryRow(ctx, query, id)
@@ -119,19 +119,35 @@ func (r *ApontamentoRepositoryPostgres) listarComFiltros(ctx context.Context, ba
 
 	args := pgx.NamedArgs(filterArgs)
 
+	// --- INÍCIO DA CORREÇÃO ---
+	// Em vez de adicionar "AND" diretamente, construímos uma lista de condições.
+	whereClauses := []string{}
+	if baseQueryWhere := strings.SplitN(baseQuery, "WHERE", 2); len(baseQueryWhere) > 1 {
+		baseQuery = baseQueryWhere[0] // A base da query fica sem o WHERE
+		whereClauses = append(whereClauses, strings.TrimSpace(baseQueryWhere[1]))
+	}
+
+	if status, ok := filterArgs["status"]; ok {
+		whereClauses = append(whereClauses, "status = @status")
+		args["status"] = status
+	}
+
+	// Monta a string final da cláusula WHERE
+	whereString := ""
+	if len(whereClauses) > 0 {
+		whereString = " WHERE " + strings.Join(whereClauses, " AND ")
+	}
+	// --- FIM DA CORREÇÃO ---
+
 	countQueryBuilder := strings.Builder{}
 	countQueryBuilder.WriteString("SELECT COUNT(*) ")
 	countQueryBuilder.WriteString(baseQuery)
+	countQueryBuilder.WriteString(whereString)
 
 	queryBuilder := strings.Builder{}
-	queryBuilder.WriteString("SELECT id, funcionario_id, obra_id, periodo_inicio, periodo_fim, dias_trabalhados, adicionais, descontos, adiantamentos, valor_total_calculado, status, created_at, updated_at ")
+	queryBuilder.WriteString("SELECT id, funcionario_id, obra_id, periodo_inicio, periodo_fim, diaria, dias_trabalhados, adicionais, descontos, adiantamentos, valor_total_calculado, status, created_at, updated_at ")
 	queryBuilder.WriteString(baseQuery)
-
-	if status, ok := filterArgs["status"]; ok {
-		countQueryBuilder.WriteString(" AND status = @status")
-		queryBuilder.WriteString(" AND status = @status")
-		args["status"] = status
-	}
+	queryBuilder.WriteString(whereString)
 
 	var totalItens int
 	err := r.db.QueryRow(ctx, countQueryBuilder.String(), args).Scan(&totalItens)
@@ -155,6 +171,9 @@ func (r *ApontamentoRepositoryPostgres) listarComFiltros(ctx context.Context, ba
 	}
 	defer rows.Close()
 
+	// A função pgx.RowToAddrOfStructByPos é ótima, mas sensível à ordem das colunas.
+	// Se a ordem no SELECT mudar, o scan irá falhar ou colocar dados em campos errados.
+	// Para este caso, está correto.
 	apontamentos, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByPos[pessoal.ApontamentoQuinzenal])
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s: falha ao escanear apontamentos: %w", op, err)

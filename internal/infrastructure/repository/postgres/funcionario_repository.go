@@ -6,10 +6,13 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/luiszkm/masterCostrutora/internal/domain/common"
 	"github.com/luiszkm/masterCostrutora/internal/domain/pessoal"
+	pessoal_dto "github.com/luiszkm/masterCostrutora/internal/service/pessoal/dto"
 )
 
 type FuncionarioRepositoryPostgres struct {
@@ -17,7 +20,7 @@ type FuncionarioRepositoryPostgres struct {
 	logger *slog.Logger
 }
 
-func NovoFuncionarioRepository(db *pgxpool.Pool, logger *slog.Logger) pessoal.FuncionarioRepository {
+func NovoFuncionarioRepository(db *pgxpool.Pool, logger *slog.Logger) *FuncionarioRepositoryPostgres {
 	return &FuncionarioRepositoryPostgres{db: db, logger: logger}
 }
 
@@ -142,4 +145,124 @@ func (r *FuncionarioRepositoryPostgres) Listar(ctx context.Context) ([]*pessoal.
 	}
 
 	return funcionarios, nil
+}
+
+func (r *FuncionarioRepositoryPostgres) ListarComUltimoApontamento(ctx context.Context, filtros common.ListarFiltros) ([]*pessoal_dto.ListagemFuncionarioDTO, *common.PaginacaoInfo, error) {
+	const op = "repository.postgres.funcionario.ListarComUltimoApontamento"
+
+	args := pgx.NamedArgs{}
+	baseQuery := `
+		FROM
+			funcionarios f
+		LEFT JOIN LATERAL (
+			SELECT * FROM apontamentos_quinzenais aq
+			WHERE aq.funcionario_id = f.id
+			ORDER BY aq.periodo_fim DESC
+			LIMIT 1
+		) a ON true
+		WHERE f.desligamento_data IS NULL
+	`
+	// ... (Lógica de construção de query para filtros e contagem)
+	whereClauses := []string{"f.desligamento_data IS NULL"}
+	if filtros.Status != "" {
+		whereClauses = append(whereClauses, "f.status = @status")
+		args["status"] = filtros.Status
+	}
+	whereString := " WHERE " + strings.Join(whereClauses, " AND ")
+
+	countQueryBuilder := strings.Builder{}
+	countQueryBuilder.WriteString("SELECT COUNT(f.id) FROM funcionarios f")
+	countQueryBuilder.WriteString(whereString)
+
+	var totalItens int
+	err := r.db.QueryRow(ctx, countQueryBuilder.String(), args).Scan(&totalItens)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s: falha ao contar funcionários: %w", op, err)
+	}
+	paginacao := common.NewPaginacaoInfo(totalItens, filtros.Pagina, filtros.TamanhoPagina)
+	if totalItens == 0 {
+		return []*pessoal_dto.ListagemFuncionarioDTO{}, paginacao, nil
+	}
+
+	// --- INÍCIO DA CORREÇÃO NA QUERY PRINCIPAL ---
+	queryBuilder := strings.Builder{}
+	queryBuilder.WriteString(`
+		SELECT
+			f.id, f.nome, f.cargo, f.departamento, f.data_contratacao,
+			a.diaria, -- A diária vem da tabela de apontamentos (a)
+			f.chave_pix,
+			a.dias_trabalhados, a.adicionais, a.descontos, a.adiantamentos, a.status
+	`)
+	queryBuilder.WriteString(baseQuery)
+	queryBuilder.WriteString(strings.Replace(whereString, " WHERE ", " AND ", 1)) // Adiciona os filtros à query principal
+
+	offset := (filtros.Pagina - 1) * filtros.TamanhoPagina
+	queryBuilder.WriteString(" ORDER BY f.nome ASC LIMIT @limit OFFSET @offset")
+	args["limit"] = filtros.TamanhoPagina
+	args["offset"] = offset
+	// --- FIM DA CORREÇÃO NA QUERY PRINCIPAL ---
+
+	rows, err := r.db.Query(ctx, queryBuilder.String(), args)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s: %w", op, err)
+	}
+	defer rows.Close()
+
+	var lista []*pessoal_dto.ListagemFuncionarioDTO
+	for rows.Next() {
+		var dto pessoal_dto.ListagemFuncionarioDTO
+		// Variáveis para receber valores que podem ser nulos
+		var departamento, chavePix, statusApontamento sql.NullString
+		var diasTrabalhados sql.NullInt32
+		var adicionais, descontos, adiantamento, diariaApontamento sql.NullFloat64
+
+		// --- INÍCIO DA CORREÇÃO NO SCAN ---
+		// A ordem e quantidade dos campos agora correspondem ao SELECT
+		err := rows.Scan(
+			&dto.ID, &dto.Nome, &dto.Cargo, &departamento, &dto.DataContratacao,
+			&diariaApontamento, &chavePix, &diasTrabalhados, &adicionais,
+			&descontos, &adiantamento, &statusApontamento,
+		)
+		// --- FIM DA CORREÇÃO NO SCAN ---
+
+		if err != nil {
+			return nil, nil, fmt.Errorf("%s: falha ao escanear linha: %w", op, err)
+		}
+
+		// Converte os tipos Null* para ponteiros no DTO final
+		if departamento.Valid {
+			dto.Departamento = &departamento.String
+		}
+		if chavePix.Valid {
+			dto.ChavePix = &chavePix.String
+		}
+		if statusApontamento.Valid {
+			dto.StatusApontamento = &statusApontamento.String
+		}
+		if diasTrabalhados.Valid {
+			v := int(diasTrabalhados.Int32)
+			dto.DiasTrabalhados = &v
+		}
+		if adicionais.Valid {
+			dto.ValorAdicional = &adicionais.Float64
+		}
+		if descontos.Valid {
+			dto.Descontos = &descontos.Float64
+		}
+		if adiantamento.Valid {
+			dto.Adiantamento = &adiantamento.Float64
+		}
+		// O campo 'ValorDiaria' do DTO agora é preenchido com a diária do apontamento.
+		if diariaApontamento.Valid {
+			dto.Diaria = diariaApontamento.Float64
+		}
+
+		lista = append(lista, &dto)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, nil, fmt.Errorf("%s: erro ao iterar sobre as linhas: %w", op, err)
+	}
+
+	return lista, paginacao, nil
 }

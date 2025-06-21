@@ -94,6 +94,7 @@ CREATE TABLE IF NOT EXISTS apontamentos_quinzenais (
     periodo_fim DATE NOT NULL,
     dias_trabalhados INT NOT NULL DEFAULT 0,
     adicionais NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+    diaria NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
     descontos NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
     adiantamentos NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
     valor_total_calculado NUMERIC(15, 2) NOT NULL DEFAULT 0.00,

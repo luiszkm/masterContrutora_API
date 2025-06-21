@@ -3,9 +3,9 @@
 # Estas variáveis serão preenchidas dinamicamente ao executar as requisições em ordem.
 @hostname = http://localhost:8080
 @token =
-@obraId =36f19cc1-ca69-487e-9910-d5cf6130d882
+@obraId =b5f2644a-bf92-4f16-8a6d-5a6e8a7b7322
 @etapaId =
-@funcionarioId =e7fa2f4d-e689-4f30-9ccb-f75c86a49caa
+@funcionarioId =5e6b2190-8c59-46bd-bb04-f4de08e2a4f7
 @funcionarioParaDeletarId =
 @fornecedorId =
 @materialId =
@@ -56,11 +56,14 @@ Cookie: jwt-token={{token}}
 
 {
     "nome": "João da Silva (Eng. Chefe)",
-    "cpf": "111.222.313-11",
+    "cpf": "211.512.313-11",
     "cargo": "Engenheiro Civil",
     "departamento": "Construção Civil",
-    "diaria" : 100.00
-}
+    "telefone": "11987654321",
+    "email": "teste@email.com",
+    "dataContratacao": "2020-01-10",
+    "chavePix": "ffsfsfsfsfsfs"
+    }
 
 > {%
     client.global.set("funcionarioId", response.body.ID);
@@ -135,22 +138,7 @@ Cookie: jwt-token={{token}}
 %}
 
 
-###
-# @name CadastrarMaterial2
-# 6. Cadastra o segundo material.
-POST {{hostname}}/materiais
-Content-Type: application/json
-Cookie: jwt-token={{token}}
 
-{
-    "nome": "Vergalhão de Aço CA-50 10mm",
-    "descricao": "Barra de aço para armaduras de concreto.",
-    "unidadeDeMedida": "barra",
-    "categoria": "Estrutural"
-}
-> {%
-    client.global.set("materialId2", response.body.ID);
-%}
 
 # ===================================================================
 # [FLUXO 2] - CENÁRIO DE UMA OBRA COMPLETA
@@ -164,8 +152,8 @@ Content-Type: application/json
 Cookie: jwt-token={{token}}
 
 {
-    "nome": "Residencial Vista Verde",
-    "cliente": "Incorporadora Morar Bem",
+    "nome": "Sem Obra",
+    "cliente": "ncorporadora Morar Bem",
     "endereco": "Rua das Palmeiras, 100",
     "dataInicio": "2025-08-01"
 }
@@ -270,28 +258,6 @@ GET {{hostname}}/funcionarios
 Cookie: jwt-token={{token}}
 
 
-# ===================================================================
-# [FLUXO 4] - TESTANDO EXCLUSÃO (DELETE)
-# ===================================================================
-
-###
-# @name CadastrarFuncionarioParaDeletar
-# Cria um funcionário que não será alocado.
-POST {{hostname}}/funcionarios
-Content-Type: application/json
-Cookie: jwt-token={{token}}
-
-{
-    "nome": "Mariana Costa (a ser deletada)",
-    "cpf": "444.555.666-77",
-    "cargo": "Arquiteta",
-    "salario": 8000.00,
-    "diaria": 70.00
-}
-> {%
-    client.global.set("funcionarioParaDeletarId", response.body.ID);
-%}
-
 ###
 # @name DeletarFuncionarioComSucesso
 # Tenta deletar a funcionária não alocada (deve funcionar, 204 No Content).
@@ -315,8 +281,13 @@ Cookie: jwt-token={{token}}
 {
     "funcionarioId": "{{funcionarioId}}",
     "obraId": "{{obraId}}",
-    "periodoInicio": "2025-06-01",
-    "periodoFim": "2025-06-15"
+    "periodoInicio": "2025-11-01",
+    "periodoFim": "2025-12-15",
+    "Diaria": 99,
+    "DiasTrabalhados": 15,
+    "Descontos": 40,
+    "Adiantamento": 30,
+    "ValorAdicional": 10
 }
 ###
 # @name AprovarApontamento
@@ -341,11 +312,26 @@ Cookie: jwt-token={{token}}
 ###
 # @name ListarTodosApontamentos
 # Lista todos os apontamentos do sistema, com paginação.
-GET {{hostname}}/apontamentos?page=1&pageSize=10
+GET {{hostname}}/apontamentos
+Cookie: jwt-token={{token}}
+
+###
+
+###
+# @name ListarTodosApontamentos
+# Lista todos os apontamentos do sistema, com paginação.
+GET {{hostname}}/apontamentos/{{{{apontamentoId}}}}
 Cookie: jwt-token={{token}}
 
 ###
 # @name ListarApontamentosDeUmFuncionario
 # Lista os apontamentos apenas do funcionário principal dos nossos testes.
 GET {{hostname}}/funcionarios/{{funcionarioId}}/apontamentos?status=PAGO
+Cookie: jwt-token={{token}}
+
+###
+# @name ListarFuncionariosComDetalhes
+# Busca a lista de funcionários, trazendo os dados do último apontamento de cada um.
+# Permite filtros, como ?status=Ativo
+GET {{hostname}}/funcionarios/apontamentos
 Cookie: jwt-token={{token}}

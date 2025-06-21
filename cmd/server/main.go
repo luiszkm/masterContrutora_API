@@ -80,6 +80,7 @@ func main() {
 	orcamentoRepo := postgres.NovoOrcamentoRepository(dbpool, logger)
 	financeiroRepo := postgres.NovoRegistroPagamentoRepository(dbpool, logger)
 	apontamentoRepo := postgres.NovoApontamentoRepository(dbpool, logger)
+	categoriaRepo := postgres.NovoCategoriaRepository(dbpool, logger)
 
 	// Serviços
 	identidadeSvc := identidade_service.NovoServico(usuarioRepo, passwordHasher, jwtService, logger)
@@ -89,6 +90,7 @@ func main() {
 		alocacaoRepo,    // Satisafaz pessoal.AlocacaoFinder
 		obraRepo,        // Satisafaz pessoal.ObraFinder
 		eventBus,        // Satisafaz pessoal.EventPublisher
+		funcionarioRepo,
 		logger,
 	)
 	financeiroSvc := financeiro_service.NovoServico(financeiroRepo, funcionarioRepo, obraRepo, logger)
@@ -101,12 +103,11 @@ func main() {
 		logger,
 	)
 
-	// CORREÇÃO: A chamada para NovoServico de Suprimentos agora inclui
-	// os "Finders" necessários para a validação na criação de orçamentos.
 	suprimentosSvc := suprimentos_service.NovoServico(
 		fornecedorRepo,
 		materialRepo,
 		orcamentoRepo,
+		categoriaRepo,
 		etapaRepo,      // EtapaRepository implementa a interface EtapaFinder
 		fornecedorRepo, // FornecedorRepository implementa a interface FornecedorFinder
 		materialRepo,   // MaterialRepository implementa a interface MaterialFinder

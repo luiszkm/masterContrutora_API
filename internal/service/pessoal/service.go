@@ -27,22 +27,33 @@ type EventPublisher interface {
 type ObraFinder interface {
 	BuscarPorID(ctx context.Context, id string) (*obras.Obra, error)
 }
+type PessoalQuerier interface {
+	ListarComUltimoApontamento(ctx context.Context, filtros common.ListarFiltros) ([]*dto.ListagemFuncionarioDTO, *common.PaginacaoInfo, error)
+}
+
 type Service struct {
 	repo            pessoal.FuncionarioRepository
 	apontamentoRepo pessoal.ApontamentoRepository // NOVA DEPENDÊNCIA
 	alocacaoFinder  AlocacaoFinder
-	obraFinder      ObraFinder // NOVA DEPENDÊNCIA
+	obraFinder      ObraFinder     // NOVA DEPENDÊNCIA
+	querier         PessoalQuerier // NOVA DEPENDÊNCIA
 	logger          *slog.Logger
 	eventBus        EventPublisher
 }
 
-func NovoServico(repo pessoal.FuncionarioRepository, apontamentoRepo pessoal.ApontamentoRepository, alocacaoFinder AlocacaoFinder, obraFinder ObraFinder, eventBus EventPublisher, logger *slog.Logger) *Service {
+// ListarComUltimoApontamento implements pessoal.Service.
+
+func NovoServico(repo pessoal.FuncionarioRepository, apontamentoRepo pessoal.ApontamentoRepository, alocacaoFinder AlocacaoFinder, obraFinder ObraFinder,
+	eventBus EventPublisher,
+	querier PessoalQuerier,
+	logger *slog.Logger) *Service {
 	return &Service{
 		repo:            repo,
 		apontamentoRepo: apontamentoRepo,
 		alocacaoFinder:  alocacaoFinder,
 		obraFinder:      obraFinder,
 		eventBus:        eventBus,
+		querier:         querier,
 		logger:          logger,
 	}
 }
@@ -51,7 +62,7 @@ type AlocacaoFinder interface {
 	ExistemAlocacoesAtivasParaFuncionario(ctx context.Context, funcionarioID string) (bool, error)
 }
 
-func (s *Service) CadastrarFuncionario(ctx context.Context, nome, cpf, cargo, departamento string, diaria float64) (*pessoal.Funcionario, error) {
+func (s *Service) CadastrarFuncionario(ctx context.Context, nome, cpf, cargo, departamento, telefone, ChavePix string, diaria float64) (*pessoal.Funcionario, error) {
 	const op = "service.pessoal.CadastrarFuncionario"
 
 	novoFuncionario := &pessoal.Funcionario{
@@ -62,6 +73,8 @@ func (s *Service) CadastrarFuncionario(ctx context.Context, nome, cpf, cargo, de
 		Departamento:    departamento,
 		DataContratacao: time.Now(),
 		Status:          "Ativo",
+		ChavePix:        ChavePix, // Inicialmente vazio, pode ser atualizado depois
+		Telefone:        telefone, // Inicialmente vazio, pode ser atualizado depois
 		Diaria:          diaria,
 	}
 
@@ -174,6 +187,20 @@ func (s *Service) BuscarPorID(ctx context.Context, id string) (*pessoal.Funciona
 	s.logger.InfoContext(ctx, "funcionário encontrado", "funcionario_id", funcionario.ID)
 	return funcionario, nil
 }
+
+func (s *Service) ListarComUltimoApontamento(ctx context.Context, filtros common.ListarFiltros) ([]*dto.ListagemFuncionarioDTO, *common.PaginacaoInfo, error) {
+	const op = "service.pessoal.ListarComUltimoApontamento"
+
+	funcionarios, paginacao, err := s.querier.ListarComUltimoApontamento(ctx, filtros)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	s.logger.InfoContext(ctx, "lista de funcionários com último apontamento recuperada", "total", len(funcionarios))
+	return funcionarios, paginacao, nil
+
+}
+
 func (s *Service) CriarApontamento(ctx context.Context, input dto.CriarApontamentoInput) (*pessoal.ApontamentoQuinzenal, error) {
 	const op = "service.pessoal.CriarApontamento"
 
@@ -193,16 +220,23 @@ func (s *Service) CriarApontamento(ctx context.Context, input dto.CriarApontamen
 	if err != nil {
 		return nil, fmt.Errorf("%s: data de fim inválida: %w", op, err)
 	}
+	ValorTotalCalculado := (input.Diaria * float64(input.DiasTrabalhados)) + input.ValorAdicional - input.Descontos - input.Adiantamento
 
 	apontamento := &pessoal.ApontamentoQuinzenal{
-		ID:            uuid.NewString(),
-		FuncionarioID: input.FuncionarioID,
-		ObraID:        input.ObraID,
-		PeriodoInicio: inicio,
-		PeriodoFim:    fim,
-		Status:        pessoal.StatusApontamentoEmAberto, // Usando a constante do domínio
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
+		ID:                  uuid.NewString(),
+		FuncionarioID:       input.FuncionarioID,
+		ObraID:              input.ObraID,
+		PeriodoInicio:       inicio,
+		PeriodoFim:          fim,
+		Status:              pessoal.StatusApontamentoEmAberto,
+		Diaria:              input.Diaria,
+		DiasTrabalhados:     input.DiasTrabalhados,
+		Adicionais:          input.ValorAdicional,
+		Descontos:           input.Descontos,
+		Adiantamentos:       input.Adiantamento,
+		ValorTotalCalculado: ValorTotalCalculado,
+		CreatedAt:           time.Now(),
+		UpdatedAt:           time.Now(),
 	}
 
 	if err := s.apontamentoRepo.Salvar(ctx, apontamento); err != nil {

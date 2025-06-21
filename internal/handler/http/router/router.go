@@ -56,6 +56,7 @@ func New(c Config) *chi.Mux {
 			r.With(auth.Authorize(authz.PermissaoPessoalApontamentoLer)).
 				Get("/apontamentos", c.PessoalHandler.HandleListarApontamentosPorFuncionario)
 		})
+		r.With(auth.Authorize(authz.PermissaoPessoalLer)).Get("/funcionarios/apontamentos", c.PessoalHandler.HandleListarComUltimoApontamento)
 		// --- Recursos de Suprimentos ---
 		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).Post("/fornecedores", c.SuprimentosHandler.HandleCadastrarFornecedor)
 		r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).Get("/fornecedores", c.SuprimentosHandler.HandleListarFornecedores)
@@ -101,6 +102,11 @@ func New(c Config) *chi.Mux {
 
 		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).
 			Patch("/orcamentos/{orcamentoId}", c.SuprimentosHandler.HandleAtualizarOrcamentoStatus)
+
+			//lista tdoso orçamentos
+		// r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).
+		// 	Get("/orcamentos", c.SuprimentosHandler.HandleListarOrcamentos)
+
 		// --- Recursos de Financeiro ---
 		r.With(auth.Authorize(authz.PermissaoFinanceiroEscrever)).Post("/pagamentos", c.FinanceiroHandler.HandleRegistrarPagamento)
 		// r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).Get("/pagamentos", c.FinanceiroHandler.HandleListarPagamentos)

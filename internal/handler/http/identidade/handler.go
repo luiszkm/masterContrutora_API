@@ -33,6 +33,7 @@ type loginRequest struct {
 
 type loginResponse struct {
 	AccessToken string `json:"accessToken"`
+	UserId      string `json:"userId"`
 }
 
 type Service interface {
@@ -125,8 +126,14 @@ func (h *Handler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	// 2. Definimos o cookie na resposta.
 	http.SetCookie(w, &cookie)
 
-	// 3. Retornamos uma resposta de sucesso sem corpo.
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"message": "Login bem-sucedido"}`))
+	// 3. Retornamos a resposta com o token e o ID do usuário.
+	resp := loginResponse{
+		AccessToken: tokenString,
+		UserId:      input.Email, // Aqui você pode usar o ID do usuário se estiver
+		// disponível no contexto do serviço.
+	}
+
+	web.Respond(w, r, resp, http.StatusOK)
+	h.logger.InfoContext(r.Context(), "usuário logado com sucesso", "email", req.Email, "userId", input.Email)
 
 }

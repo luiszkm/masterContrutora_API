@@ -62,8 +62,15 @@ func setupTestApplication(t *testing.T) (*chi.Mux, *pgxpool.Pool) {
 
 	// Serviços
 	identidadeSvc := identidade_service.NovoServico(usuarioRepo, passwordHasher, jwtService, logger)
-	pessoalSvc := pessoal_service.NovoServico(funcionarioRepo, apontamentoRepo, alocacaoRepo, obraRepo, eventBus, logger)
-
+	pessoalSvc := pessoal_service.NovoServico(
+		funcionarioRepo, // Satisafaz pessoal.FuncionarioRepository
+		apontamentoRepo, // A dependência que estava faltando
+		alocacaoRepo,    // Satisafaz pessoal.AlocacaoFinder
+		obraRepo,        // Satisafaz pessoal.ObraFinder
+		eventBus,        // Satisafaz pessoal.EventPublisher
+		funcionarioRepo,
+		logger,
+	)
 	// Handlers
 	pessoalHandler := pessoal_handler.NovoPessoalHandler(pessoalSvc, logger)
 

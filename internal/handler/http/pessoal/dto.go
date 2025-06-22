@@ -29,4 +29,5 @@ type atualizarFuncionarioRequest struct {
 	Observacoes         *string  `json:"observacoes,omitempty"`
 	AvaliacaoDesempenho *string  `json:"avaliacaoDesempenho,omitempty"`
 	Diaria              *float64 `json:"diaria,omitempty"` // Adicionando o campo Diaria
+	Email               *string  `json:"email,omitempty"`
 }

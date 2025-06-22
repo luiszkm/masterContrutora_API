@@ -4,6 +4,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -24,40 +25,67 @@ func NovoFuncionarioRepository(db *pgxpool.Pool, logger *slog.Logger) *Funcionar
 	return &FuncionarioRepositoryPostgres{db: db, logger: logger}
 }
 
-// BuscarPorID implements obras.PessoalFinder.
 func (r *FuncionarioRepositoryPostgres) BuscarPorID(ctx context.Context, funcionarioID string) (*pessoal.Funcionario, error) {
-
 	const op = "repository.postgres.funcionario.BuscarPorID"
 	query := `
 		SELECT 
-		    id, nome, cpf, telefone, cargo, departamento, data_contratacao, 
-		    valor_diaria, chave_pix, status, desligamento_data, motivo_desligamento, 
+			id, nome, cpf, telefone, cargo, departamento, data_contratacao, 
+			valor_diaria, chave_pix, status, desligamento_data, motivo_desligamento, 
+			observacoes, avaliacao_desempenho, email,
 			created_at, updated_at
 		FROM funcionarios
-		WHERE id = $1
+		WHERE id = $1 AND desligamento_data IS NULL
 	`
 	row := r.db.QueryRow(ctx, query, funcionarioID)
 
 	var f pessoal.Funcionario
-	var desligamento_data sql.NullTime
+	// Variáveis para receber colunas que podem ser nulas
+	var telefone, departamento, chavePix, motivoDesligamento, observacoes, avaliacaoDesempenho, email sql.NullString
+	var desligamentoData sql.NullTime
 
+	// CORREÇÃO: A chamada Scan agora usa as variáveis Null* para os campos anuláveis.
 	err := row.Scan(
-		&f.ID, &f.Nome, &f.CPF, &f.Telefone, &f.Cargo, &f.Departamento, &f.DataContratacao,
-		&f.ValorDiaria, &f.ChavePix, &f.Status, &desligamento_data, &f.MotivoDesligamento,
+		&f.ID, &f.Nome, &f.CPF, &telefone, &f.Cargo, &departamento, &f.DataContratacao,
+		&f.ValorDiaria, &chavePix, &f.Status, &desligamentoData, &motivoDesligamento,
+		&f.Observacoes, &f.AvaliacaoDesempenho, &f.Email,
 		&f.CreatedAt, &f.UpdatedAt,
 	)
+
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, fmt.Errorf("%s: funcionário não encontrado com ID %s", op, funcionarioID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNaoEncontrado
 		}
-		return nil, fmt.Errorf("%s: erro ao buscar funcionário: %w", op, err)
+		return nil, fmt.Errorf("%s: erro ao escanear funcionário: %w", op, err)
 	}
-	if desligamento_data.Valid {
-		f.DesligamentoData = &desligamento_data.Time
+
+	// Após o Scan, transferimos os valores para a struct final, se eles existirem.
+	if telefone.Valid {
+		f.Telefone = telefone.String
 	}
+	if departamento.Valid {
+		f.Departamento = departamento.String
+	}
+	if chavePix.Valid {
+		f.ChavePix = chavePix.String
+	}
+	if motivoDesligamento.Valid {
+		f.MotivoDesligamento = motivoDesligamento.String
+	}
+	if desligamentoData.Valid {
+		f.DesligamentoData = &desligamentoData.Time
+	}
+	if observacoes.Valid {
+		f.Observacoes = observacoes.String
+	}
+	if avaliacaoDesempenho.Valid {
+		f.AvaliacaoDesempenho = avaliacaoDesempenho.String
+	}
+	if email.Valid {
+		f.Email = email.String
+	}
+
 	return &f, nil
 }
-
 func (r *FuncionarioRepositoryPostgres) Salvar(ctx context.Context, f *pessoal.Funcionario) error {
 	const op = "repository.postgres.funcionario.Salvar"
 	query := `
@@ -78,7 +106,10 @@ func (r *FuncionarioRepositoryPostgres) Salvar(ctx context.Context, f *pessoal.F
 }
 func (r *FuncionarioRepositoryPostgres) Deletar(ctx context.Context, id string) error {
 	const op = "repository.postgres.funcionario.Deletar"
-	query := `UPDATE funcionarios SET desligamento_data = NOW() WHERE id = $1 AND desligamento_data IS NULL`
+	query := `UPDATE funcionarios SET
+	 desligamento_data = NOW(),
+	status = 'Inativo', updated_at = NOW()
+	 WHERE id = $1 `
 	cmd, err := r.db.Exec(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
@@ -88,19 +119,23 @@ func (r *FuncionarioRepositoryPostgres) Deletar(ctx context.Context, id string) 
 	}
 	return nil
 }
-
 func (r *FuncionarioRepositoryPostgres) Atualizar(ctx context.Context, f *pessoal.Funcionario) error {
 	const op = "repository.postgres.funcionario.Atualizar"
 	query := `
 		UPDATE funcionarios
 		SET 
 		    nome = $1, cpf = $2, telefone = $3, cargo = $4, departamento = $5, 
-		    valor_diaria = $6, chave_pix = $7, status = $8, updated_at = NOW()
-		WHERE id = $9 AND desligamento_data IS NULL
+		    valor_diaria = $6, chave_pix = $7, status = $8, avaliacao_desempenho = $9,
+			motivo_desligamento = $10, observacoes = $11,
+			email = $12,
+			updated_at = NOW()
+		WHERE id = $13 
 	`
 	cmd, err := r.db.Exec(ctx, query,
 		f.Nome, f.CPF, f.Telefone, f.Cargo, f.Departamento,
-		f.ValorDiaria, f.ChavePix, f.Status, f.ID,
+		f.ValorDiaria, f.ChavePix, f.Status, f.AvaliacaoDesempenho,
+		f.MotivoDesligamento, f.Observacoes,
+		f.Email, f.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
@@ -113,7 +148,8 @@ func (r *FuncionarioRepositoryPostgres) Atualizar(ctx context.Context, f *pessoa
 func (r *FuncionarioRepositoryPostgres) Listar(ctx context.Context) ([]*pessoal.Funcionario, error) {
 	const op = "repository.postgres.funcionario.Listar"
 	query := `
-		SELECT id, nome, cpf, cargo, departamento, status, valor_diaria
+		SELECT id, nome, cpf, cargo, departamento, status, email,data_contratacao,
+		 chave_pix, desligamento_data, motivo_desligamento , observacoes , avaliacao_desempenho
 		FROM funcionarios
 		ORDER BY nome ASC
 	`
@@ -133,7 +169,13 @@ func (r *FuncionarioRepositoryPostgres) Listar(ctx context.Context) ([]*pessoal.
 			&f.Cargo,
 			&f.Departamento,
 			&f.Status,
-			&f.ValorDiaria,
+			&f.Email,
+			&f.DataContratacao,
+			&f.ChavePix,
+			&f.DesligamentoData,
+			&f.MotivoDesligamento,
+			&f.Observacoes,
+			&f.AvaliacaoDesempenho,
 		); err != nil {
 			return nil, fmt.Errorf("%s: erro ao ler linha: %w", op, err)
 		}
@@ -146,7 +188,6 @@ func (r *FuncionarioRepositoryPostgres) Listar(ctx context.Context) ([]*pessoal.
 
 	return funcionarios, nil
 }
-
 func (r *FuncionarioRepositoryPostgres) ListarComUltimoApontamento(ctx context.Context, filtros common.ListarFiltros) ([]*pessoal_dto.ListagemFuncionarioDTO, *common.PaginacaoInfo, error) {
 	const op = "repository.postgres.funcionario.ListarComUltimoApontamento"
 
@@ -188,8 +229,8 @@ func (r *FuncionarioRepositoryPostgres) ListarComUltimoApontamento(ctx context.C
 	queryBuilder := strings.Builder{}
 	queryBuilder.WriteString(`
 		SELECT
-			f.id, f.nome, f.cargo, f.departamento, f.data_contratacao,
-			a.diaria, -- A diária vem da tabela de apontamentos (a)
+			f.id, f.nome, f.cargo, f.departamento, f.data_contratacao, f.avaliacao_desempenho , f.observacoes,
+			a.diaria, a.id,
 			f.chave_pix,
 			a.dias_trabalhados, a.adicionais, a.descontos, a.adiantamentos, a.status
 	`)
@@ -212,7 +253,7 @@ func (r *FuncionarioRepositoryPostgres) ListarComUltimoApontamento(ctx context.C
 	for rows.Next() {
 		var dto pessoal_dto.ListagemFuncionarioDTO
 		// Variáveis para receber valores que podem ser nulos
-		var departamento, chavePix, statusApontamento sql.NullString
+		var departamento, chavePix, statusApontamento, avaliacaoDesempenho, observacoes sql.NullString
 		var diasTrabalhados sql.NullInt32
 		var adicionais, descontos, adiantamento, diariaApontamento sql.NullFloat64
 
@@ -220,7 +261,8 @@ func (r *FuncionarioRepositoryPostgres) ListarComUltimoApontamento(ctx context.C
 		// A ordem e quantidade dos campos agora correspondem ao SELECT
 		err := rows.Scan(
 			&dto.ID, &dto.Nome, &dto.Cargo, &departamento, &dto.DataContratacao,
-			&diariaApontamento, &chavePix, &diasTrabalhados, &adicionais,
+			&avaliacaoDesempenho, &observacoes,
+			&diariaApontamento, &dto.ApontamentoId, &chavePix, &diasTrabalhados, &adicionais,
 			&descontos, &adiantamento, &statusApontamento,
 		)
 		// --- FIM DA CORREÇÃO NO SCAN ---
@@ -256,6 +298,12 @@ func (r *FuncionarioRepositoryPostgres) ListarComUltimoApontamento(ctx context.C
 		if diariaApontamento.Valid {
 			dto.Diaria = diariaApontamento.Float64
 		}
+		if avaliacaoDesempenho.Valid {
+			dto.AvaliacaoDesempenho = &avaliacaoDesempenho.String
+		}
+		if observacoes.Valid {
+			dto.Observacoes = &observacoes.String
+		}
 
 		lista = append(lista, &dto)
 	}
@@ -265,4 +313,22 @@ func (r *FuncionarioRepositoryPostgres) ListarComUltimoApontamento(ctx context.C
 	}
 
 	return lista, paginacao, nil
+}
+
+// AtivarFuncionario implements pessoal.FuncionarioRepository.
+func (r *FuncionarioRepositoryPostgres) AtivarFuncionario(ctx context.Context, id string) error {
+	const op = "repository.postgres.funcionario.Ativar"
+	query := `
+		UPDATE funcionarios
+		SET desligamento_data = NULL, status = 'Ativo', updated_at = NOW()
+		WHERE id = $1
+	`
+	cmd, err := r.db.Exec(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	if cmd.RowsAffected() == 0 {
+		return ErrNaoEncontrado
+	}
+	return nil
 }

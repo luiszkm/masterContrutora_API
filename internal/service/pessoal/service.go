@@ -12,7 +12,6 @@ import (
 	"github.com/luiszkm/masterCostrutora/internal/domain/common"
 	"github.com/luiszkm/masterCostrutora/internal/domain/obras"
 	"github.com/luiszkm/masterCostrutora/internal/domain/pessoal"
-	"github.com/luiszkm/masterCostrutora/internal/events"
 	"github.com/luiszkm/masterCostrutora/internal/platform/bus"
 	"github.com/luiszkm/masterCostrutora/internal/service/pessoal/dto"
 )
@@ -127,6 +126,16 @@ func (s *Service) AtualizarFuncionario(ctx context.Context, id string, input dto
 	if input.Nome != nil {
 		funcionario.Nome = *input.Nome
 	}
+	if input.Email != nil {
+		funcionario.Email = *input.Email
+	}
+	if input.AvaliacaoDesempenho != nil {
+		funcionario.AvaliacaoDesempenho = *input.AvaliacaoDesempenho
+	}
+	if input.Observacoes != nil {
+		funcionario.Observacoes = *input.Observacoes
+	}
+
 	if input.CPF != nil {
 		funcionario.CPF = *input.CPF
 	}
@@ -188,134 +197,15 @@ func (s *Service) BuscarPorID(ctx context.Context, id string) (*pessoal.Funciona
 	return funcionario, nil
 }
 
-func (s *Service) ListarComUltimoApontamento(ctx context.Context, filtros common.ListarFiltros) ([]*dto.ListagemFuncionarioDTO, *common.PaginacaoInfo, error) {
-	const op = "service.pessoal.ListarComUltimoApontamento"
+func (s *Service) AtivarFuncionario(ctx context.Context, id string) error {
+	const op = "service.pessoal.Ativar"
 
-	funcionarios, paginacao, err := s.querier.ListarComUltimoApontamento(ctx, filtros)
+	// 1. Busca o funcionário existente para garantir que ele existe.
+	err := s.repo.AtivarFuncionario(ctx, id)
 	if err != nil {
-		return nil, nil, fmt.Errorf("%s: %w", op, err)
+		return fmt.Errorf("%s: erro ao ativar funcionário: %w", op, err)
 	}
+	s.logger.InfoContext(ctx, "funcionário ativado com sucesso", "funcionario_id", id)
+	return nil
 
-	s.logger.InfoContext(ctx, "lista de funcionários com último apontamento recuperada", "total", len(funcionarios))
-	return funcionarios, paginacao, nil
-
-}
-
-func (s *Service) CriarApontamento(ctx context.Context, input dto.CriarApontamentoInput) (*pessoal.ApontamentoQuinzenal, error) {
-	const op = "service.pessoal.CriarApontamento"
-
-	// Validações
-	if _, err := s.repo.BuscarPorID(ctx, input.FuncionarioID); err != nil {
-		return nil, fmt.Errorf("%s: funcionário com id [%s] não encontrado: %w", op, input.FuncionarioID, err)
-	}
-	if _, err := s.obraFinder.BuscarPorID(ctx, input.ObraID); err != nil {
-		return nil, fmt.Errorf("%s: obra com id [%s] não encontrada: %w", op, input.ObraID, err)
-	}
-
-	inicio, err := time.Parse("2006-01-02", input.PeriodoInicio)
-	if err != nil {
-		return nil, fmt.Errorf("%s: data de início inválida: %w", op, err)
-	}
-	fim, err := time.Parse("2006-01-02", input.PeriodoFim)
-	if err != nil {
-		return nil, fmt.Errorf("%s: data de fim inválida: %w", op, err)
-	}
-	ValorTotalCalculado := (input.Diaria * float64(input.DiasTrabalhados)) + input.ValorAdicional - input.Descontos - input.Adiantamento
-
-	apontamento := &pessoal.ApontamentoQuinzenal{
-		ID:                  uuid.NewString(),
-		FuncionarioID:       input.FuncionarioID,
-		ObraID:              input.ObraID,
-		PeriodoInicio:       inicio,
-		PeriodoFim:          fim,
-		Status:              pessoal.StatusApontamentoEmAberto,
-		Diaria:              input.Diaria,
-		DiasTrabalhados:     input.DiasTrabalhados,
-		Adicionais:          input.ValorAdicional,
-		Descontos:           input.Descontos,
-		Adiantamentos:       input.Adiantamento,
-		ValorTotalCalculado: ValorTotalCalculado,
-		CreatedAt:           time.Now(),
-		UpdatedAt:           time.Now(),
-	}
-
-	if err := s.apontamentoRepo.Salvar(ctx, apontamento); err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
-
-	s.logger.InfoContext(ctx, "novo apontamento quinzenal criado", "apontamento_id", apontamento.ID)
-	return apontamento, nil
-}
-func (s *Service) AprovarApontamento(ctx context.Context, apontamentoID string) (*pessoal.ApontamentoQuinzenal, error) {
-	const op = "service.pessoal.AprovarApontamento"
-
-	// 1. Carrega o agregado do banco.
-	apontamento, err := s.apontamentoRepo.BuscarPorID(ctx, apontamentoID)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
-
-	// 2. Executa o método de negócio do próprio agregado (Rich Domain Model).
-	// Toda a lógica e validação de estado estão encapsuladas aqui!
-	if err := apontamento.Aprovar(); err != nil {
-		return nil, fmt.Errorf("%s: regra de negócio violada: %w", op, err)
-	}
-
-	// 3. Persiste o estado atualizado do agregado.
-	if err := s.apontamentoRepo.Atualizar(ctx, apontamento); err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
-
-	s.logger.InfoContext(ctx, "apontamento aprovado com sucesso", "apontamento_id", apontamento.ID)
-	return apontamento, nil
-}
-func (s *Service) RegistrarPagamentoApontamento(ctx context.Context, apontamentoID string, contaPagamentoID string) (*pessoal.ApontamentoQuinzenal, error) {
-	const op = "service.pessoal.RegistrarPagamentoApontamento"
-
-	apontamento, err := s.apontamentoRepo.BuscarPorID(ctx, apontamentoID)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
-
-	// Usa o método do nosso Rich Domain Model.
-	if err := apontamento.RegistrarPagamento(); err != nil {
-		return nil, fmt.Errorf("%s: regra de negócio violada: %w", op, err)
-	}
-
-	if err := s.apontamentoRepo.Atualizar(ctx, apontamento); err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
-
-	// Publica o evento para que o contexto Financeiro possa agir.
-	payload := events.PagamentoApontamentoRealizadoPayload{
-		FuncionarioID:     apontamento.FuncionarioID,
-		ObraID:            apontamento.ObraID,
-		PeriodoReferencia: fmt.Sprintf("%s a %s", apontamento.PeriodoInicio.Format("02/01"), apontamento.PeriodoFim.Format("02/01/2006")),
-		ValorCalculado:    apontamento.ValorTotalCalculado,
-		DataDeEfetivacao:  time.Now(),
-		ContaBancariaID:   contaPagamentoID,
-	}
-	s.eventBus.Publicar(ctx, bus.Evento{
-		Nome:    events.PagamentoApontamentoRealizado,
-		Payload: payload,
-	})
-
-	s.logger.InfoContext(ctx, "pagamento de apontamento registrado e evento publicado", "apontamento_id", apontamentoID)
-	return apontamento, nil
-}
-
-func (s *Service) ListarApontamentos(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*pessoal.ApontamentoQuinzenal], error) {
-	apontamentos, paginacao, err := s.apontamentoRepo.Listar(ctx, filtros)
-	if err != nil {
-		return nil, err
-	}
-	return &common.RespostaPaginada[*pessoal.ApontamentoQuinzenal]{Dados: apontamentos, Paginacao: *paginacao}, nil
-}
-
-func (s *Service) ListarApontamentosPorFuncionario(ctx context.Context, funcionarioID string, filtros common.ListarFiltros) (*common.RespostaPaginada[*pessoal.ApontamentoQuinzenal], error) {
-	apontamentos, paginacao, err := s.apontamentoRepo.ListarPorFuncionarioID(ctx, funcionarioID, filtros)
-	if err != nil {
-		return nil, err
-	}
-	return &common.RespostaPaginada[*pessoal.ApontamentoQuinzenal]{Dados: apontamentos, Paginacao: *paginacao}, nil
 }

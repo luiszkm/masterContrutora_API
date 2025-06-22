@@ -14,4 +14,5 @@ type AtualizarFuncionarioInput struct {
 	DesligamentoData    *string  `json:"desligamentoData,omitempty"`
 	Observacoes         *string  `json:"observacoes,omitempty"`
 	AvaliacaoDesempenho *string  `json:"avaliacaoDesempenho,omitempty"`
+	Email               *string  `json:"email,omitempty"`
 }

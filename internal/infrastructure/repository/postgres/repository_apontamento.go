@@ -58,7 +58,7 @@ func (r *ApontamentoRepositoryPostgres) BuscarPorID(ctx context.Context, id stri
 	err := row.Scan(
 		&a.ID, &a.FuncionarioID, &a.ObraID, &a.PeriodoInicio, &a.PeriodoFim,
 		&a.DiasTrabalhados, &a.Adicionais, &a.Descontos, &a.Adiantamentos,
-		&a.ValorTotalCalculado, &a.Status, &a.CreatedAt, &a.UpdatedAt,
+		&a.ValorTotalCalculado, &a.Status, &a.CreatedAt, &a.UpdatedAt, &a.Diaria,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -92,7 +92,7 @@ func (r *ApontamentoRepositoryPostgres) Atualizar(ctx context.Context, a *pessoa
 
 func (r *ApontamentoRepositoryPostgres) Listar(ctx context.Context, filtros common.ListarFiltros) ([]*pessoal.ApontamentoQuinzenal, *common.PaginacaoInfo, error) {
 	// A query base para buscar todos os apontamentos
-	baseQuery := "FROM apontamentos_quinzenais"
+	baseQuery := "FROM apontamentos_quinzenais a"
 	// Para os filtros, passamos um mapa que será preenchido
 	filterArgs := make(map[string]interface{})
 	if filtros.Status != "" {
@@ -104,7 +104,7 @@ func (r *ApontamentoRepositoryPostgres) Listar(ctx context.Context, filtros comm
 
 func (r *ApontamentoRepositoryPostgres) ListarPorFuncionarioID(ctx context.Context, funcionarioID string, filtros common.ListarFiltros) ([]*pessoal.ApontamentoQuinzenal, *common.PaginacaoInfo, error) {
 	// A query base agora filtra por funcionário
-	baseQuery := "FROM apontamentos_quinzenais WHERE funcionario_id = @funcionarioID"
+	baseQuery := "FROM apontamentos_quinzenais a WHERE a.funcionario_id = @funcionarioID"
 	filterArgs := map[string]interface{}{"funcionarioID": funcionarioID}
 	if filtros.Status != "" {
 		filterArgs["status"] = filtros.Status
@@ -137,7 +137,8 @@ func (r *ApontamentoRepositoryPostgres) listarComFiltros(ctx context.Context, ba
 	if len(whereClauses) > 0 {
 		whereString = " WHERE " + strings.Join(whereClauses, " AND ")
 	}
-	// --- FIM DA CORREÇÃO ---
+
+	joinQuery := "LEFT JOIN funcionarios f ON a.funcionario_id = f.id"
 
 	countQueryBuilder := strings.Builder{}
 	countQueryBuilder.WriteString("SELECT COUNT(*) ")
@@ -145,8 +146,11 @@ func (r *ApontamentoRepositoryPostgres) listarComFiltros(ctx context.Context, ba
 	countQueryBuilder.WriteString(whereString)
 
 	queryBuilder := strings.Builder{}
-	queryBuilder.WriteString("SELECT id, funcionario_id, obra_id, periodo_inicio, periodo_fim, diaria, dias_trabalhados, adicionais, descontos, adiantamentos, valor_total_calculado, status, created_at, updated_at ")
+	queryBuilder.WriteString("SELECT a.id, a.funcionario_id, a.obra_id, a.periodo_inicio, a.periodo_fim, a.diaria, a.dias_trabalhados, a.adicionais, a.descontos, a.adiantamentos, a.valor_total_calculado, a.status, a.created_at, a.updated_at, f.nome ")
 	queryBuilder.WriteString(baseQuery)
+	queryBuilder.WriteString(" ")
+	queryBuilder.WriteString(joinQuery)
+	queryBuilder.WriteString("")
 	queryBuilder.WriteString(whereString)
 
 	var totalItens int

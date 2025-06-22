@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
 	"log/slog"
 	"net/http"
 
@@ -32,6 +31,8 @@ type Service interface {
 	ListarApontamentos(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*pessoal.ApontamentoQuinzenal], error)
 	ListarApontamentosPorFuncionario(ctx context.Context, funcionarioID string, filtros common.ListarFiltros) (*common.RespostaPaginada[*pessoal.ApontamentoQuinzenal], error)
 	ListarComUltimoApontamento(ctx context.Context, filtros common.ListarFiltros) ([]*dto.ListagemFuncionarioDTO, *common.PaginacaoInfo, error)
+	AtualizarApontamento(ctx context.Context, id string, input dto.AtualizarApontamentoInput) (*pessoal.ApontamentoQuinzenal, error)
+	AtivarFuncionario(ctx context.Context, id string) error
 }
 
 type Handler struct {
@@ -63,7 +64,7 @@ func (h *Handler) HandleCadastrarFuncionario(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *Handler) HandleDeletarFuncionario(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+	id := chi.URLParam(r, "funcionarioId")
 
 	err := h.service.DeletarFuncionario(r.Context(), id)
 	if err != nil {
@@ -95,7 +96,7 @@ func (h *Handler) HandleListarFuncionarios(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *Handler) HandleAtualizarFuncionario(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+	id := chi.URLParam(r, "funcionarioId")
 	if _, err := uuid.Parse(id); err != nil {
 		web.RespondError(w, r, "ID_INVALIDO", "O ID do funcionário não é um UUID válido", http.StatusBadRequest)
 		return
@@ -109,16 +110,20 @@ func (h *Handler) HandleAtualizarFuncionario(w http.ResponseWriter, r *http.Requ
 
 	// Mapeia o request do handler para o DTO do serviço.
 	input := dto.AtualizarFuncionarioInput{
-		Nome:               req.Nome,
-		CPF:                req.CPF,
-		Telefone:           req.Telefone,
-		Cargo:              req.Cargo,
-		Departamento:       req.Departamento,
-		ValorDiaria:        req.ValorDiaria,
-		ChavePix:           req.ChavePix,
-		Status:             req.Status,
-		DesligamentoData:   req.DesligamentoData,
-		MotivoDesligamento: req.MotivoDesligamento,
+		Nome:                req.Nome,
+		CPF:                 req.CPF,
+		Telefone:            req.Telefone,
+		Cargo:               req.Cargo,
+		Departamento:        req.Departamento,
+		ValorDiaria:         req.ValorDiaria,
+		ChavePix:            req.ChavePix,
+		Status:              req.Status,
+		DesligamentoData:    req.DesligamentoData,
+		MotivoDesligamento:  req.MotivoDesligamento,
+		DataContratacao:     req.DataContratacao,
+		Observacoes:         req.Observacoes,
+		AvaliacaoDesempenho: req.AvaliacaoDesempenho,
+		Email:               req.Email,
 	}
 
 	funcionario, err := h.service.AtualizarFuncionario(r.Context(), id, input)
@@ -136,7 +141,7 @@ func (h *Handler) HandleAtualizarFuncionario(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *Handler) HandleBuscarFuncionario(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
+	id := chi.URLParam(r, "funcionarioId")
 
 	funcionario, err := h.service.BuscarPorID(r.Context(), id)
 	if err != nil {
@@ -151,111 +156,18 @@ func (h *Handler) HandleBuscarFuncionario(w http.ResponseWriter, r *http.Request
 	web.Respond(w, r, funcionario, http.StatusOK)
 }
 
-func (h *Handler) HandleCriarApontamento(w http.ResponseWriter, r *http.Request) {
-	var req dto.CriarApontamentoInput // reusando o DTO do serviço por simplicidade
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		web.RespondError(w, r, "PAYLOAD_INVALIDO", err.Error(), http.StatusBadRequest)
-		return
-	}
+func (h *Handler) HandleAtivarFuncionario(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "funcionarioId")
 
-	apontamento, err := h.service.CriarApontamento(r.Context(), req)
-	if err != nil {
-		// TODO: Tratar erros específicos, como 404
-		h.logger.ErrorContext(r.Context(), "falha ao criar apontamento", "erro", err)
-		web.RespondError(w, r, "ERRO_INTERNO", err.Error(), http.StatusInternalServerError)
-		return
-	}
-	web.Respond(w, r, apontamento, http.StatusCreated)
-}
-func (h *Handler) HandleAprovarApontamento(w http.ResponseWriter, r *http.Request) {
-	apontamentoID := chi.URLParam(r, "apontamentoId")
-	// Não há corpo na requisição, a ação é implícita pelo endpoint.
-
-	apontamento, err := h.service.AprovarApontamento(r.Context(), apontamentoID)
-	if err != nil {
-		// Trata erros específicos, como 404 ou 409 (conflito de regra de negócio)
-		if errors.Is(err, postgres.ErrNaoEncontrado) {
-			web.RespondError(w, r, "APONTAMENTO_NAO_ENCONTRADO", "Apontamento não encontrado", http.StatusNotFound)
-			return
-		}
-		// Se o erro veio da regra de negócio do domínio (ex: tentar aprovar algo já pago)
-		web.RespondError(w, r, "REGRA_NEGOCIO_VIOLADA", err.Error(), http.StatusConflict)
-		return
-	}
-
-	web.Respond(w, r, apontamento, http.StatusOK)
-}
-
-func (h *Handler) HandleRegistrarPagamentoApontamento(w http.ResponseWriter, r *http.Request) {
-	apontamentoID := chi.URLParam(r, "apontamentoId")
-
-	var req registrarPagamentoRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		web.RespondError(w, r, "PAYLOAD_INVALIDO", "Payload inválido", http.StatusBadRequest)
-		return
-	}
-	if req.ContaBancariaID == "" {
-		web.RespondError(w, r, "DADOS_OBRIGATORIOS", "O campo contaBancariaId é obrigatório", http.StatusBadRequest)
-		return
-	}
-
-	apontamento, err := h.service.RegistrarPagamentoApontamento(r.Context(), apontamentoID, req.ContaBancariaID)
+	err := h.service.AtivarFuncionario(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, postgres.ErrNaoEncontrado) {
-			web.RespondError(w, r, "APONTAMENTO_NAO_ENCONTRADO", "Apontamento não encontrado", http.StatusNotFound)
+			web.RespondError(w, r, "FUNCIONARIO_NAO_ENCONTRADO", "Funcionário não encontrado", http.StatusNotFound)
 			return
 		}
-		// Trata o erro de regra de negócio vindo do método .RegistrarPagamento() do agregado.
-		if errors.Is(err, pessoal_service.ErrFuncionarioAlocado) || err.Error() == "só é possível pagar um apontamento que está 'Aprovado para Pagamento'" {
-			web.RespondError(w, r, "REGRA_NEGOCIO_VIOLADA", err.Error(), http.StatusConflict) // 409 Conflict
-			return
-		}
-		h.logger.ErrorContext(r.Context(), "falha ao registrar pagamento de apontamento", "erro", err)
-		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao registrar pagamento", http.StatusInternalServerError)
+		h.logger.ErrorContext(r.Context(), "falha ao buscar funcionário", "erro", err)
+		web.RespondError(w, r, "ERRO_BUSCAR_FUNCIONARIO", "Erro ao buscar funcionário", http.StatusInternalServerError)
 		return
 	}
-
-	web.Respond(w, r, apontamento, http.StatusOK)
-}
-
-func (h *Handler) HandleListarApontamentos(w http.ResponseWriter, r *http.Request) {
-	// Lógica para extrair filtros da URL (status, page, pageSize)
-	filtros := web.ParseFiltros(r) // Reutilizando a função de parsing de filtros
-
-	resposta, err := h.service.ListarApontamentos(r.Context(), filtros)
-	if err != nil {
-		h.logger.ErrorContext(r.Context(), "falha ao listar apontamentos", "erro", err)
-		web.RespondError(w, r, "ERRO_LISTAR_APONTAMENTOS", "Erro ao listar apontamentos", http.StatusInternalServerError)
-		return
-	}
-
-	web.Respond(w, r, resposta, http.StatusOK)
-}
-
-func (h *Handler) HandleListarApontamentosPorFuncionario(w http.ResponseWriter, r *http.Request) {
-	funcionarioID := chi.URLParam(r, "funcionarioId")
-	// Lógica para extrair filtros da URL
-	filtros := web.ParseFiltros(r) // Reutilizando a função de parsing de filtros
-
-	resposta, err := h.service.ListarApontamentosPorFuncionario(r.Context(), funcionarioID, filtros)
-	if err != nil { /* ... tratamento de erro */
-	}
-
-	web.Respond(w, r, resposta, http.StatusOK)
-}
-
-func (h *Handler) HandleListarComUltimoApontamento(w http.ResponseWriter, r *http.Request) {
-	// 1. Reutiliza nossa função helper para extrair os filtros da requisição.
-	filtros := web.ParseFiltros(r)
-
-	// 2. Chama o método de serviço correspondente.
-	respostaPaginada, _, err := h.service.ListarComUltimoApontamento(r.Context(), filtros)
-	if err != nil {
-		h.logger.ErrorContext(r.Context(), "falha ao listar funcionários com apontamentos", "erro", err)
-		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao listar funcionários com apontamentos", http.StatusInternalServerError)
-		return
-	}
-	log.Println("Resposta paginada:", respostaPaginada)
-
-	web.Respond(w, r, respostaPaginada, http.StatusOK)
+	web.Respond(w, r, nil, http.StatusNoContent)
 }

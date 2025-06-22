@@ -47,16 +47,42 @@ func New(c Config) *chi.Mux {
 		r.Use(c.JwtService.AuthMiddleware)
 
 		// --- Recursos de Pessoal ---
-		r.With(auth.Authorize(authz.PermissaoPessoalEscrever)).Post("/funcionarios", c.PessoalHandler.HandleCadastrarFuncionario)
-		r.With(auth.Authorize(authz.PermissaoPessoalEscrever)).Delete("/funcionarios/{id}", c.PessoalHandler.HandleDeletarFuncionario)
-		r.With(auth.Authorize(authz.PermissaoPessoalLer)).Get("/funcionarios", c.PessoalHandler.HandleListarFuncionarios)
-		r.With(auth.Authorize(authz.PermissaoPessoalEscrever)).Put("/funcionarios/{id}", c.PessoalHandler.HandleAtualizarFuncionario)
-		r.With(auth.Authorize(authz.PermissaoPessoalLer)).Get("/funcionarios/{id}", c.PessoalHandler.HandleBuscarFuncionario)
-		r.Route("/funcionarios/{funcionarioId}", func(r chi.Router) {
-			r.With(auth.Authorize(authz.PermissaoPessoalApontamentoLer)).
-				Get("/apontamentos", c.PessoalHandler.HandleListarApontamentosPorFuncionario)
+		r.Route("/funcionarios", func(r chi.Router) {
+			// Rotas que operam na coleção de funcionários: /funcionarios
+			r.Use(c.JwtService.AuthMiddleware) // Aplica autenticação para todo o grupo
+
+			r.With(auth.Authorize(authz.PermissaoPessoalEscrever)).
+				Post("/", c.PessoalHandler.HandleCadastrarFuncionario)
+
+			r.With(auth.Authorize(authz.PermissaoPessoalLer)).
+				Get("/", c.PessoalHandler.HandleListarFuncionarios)
+
+			r.With(auth.Authorize(authz.PermissaoPessoalLer)).
+				Get("/apontamentos", c.PessoalHandler.HandleListarComUltimoApontamento)
+
+			r.With(auth.Authorize(authz.PermissaoPessoalEscrever)).
+				Put("/apontamentos/{apontamentoId}", c.PessoalHandler.HandleAtualizarApontamento)
+
+			// Sub-rotas que operam em um funcionário específico: /funcionarios/{funcionarioId}
+			r.Route("/{funcionarioId}", func(r chi.Router) {
+				r.With(auth.Authorize(authz.PermissaoPessoalLer)).
+					Get("/", c.PessoalHandler.HandleBuscarFuncionario)
+
+				r.With(auth.Authorize(authz.PermissaoPessoalEscrever)).
+					Put("/", c.PessoalHandler.HandleAtualizarFuncionario)
+
+				r.With(auth.Authorize(authz.PermissaoPessoalApontamentoLer)).
+					Patch("/ativar", c.PessoalHandler.HandleAtivarFuncionario)
+
+				r.With(auth.Authorize(authz.PermissaoPessoalEscrever)).
+					Delete("/", c.PessoalHandler.HandleDeletarFuncionario)
+
+				// Rota aninhada para listar os apontamentos deste funcionário
+				r.With(auth.Authorize(authz.PermissaoPessoalApontamentoLer)).
+					Get("/apontamentos", c.PessoalHandler.HandleListarApontamentosPorFuncionario)
+
+			})
 		})
-		r.With(auth.Authorize(authz.PermissaoPessoalLer)).Get("/funcionarios/apontamentos", c.PessoalHandler.HandleListarComUltimoApontamento)
 		// --- Recursos de Suprimentos ---
 		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).Post("/fornecedores", c.SuprimentosHandler.HandleCadastrarFornecedor)
 		r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).Get("/fornecedores", c.SuprimentosHandler.HandleListarFornecedores)

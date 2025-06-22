@@ -5,13 +5,13 @@
 @token =
 @obraId =b5f2644a-bf92-4f16-8a6d-5a6e8a7b7322
 @etapaId =
-@funcionarioId =5e6b2190-8c59-46bd-bb04-f4de08e2a4f7
+@funcionarioId =7afef6dd-9374-4131-b6b5-6ac3743711c7
 @funcionarioParaDeletarId =
 @fornecedorId =
 @materialId =
 @materialId2 =
 @orcamentoId =d3e78e40-5449-432b-b582-0f2ed636ff3c
-@apontamentoId =  # Será preenchido após a criação do apontamento
+@apontamentoId = 860fa31d-5727-4227-866f-41604d1025f9
 
 
 # ===================================================================
@@ -88,6 +88,17 @@ Content-Type: application/json
 Cookie: jwt-token={{token}}
 
 # ===================================================================
+## 4.3 Deletar Funcionário  
+### @name DeletarFuncionario
+
+PATCH  {{hostname}}/funcionarios/{{funcionarioId}}/ativar
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+# ===================================================================
+### 4.4 Atualizar Funcionário
+
+# ===================================================================
 ### 4.4 Atualizar Funcionário
 
 PUT  {{hostname}}/funcionarios/{{funcionarioId}}
@@ -95,11 +106,20 @@ Content-Type: application/json
 Cookie: jwt-token={{token}}
 
 {
-    "nome": "João da Silva (Eng. Chefe Atualizado)",
-    "cpf": "111.222.333-41",
-    "cargo": "Engenheiro Civil",
-    "departamento": "Construção Civil",
-    "diaria" : 120.00
+   "id": "e549f8a3-342f-4f3d-bdda-1627b3b18755",
+  "nome": "João da Silva (Eng. Chefe Atualizado)",
+  "cpf": "211.512.313-11",
+  "telefone": "11987654321",
+  "cargo": "Engenheiro Civil",
+  "departamento": "Construção Civil",
+  "dataContratacao": "2025-06-21T00:00:00Z",
+  "valorDiaria": 0,
+  "chavePix": "ffsfsfsfsfsfs",
+  "status": "Ativo",
+  "motivoDesligamento": "muito gay",
+  "avaliacaoDesempenho": "5",
+  "observacoes": "gay demais",
+  "email": "gay@email.com"
 }
 
 ###
@@ -320,13 +340,13 @@ Cookie: jwt-token={{token}}
 ###
 # @name ListarTodosApontamentos
 # Lista todos os apontamentos do sistema, com paginação.
-GET {{hostname}}/apontamentos/{{{{apontamentoId}}}}
+GET {{hostname}}/apontamentos/{{apontamentoId}}
 Cookie: jwt-token={{token}}
 
 ###
 # @name ListarApontamentosDeUmFuncionario
 # Lista os apontamentos apenas do funcionário principal dos nossos testes.
-GET {{hostname}}/funcionarios/{{funcionarioId}}/apontamentos?status=PAGO
+GET {{hostname}}/funcionarios/{{funcionarioId}}/apontamentos
 Cookie: jwt-token={{token}}
 
 ###
@@ -335,3 +355,27 @@ Cookie: jwt-token={{token}}
 # Permite filtros, como ?status=Ativo
 GET {{hostname}}/funcionarios/apontamentos
 Cookie: jwt-token={{token}}
+
+
+###
+# @name AtualizarApontamento
+# Atualiza os dados de um apontamento que ainda está "EM_ABERTO".
+# O valorTotalCalculado deve ser recalculado automaticamente.
+PUT  {{hostname}}/funcionarios/apontamentos/{{apontamentoId}}
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+   "funcionarioId": "f-9a8b7c6d-5e4f-3a2b-1c0d-9a8b7c6d5e4f",
+  "obraId": "o-1a2b3c4d-5e6f-7a8b-9c0d-1a2b3c4d5e6f",
+  "periodoInicio": "2025-07-01",
+  "periodoFim": "2025-07-31",
+  "diaria": 185.50,
+  "diasTrabalhados": 22,
+  "valorAdicional": 350.00,
+  "descontos": 75.25,
+  "adiantamento": 1200.00,
+  "status": "Aprovado para Pagamento"
+
+
+}

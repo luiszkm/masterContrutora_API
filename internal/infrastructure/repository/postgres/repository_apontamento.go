@@ -185,3 +185,43 @@ func (r *ApontamentoRepositoryPostgres) listarComFiltros(ctx context.Context, ba
 
 	return apontamentos, paginacao, nil
 }
+
+func (r *ApontamentoRepositoryPostgres) ExisteApontamentoEmAberto(ctx context.Context, funcionarioID string) (bool, error) {
+	const op = "repository.postgres.apontamento.ExisteApontamentoEmAberto"
+	query := `SELECT EXISTS(SELECT 1 FROM apontamentos_quinzenais WHERE funcionario_id = $1 AND status = $2)`
+
+	var existe bool
+	err := r.db.QueryRow(ctx, query, funcionarioID, pessoal.StatusApontamentoEmAberto).Scan(&existe)
+	if err != nil {
+		return false, fmt.Errorf("%s: %w", op, err)
+	}
+	return existe, nil
+}
+
+func (r *ApontamentoRepositoryPostgres) BuscarUltimoPorFuncionarioID(ctx context.Context, funcionarioID string) (*pessoal.ApontamentoQuinzenal, error) {
+	const op = "repository.postgres.apontamento.BuscarUltimoPorFuncionarioID"
+	query := `
+		SELECT id, funcionario_id, obra_id, periodo_inicio, periodo_fim,
+			dias_trabalhados, adicionais, descontos, adiantamentos,
+			valor_total_calculado, status, created_at, updated_at, diaria
+		FROM apontamentos_quinzenais
+		WHERE funcionario_id = $1
+		ORDER BY periodo_fim DESC
+		LIMIT 1`
+
+	row := r.db.QueryRow(ctx, query, funcionarioID)
+	var a pessoal.ApontamentoQuinzenal
+
+	err := row.Scan(
+		&a.ID, &a.FuncionarioID, &a.ObraID, &a.PeriodoInicio, &a.PeriodoFim,
+		&a.DiasTrabalhados, &a.Adicionais, &a.Descontos, &a.Adiantamentos,
+		&a.ValorTotalCalculado, &a.Status, &a.CreatedAt, &a.UpdatedAt, &a.Diaria,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNaoEncontrado
+		}
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	return &a, nil
+}

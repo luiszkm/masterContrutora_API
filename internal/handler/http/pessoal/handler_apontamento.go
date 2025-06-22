@@ -150,3 +150,29 @@ func (h *Handler) HandleAtualizarApontamento(w http.ResponseWriter, r *http.Requ
 	web.Respond(w, r, apontamento, http.StatusOK)
 
 }
+
+func (h *Handler) HandleReplicarApontamentos(w http.ResponseWriter, r *http.Request) {
+	var req dto.ReplicarApontamentosInput
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		web.RespondError(w, r, "PAYLOAD_INVALIDO", "Payload da requisição é inválido", http.StatusBadRequest)
+		return
+	}
+
+	if len(req.FuncionarioIDs) == 0 {
+		web.RespondError(w, r, "PAYLOAD_VAZIO", "A lista de funcionarioIds não pode estar vazia", http.StatusBadRequest)
+		return
+	}
+
+	// O serviço foi projetado para não retornar erro em caso de sucesso parcial,
+	// apenas o DTO de resultado.
+	resultado, err := h.service.ReplicarParaProximaQuinzena(r.Context(), req)
+	if err != nil {
+		// Este erro seria para uma falha catastrófica inesperada no serviço.
+		h.logger.ErrorContext(r.Context(), "falha inesperada na replicação de apontamentos", "erro", err)
+		web.RespondError(w, r, "ERRO_INTERNO", "Ocorreu um erro inesperado ao processar a solicitação", http.StatusInternalServerError)
+		return
+	}
+
+	// ADR-012: Respondendo com 207 Multi-Status e o corpo detalhado.
+	web.Respond(w, r, resultado, http.StatusMultiStatus)
+}

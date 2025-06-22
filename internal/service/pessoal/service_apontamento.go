@@ -2,6 +2,7 @@ package pessoal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -11,6 +12,10 @@ import (
 	"github.com/luiszkm/masterCostrutora/internal/events"
 	"github.com/luiszkm/masterCostrutora/internal/platform/bus"
 	"github.com/luiszkm/masterCostrutora/internal/service/pessoal/dto"
+)
+
+var (
+	ErrFuncionarioSemApontamentoAnterior = errors.New("funcionário não possui um apontamento anterior para ser usado como template")
 )
 
 func (s *Service) ListarComUltimoApontamento(ctx context.Context, filtros common.ListarFiltros) ([]*dto.ListagemFuncionarioDTO, *common.PaginacaoInfo, error) {
@@ -186,4 +191,93 @@ func (s *Service) AtualizarApontamento(ctx context.Context, id string, input dto
 
 	s.logger.InfoContext(ctx, "apontamento atualizado com sucesso", "apontamento_id", id)
 	return apontamento, nil
+}
+
+func (s *Service) ReplicarParaProximaQuinzena(ctx context.Context, input dto.ReplicarApontamentosInput) (*dto.ResultadoReplicacao, error) {
+	const op = "service.pessoal.ReplicarParaProximaQuinzena"
+
+	resultado := &dto.ResultadoReplicacao{
+		Resumo: dto.ResumoReplicacao{
+			TotalSolicitado: len(input.FuncionarioIDs),
+		},
+		Sucessos: make([]dto.DetalheSucesso, 0),
+		Falhas:   make([]dto.DetalheFalha, 0),
+	}
+
+	for _, funcID := range input.FuncionarioIDs {
+		// ADR-011: A validação ocorre no serviço de aplicação, antes de criar o agregado.
+		existeEmAberto, err := s.apontamentoRepo.ExisteApontamentoEmAberto(ctx, funcID)
+		if err != nil {
+			s.logger.ErrorContext(ctx, "falha ao verificar apontamento em aberto", "funcionarioId", funcID, "erro", err)
+			resultado.Falhas = append(resultado.Falhas, dto.DetalheFalha{FuncionarioID: funcID, Motivo: "Erro interno ao verificar apontamentos."})
+			resultado.Resumo.TotalFalha++
+			continue
+		}
+		if existeEmAberto {
+			motivo := "Este funcionário já possui um apontamento com o status 'EM_ABERTO'."
+			resultado.Falhas = append(resultado.Falhas, dto.DetalheFalha{FuncionarioID: funcID, Motivo: motivo})
+			resultado.Resumo.TotalFalha++
+			continue
+		}
+
+		// Lógica de "Template" (Item 2.2 do Adendo V3)
+		ultimoApontamento, err := s.apontamentoRepo.BuscarUltimoPorFuncionarioID(ctx, funcID)
+		if err != nil {
+			motivo := ""
+			if errors.Is(err, ErrFuncionarioSemApontamentoAnterior) { // Usando um erro mais específico que pode vir do repo
+				motivo = ErrFuncionarioSemApontamentoAnterior.Error()
+			} else {
+				s.logger.ErrorContext(ctx, "falha ao buscar ultimo apontamento", "funcionarioId", funcID, "erro", err)
+				motivo = "Erro interno ao buscar histórico."
+			}
+			resultado.Falhas = append(resultado.Falhas, dto.DetalheFalha{FuncionarioID: funcID, Motivo: motivo})
+			resultado.Resumo.TotalFalha++
+			continue
+		}
+
+		// Cria o novo apontamento
+		novoApontamento := criarApontamentoAPartirDeTemplate(ultimoApontamento)
+
+		if err := s.apontamentoRepo.Salvar(ctx, novoApontamento); err != nil {
+			s.logger.ErrorContext(ctx, "falha ao salvar novo apontamento replicado", "funcionarioId", funcID, "erro", err)
+			resultado.Falhas = append(resultado.Falhas, dto.DetalheFalha{FuncionarioID: funcID, Motivo: "Erro interno ao salvar novo apontamento."})
+			resultado.Resumo.TotalFalha++
+			continue
+		}
+
+		// Sucesso para este funcionário
+		resultado.Sucessos = append(resultado.Sucessos, dto.DetalheSucesso{
+			FuncionarioID:     funcID,
+			NovoApontamentoID: novoApontamento.ID,
+		})
+		resultado.Resumo.TotalSucesso++
+	}
+
+	s.logger.InfoContext(ctx, "operação de replicação de apontamentos finalizada", "solicitados", resultado.Resumo.TotalSolicitado, "sucessos", resultado.Resumo.TotalSucesso, "falhas", resultado.Resumo.TotalFalha)
+	return resultado, nil
+}
+
+// criarApontamentoAPartirDeTemplate é uma função helper para a lógica de template.
+func criarApontamentoAPartirDeTemplate(template *pessoal.ApontamentoQuinzenal) *pessoal.ApontamentoQuinzenal {
+	// Calcula o novo período
+	novoInicio := template.PeriodoFim.AddDate(0, 0, 1)
+	novoFim := novoInicio.AddDate(0, 0, 14) // Próximos 15 dias
+
+	return &pessoal.ApontamentoQuinzenal{
+		ID:            uuid.NewString(),
+		FuncionarioID: template.FuncionarioID,
+		ObraID:        template.ObraID, // Copia o contexto
+		Diaria:        template.Diaria, // Mantém o valor da diária
+		PeriodoInicio: novoInicio,
+		PeriodoFim:    novoFim,
+		// Zera os campos transacionais
+		DiasTrabalhados:     0,
+		Adicionais:          0,
+		Descontos:           0,
+		Adiantamentos:       0,
+		ValorTotalCalculado: 0,
+		Status:              pessoal.StatusApontamentoEmAberto, // Define o estado inicial
+		CreatedAt:           time.Now(),
+		UpdatedAt:           time.Now(),
+	}
 }

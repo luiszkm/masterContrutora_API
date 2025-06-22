@@ -22,4 +22,6 @@ type ApontamentoRepository interface {
 	Atualizar(ctx context.Context, apontamento *ApontamentoQuinzenal) error
 	Listar(ctx context.Context, filtros common.ListarFiltros) ([]*ApontamentoQuinzenal, *common.PaginacaoInfo, error)
 	ListarPorFuncionarioID(ctx context.Context, funcionarioID string, filtros common.ListarFiltros) ([]*ApontamentoQuinzenal, *common.PaginacaoInfo, error)
+	ExisteApontamentoEmAberto(ctx context.Context, funcionarioID string) (bool, error)
+	BuscarUltimoPorFuncionarioID(ctx context.Context, funcionarioID string) (*ApontamentoQuinzenal, error)
 }

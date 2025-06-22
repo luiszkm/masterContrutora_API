@@ -63,6 +63,12 @@ func New(c Config) *chi.Mux {
 			r.With(auth.Authorize(authz.PermissaoPessoalEscrever)).
 				Put("/apontamentos/{apontamentoId}", c.PessoalHandler.HandleAtualizarApontamento)
 
+			// r.With(auth.Authorize(authz.PermissaoPessoalEscrever)).
+			// 	Patch("/apontamentos/{apontamentoId}/pagar", c.PessoalHandler.HandleRegistrarPagamentoApontamento)
+
+			r.With(auth.Authorize(authz.PermissaoPessoalApontamentoEscrever)).
+				Post("/apontamentos/replicar", c.PessoalHandler.HandleReplicarApontamentos)
+
 			// Sub-rotas que operam em um funcionário específico: /funcionarios/{funcionarioId}
 			r.Route("/{funcionarioId}", func(r chi.Router) {
 				r.With(auth.Authorize(authz.PermissaoPessoalLer)).
@@ -83,6 +89,17 @@ func New(c Config) *chi.Mux {
 
 			})
 		})
+
+		r.With(auth.Authorize(authz.PermissaoPessoalApontamentoEscrever)).
+			Post("/apontamentos", c.PessoalHandler.HandleCriarApontamento)
+		r.With(auth.Authorize(authz.PermissaoPessoalApontamentoLer)).
+			Get("/apontamentos", c.PessoalHandler.HandleListarApontamentos)
+		r.Route("/apontamentos/{apontamentoId}", func(r chi.Router) {
+			r.With(auth.Authorize(authz.PermissaoPessoalApontamentoAprovar)).
+				Patch("/aprovar", c.PessoalHandler.HandleAprovarApontamento)
+			r.With(auth.Authorize(authz.PermissaoPessoalApontamentoPagar)).
+				Patch("/pagar", c.PessoalHandler.HandleRegistrarPagamentoApontamento)
+		})
 		// --- Recursos de Suprimentos ---
 		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).Post("/fornecedores", c.SuprimentosHandler.HandleCadastrarFornecedor)
 		r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).Get("/fornecedores", c.SuprimentosHandler.HandleListarFornecedores)
@@ -93,16 +110,10 @@ func New(c Config) *chi.Mux {
 		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).Post("/materiais", c.SuprimentosHandler.HandleCadastrarMaterial)
 		r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).Get("/materiais", c.SuprimentosHandler.HandleListarMateriais)
 		// Apontamentos são um recurso de Pessoal
-		r.With(auth.Authorize(authz.PermissaoPessoalApontamentoEscrever)).
-			Post("/apontamentos", c.PessoalHandler.HandleCriarApontamento)
-		r.Route("/apontamentos/{apontamentoId}", func(r chi.Router) {
-			r.With(auth.Authorize(authz.PermissaoPessoalApontamentoAprovar)).
-				Patch("/aprovar", c.PessoalHandler.HandleAprovarApontamento)
-		})
-		r.With(auth.Authorize(authz.PermissaoPessoalApontamentoLer)).
-			Get("/apontamentos", c.PessoalHandler.HandleListarApontamentos)
-		r.With(auth.Authorize(authz.PermissaoPessoalApontamentoPagar)).
-			Patch("/pagar", c.PessoalHandler.HandleRegistrarPagamentoApontamento)
+
+		// r.With(auth.Authorize(authz.PermissaoPessoalApontamentoLer)).
+		// 	Get("/apontamentos", c.PessoalHandler.HandleListarApontamentos)
+
 		// --- Recursos de Obras ---
 		r.Route("/obras", func(r chi.Router) {
 			r.With(auth.Authorize(authz.PermissaoObrasLer)).Get("/", c.ObrasHandler.HandleListarObras)

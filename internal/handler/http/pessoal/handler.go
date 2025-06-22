@@ -33,6 +33,7 @@ type Service interface {
 	ListarComUltimoApontamento(ctx context.Context, filtros common.ListarFiltros) ([]*dto.ListagemFuncionarioDTO, *common.PaginacaoInfo, error)
 	AtualizarApontamento(ctx context.Context, id string, input dto.AtualizarApontamentoInput) (*pessoal.ApontamentoQuinzenal, error)
 	AtivarFuncionario(ctx context.Context, id string) error
+	ReplicarParaProximaQuinzena(ctx context.Context, input dto.ReplicarApontamentosInput) (*dto.ResultadoReplicacao, error)
 }
 
 type Handler struct {

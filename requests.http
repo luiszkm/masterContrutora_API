@@ -326,7 +326,10 @@ Content-Type: application/json
 Cookie: jwt-token={{token}}
 
 {
-    "contaBancariaId": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+    "contaBancariaId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+    "apontamentoId" : [
+        "{{apontamentoId}}"
+    ]
 }
 
 ###
@@ -379,3 +382,21 @@ Cookie: jwt-token={{token}}
 
 
 }
+
+
+###
+# @name replicarApontamento
+# TESTE PRINCIPAL DA V3
+# Tenta replicar o apontamento para a próxima quinzena para o funcionário.
+# O resultado esperado é um status 207 Multi-Status com sucesso.
+POST {{hostname}}/funcionarios/apontamentos/replicar
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "funcionarioIds": [
+        "{{funcionarioId}}"
+    ]
+}
+
+###

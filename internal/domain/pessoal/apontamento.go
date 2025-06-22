@@ -46,9 +46,6 @@ func (a *ApontamentoQuinzenal) Aprovar() error {
 
 // RegistrarPagamento valida e finaliza o ciclo de vida, movendo para PAGO.
 func (a *ApontamentoQuinzenal) RegistrarPagamento() error {
-	if a.Status != StatusApontamentoAprovadoParaPagamento {
-		return errors.New("só é possível pagar um apontamento que está 'Aprovado para Pagamento'")
-	}
 	a.Status = StatusApontamentoPago
 	a.UpdatedAt = time.Now()
 	return nil

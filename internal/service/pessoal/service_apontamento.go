@@ -69,7 +69,7 @@ func (s *Service) CriarApontamento(ctx context.Context, input dto.CriarApontamen
 		UpdatedAt:           time.Now(),
 	}
 
-	if err := s.apontamentoRepo.Salvar(ctx, apontamento); err != nil {
+	if err := s.apontamentoRepo.Salvar(ctx, s.dbpool, apontamento); err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -92,7 +92,7 @@ func (s *Service) AprovarApontamento(ctx context.Context, apontamentoID string) 
 	}
 
 	// 3. Persiste o estado atualizado do agregado.
-	if err := s.apontamentoRepo.Atualizar(ctx, apontamento); err != nil {
+	if err := s.apontamentoRepo.Atualizar(ctx, s.dbpool, apontamento); err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -112,7 +112,7 @@ func (s *Service) RegistrarPagamentoApontamento(ctx context.Context, apontamento
 		return nil, fmt.Errorf("%s: regra de negócio violada: %w", op, err)
 	}
 
-	if err := s.apontamentoRepo.Atualizar(ctx, apontamento); err != nil {
+	if err := s.apontamentoRepo.Atualizar(ctx, s.dbpool, apontamento); err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -185,7 +185,7 @@ func (s *Service) AtualizarApontamento(ctx context.Context, id string, input dto
 	}
 
 	// 3. Persiste o estado atualizado.
-	if err := s.apontamentoRepo.Atualizar(ctx, apontamento); err != nil {
+	if err := s.apontamentoRepo.Atualizar(ctx, s.dbpool, apontamento); err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -238,7 +238,7 @@ func (s *Service) ReplicarParaProximaQuinzena(ctx context.Context, input dto.Rep
 		// Cria o novo apontamento
 		novoApontamento := criarApontamentoAPartirDeTemplate(ultimoApontamento)
 
-		if err := s.apontamentoRepo.Salvar(ctx, novoApontamento); err != nil {
+		if err := s.apontamentoRepo.Salvar(ctx, s.dbpool, novoApontamento); err != nil {
 			s.logger.ErrorContext(ctx, "falha ao salvar novo apontamento replicado", "funcionarioId", funcID, "erro", err)
 			resultado.Falhas = append(resultado.Falhas, dto.DetalheFalha{FuncionarioID: funcID, Motivo: "Erro interno ao salvar novo apontamento."})
 			resultado.Resumo.TotalFalha++

@@ -90,3 +90,12 @@ func (a *ApontamentoQuinzenal) AtualizarValores(diasTrabalhados int,
 
 	return nil
 }
+
+func (a *ApontamentoQuinzenal) AprovarEPagar() error {
+	if a.Status != StatusApontamentoEmAberto {
+		return errors.New("só é possível usar o pagamento direto em um apontamento que está 'Em Aberto'")
+	}
+	a.Status = StatusApontamentoPago
+	a.UpdatedAt = time.Now()
+	return nil
+}

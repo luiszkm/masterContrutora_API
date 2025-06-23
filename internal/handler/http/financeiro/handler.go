@@ -19,6 +19,7 @@ import (
 
 type Service interface {
 	RegistrarPagamento(ctx context.Context, input dto.RegistrarPagamentoInput) (*financeiro.RegistroDePagamento, error)
+	RegistrarPagamentosEmLote(ctx context.Context, input dto.RegistrarPagamentoEmLoteInput) (*dto.ResultadoExecucaoLote, error)
 }
 
 type Handler struct {
@@ -92,4 +93,29 @@ func (h *Handler) HandlePagamentoDeApontamentoRealizado(ctx context.Context, eve
 		h.logger.ErrorContext(ctx, "falha ao processar evento de pagamento", "erro", err)
 		// Aqui entraria a lógica de retentativas e DLQ do ADR-007.
 	}
+}
+
+func (h *Handler) HandleRegistrarPagamentosEmLote(w http.ResponseWriter, r *http.Request) {
+	var input dto.RegistrarPagamentoEmLoteInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		web.RespondError(w, r, "PAYLOAD_INVALIDO", "Payload da requisição é inválido", http.StatusBadRequest)
+		return
+	}
+
+	// Validações básicas do payload
+	if len(input.ApontamentoIDs) == 0 || input.ContaBancariaID == "" || input.DataDeEfetivacao == "" {
+		web.RespondError(w, r, "DADOS_OBRIGATORIOS", "apontamentoIds, contaBancariaId e dataDeEfetivacao são obrigatórios.", http.StatusBadRequest)
+		return
+	}
+
+	resultado, err := h.service.RegistrarPagamentosEmLote(r.Context(), input)
+	if err != nil {
+		// Este erro só deve ocorrer para falhas inesperadas na camada de serviço (ex: data inválida)
+		h.logger.ErrorContext(r.Context(), "falha na execução de pagamentos em lote", "erro", err)
+		web.RespondError(w, r, "ERRO_INTERNO", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Conforme a V4, a resposta de sucesso parcial deve ser 207 Multi-Status
+	web.Respond(w, r, resultado, http.StatusMultiStatus)
 }

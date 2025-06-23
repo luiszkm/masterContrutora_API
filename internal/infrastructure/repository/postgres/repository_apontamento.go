@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/luiszkm/masterCostrutora/internal/domain/common"
 	"github.com/luiszkm/masterCostrutora/internal/domain/pessoal"
+	"github.com/luiszkm/masterCostrutora/internal/platform/bus/db"
 )
 
 type ApontamentoRepositoryPostgres struct {
@@ -23,7 +24,7 @@ func NovoApontamentoRepository(db *pgxpool.Pool, logger *slog.Logger) *Apontamen
 	return &ApontamentoRepositoryPostgres{db: db, logger: logger}
 }
 
-func (r *ApontamentoRepositoryPostgres) Salvar(ctx context.Context, a *pessoal.ApontamentoQuinzenal) error {
+func (r *ApontamentoRepositoryPostgres) Salvar(ctx context.Context, db db.DBTX, a *pessoal.ApontamentoQuinzenal) error {
 	const op = "repository.postgres.apontamento.Salvar"
 	query := `
 		INSERT INTO apontamentos_quinzenais (
@@ -69,17 +70,17 @@ func (r *ApontamentoRepositoryPostgres) BuscarPorID(ctx context.Context, id stri
 	return &a, nil
 }
 
-func (r *ApontamentoRepositoryPostgres) Atualizar(ctx context.Context, a *pessoal.ApontamentoQuinzenal) error {
+func (r *ApontamentoRepositoryPostgres) Atualizar(ctx context.Context, dbtx db.DBTX, a *pessoal.ApontamentoQuinzenal) error {
 	const op = "repository.postgres.apontamento.Atualizar"
 	query := `
 		UPDATE apontamentos_quinzenais SET
 			dias_trabalhados = $1, adicionais = $2, descontos = $3, adiantamentos = $4,
-			valor_total_calculado = $5, status = $6, updated_at = $7
-		WHERE id = $8`
+			valor_total_calculado = $5, status = $6, updated_at = $7, obra_id = $8, periodo_inicio = $9, periodo_fim = $10
+		WHERE id = $11`
 
-	cmd, err := r.db.Exec(ctx, query,
+	cmd, err := dbtx.Exec(ctx, query,
 		a.DiasTrabalhados, a.Adicionais, a.Descontos, a.Adiantamentos,
-		a.ValorTotalCalculado, a.Status, a.UpdatedAt, a.ID,
+		a.ValorTotalCalculado, a.Status, a.UpdatedAt, a.ObraID, a.PeriodoInicio, a.PeriodoFim, a.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)

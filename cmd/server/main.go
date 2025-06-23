@@ -92,8 +92,18 @@ func main() {
 		eventBus,        // Satisafaz pessoal.EventPublisher
 		funcionarioRepo,
 		logger,
+		dbpool, // Satisafaz pessoal.DBPool
 	)
-	financeiroSvc := financeiro_service.NovoServico(financeiroRepo, funcionarioRepo, obraRepo, logger)
+
+	financeiroSvc := financeiro_service.NovoServico(
+		financeiroRepo,
+		apontamentoRepo, // Nova dependência
+		funcionarioRepo,
+		obraRepo,
+		eventBus, // Nova dependência
+		dbpool,   // Nova dependência para controle de transação
+		logger,
+	)
 	obraSvc := obras_service.NovoServico(
 		obraRepo,
 		etapaRepo,

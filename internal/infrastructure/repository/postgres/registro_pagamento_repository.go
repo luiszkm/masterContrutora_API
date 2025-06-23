@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/luiszkm/masterCostrutora/internal/domain/financeiro"
+	"github.com/luiszkm/masterCostrutora/internal/platform/bus/db"
 )
 
 // RegistroPagamentoRepositoryPostgres implementa a interface financeiro.Repository.
@@ -20,13 +21,13 @@ func NovoRegistroPagamentoRepository(db *pgxpool.Pool, logger *slog.Logger) *Reg
 	return &RegistroPagamentoRepositoryPostgres{db: db, logger: logger}
 }
 
-func (r *RegistroPagamentoRepositoryPostgres) Salvar(ctx context.Context, p *financeiro.RegistroDePagamento) error {
+func (r *RegistroPagamentoRepositoryPostgres) Salvar(ctx context.Context, dbtx db.DBTX, p *financeiro.RegistroDePagamento) error {
 	const op = "repository.postgres.pagamento.Salvar"
 	query := `
 		INSERT INTO registros_pagamento (id, funcionario_id, obra_id, periodo_referencia, valor_calculado, data_de_efetivacao, conta_bancaria_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
-	_, err := r.db.Exec(ctx, query,
+	_, err := dbtx.Exec(ctx, query,
 		p.ID,
 		p.FuncionarioID,
 		p.ObraID,

@@ -1,0 +1,98 @@
+###
+# @name Variáveis Globais
+# Estas variáveis serão preenchidas dinamicamente ao executar as requisições em ordem.
+@hostname = http://localhost:8080
+@token =
+@obraId =437ee5aa-75ef-4e88-958a-2369482bb009
+@etapaId =
+@funcionarioId =7afef6dd-9374-4131-b6b5-6ac3743711c7
+@funcionarioParaDeletarId =
+@fornecedorId =
+@materialId =
+@materialId2 =
+@orcamentoId =d3e78e40-5449-432b-b582-0f2ed636ff3c
+@apontamentoId = 860fa31d-5727-4227-866f-41604d1025f9
+
+
+###
+# ==============================================================================
+#  V4 - PAGAMENTO EM LOTE DE APONTAMENTOS
+# ==============================================================================
+#
+# @name criarApontamentoLote1
+# Criando o primeiro apontamento para o lote
+POST {{hostname}}/apontamentos
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "funcionarioId": "{{funcionarioId}}",
+    "obraId": "{{obraId}}",
+    "periodoInicio": "2025-07-01",
+    "periodoFim": "2025-07-15",
+    "diaria": 250.00,
+    "diasTrabalhados": 14
+}
+
+###
+# @name criarApontamentoLote2
+# Criando um segundo apontamento que já estará "pago" para forçar um erro no lote.
+POST {{hostname}}/apontamentos
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "funcionarioId": "{{funcionarioId}}",
+    "obraId": "{{obraId}}",
+    "periodoInicio": "2025-08-01",
+    "periodoFim": "2025-08-15",
+    "diaria": 250.00,
+    "diasTrabalhados": 15
+}
+
+###
+# @name aprovarEpagarApontamentoLote2
+PATCH {{hostname}}/apontamentos/{{criarApontamentoLote2.response.body.id}}/aprovar
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+###
+PATCH {{hostname}}/apontamentos/{{criarApontamentoLote2.response.body.id}}/pagar
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{ "contaBancariaId": "a1b2c3d4-e5f6-7890-1234-567890abcdef" }
+
+
+###
+# @name executarPagamentoEmLote
+# TESTE PRINCIPAL DA V4
+# Envia um lote com um apontamento válido (Lote1) e um inválido (Lote2, já pago).
+# Espera-se um 207 Multi-Status com 1 sucesso e 1 falha.
+POST {{hostname}}/pagamentos/lote
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "apontamentoIds": [
+        "{{criarApontamentoLote1.response.body.id}}",
+        "{{criarApontamentoLote2.response.body.id}}"
+    ],
+    "contaBancariaId": "uuid-da-conta-matriz-da-construtora",
+    "dataDeEfetivacao": "2025-06-22"
+}
+
+> {%
+    client.test("Deve retornar 207 Multi-Status para o lote", function() {
+        client.assert(response.status === 207, "A resposta deveria ser 207");
+    });
+    client.test("Resumo do lote deve ser 1 sucesso e 1 falha", function() {
+        client.assert(response.body.resumo.totalSolicitado === 2, "Total solicitado deveria ser 2");
+        client.assert(response.body.resumo.totalSucesso === 1, "Deveria ter 1 sucesso");
+        client.assert(response.body.resumo.totalFalha === 1, "Deveria ter 1 falha");
+    });
+    client.test("Deve detalhar o motivo da falha corretamente", function() {
+        const falha = response.body.falhas[0];
+        client.assert(falha.apontamentoId === client.global.get("criarApontamentoLote2.response.body.id"), "ID do apontamento com falha está incorreto");
+        client.assert(falha.motivo.includes("'Em Aberto'"), "Motivo da falha incorreto");
+    });
+%}

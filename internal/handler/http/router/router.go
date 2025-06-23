@@ -145,7 +145,10 @@ func New(c Config) *chi.Mux {
 		// 	Get("/orcamentos", c.SuprimentosHandler.HandleListarOrcamentos)
 
 		// --- Recursos de Financeiro ---
-		r.With(auth.Authorize(authz.PermissaoFinanceiroEscrever)).Post("/pagamentos", c.FinanceiroHandler.HandleRegistrarPagamento)
+		r.With(auth.Authorize(authz.PermissaoFinanceiroEscrever)).
+			Post("/pagamentos", c.FinanceiroHandler.HandleRegistrarPagamento)
+		r.With(auth.Authorize(authz.PermissaoFinanceiroEscrever)).
+			Post("/pagamentos/lote", c.FinanceiroHandler.HandleRegistrarPagamentosEmLote)
 		// r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).Get("/pagamentos", c.FinanceiroHandler.HandleListarPagamentos)
 	})
 

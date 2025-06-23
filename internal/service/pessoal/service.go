@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/luiszkm/masterCostrutora/internal/domain/common"
 	"github.com/luiszkm/masterCostrutora/internal/domain/obras"
 	"github.com/luiszkm/masterCostrutora/internal/domain/pessoal"
@@ -38,14 +39,22 @@ type Service struct {
 	querier         PessoalQuerier // NOVA DEPENDÊNCIA
 	logger          *slog.Logger
 	eventBus        EventPublisher
+	dbpool          *pgxpool.Pool // NOVA DEPENDÊNCIA
+
 }
 
 // ListarComUltimoApontamento implements pessoal.Service.
 
-func NovoServico(repo pessoal.FuncionarioRepository, apontamentoRepo pessoal.ApontamentoRepository, alocacaoFinder AlocacaoFinder, obraFinder ObraFinder,
+func NovoServico(
+	repo pessoal.FuncionarioRepository,
+	apontamentoRepo pessoal.ApontamentoRepository,
+	alocacaoFinder AlocacaoFinder,
+	obraFinder ObraFinder,
 	eventBus EventPublisher,
 	querier PessoalQuerier,
-	logger *slog.Logger) *Service {
+	logger *slog.Logger,
+	dbpool *pgxpool.Pool, // NOVA DEPENDÊNCIA
+) *Service {
 	return &Service{
 		repo:            repo,
 		apontamentoRepo: apontamentoRepo,
@@ -54,6 +63,7 @@ func NovoServico(repo pessoal.FuncionarioRepository, apontamentoRepo pessoal.Apo
 		eventBus:        eventBus,
 		querier:         querier,
 		logger:          logger,
+		dbpool:          dbpool, // Atribui a dependência
 	}
 }
 

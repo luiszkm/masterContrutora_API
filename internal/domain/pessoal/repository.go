@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/luiszkm/masterCostrutora/internal/domain/common"
+	"github.com/luiszkm/masterCostrutora/internal/platform/bus/db"
 )
 
 // Repository define o contrato para a persistência de Funcionarios.
@@ -17,9 +18,9 @@ type FuncionarioRepository interface {
 }
 
 type ApontamentoRepository interface {
-	Salvar(ctx context.Context, apontamento *ApontamentoQuinzenal) error
-	BuscarPorID(ctx context.Context, id string) (*ApontamentoQuinzenal, error) // NOVO
-	Atualizar(ctx context.Context, apontamento *ApontamentoQuinzenal) error
+	Salvar(ctx context.Context, db db.DBTX, apontamento *ApontamentoQuinzenal) error // Modificado
+	BuscarPorID(ctx context.Context, id string) (*ApontamentoQuinzenal, error)
+	Atualizar(ctx context.Context, db db.DBTX, apontamento *ApontamentoQuinzenal) error // Modificado
 	Listar(ctx context.Context, filtros common.ListarFiltros) ([]*ApontamentoQuinzenal, *common.PaginacaoInfo, error)
 	ListarPorFuncionarioID(ctx context.Context, funcionarioID string, filtros common.ListarFiltros) ([]*ApontamentoQuinzenal, *common.PaginacaoInfo, error)
 	ExisteApontamentoEmAberto(ctx context.Context, funcionarioID string) (bool, error)

@@ -1,0 +1,61 @@
+@hostname = http://localhost:8080
+@token =
+@obraId =437ee5aa-75ef-4e88-958a-2369482bb009
+@etapaId =
+@funcionarioId =7afef6dd-9374-4131-b6b5-6ac3743711c7
+@funcionarioParaDeletarId =
+@fornecedorId =
+@materialId =
+@materialId2 =
+@orcamentoId =f800547b-b0d1-4869-bcde-4ed77ae26ae0
+@apontamentoId = c1377600-6c9d-42cd-aaba-a85b5df3d217
+###
+# @name CadastrarFornecedorPrincipal
+# 4. Cadastra o fornecedor principal.
+POST {{hostname}}/fornecedores
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "nome": "Casa do Construtor Center",
+    "cnpj": "12.345.678/0001-10",
+    "categoria": "Materiais Básicos",
+    "contato": "Carlos Andrade",
+    "email": "comercial@casadoconstrutor.com"
+}
+> {%
+    client.global.set("fornecedorId", response.body.ID);
+%}
+
+
+
+
+
+
+######
+# @name ListarFornecedores
+# 4. Cadastra o fornecedor principal.
+Get {{hostname}}/fornecedores
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+
+
+######
+# @name CadastrarMaterial1
+# 5. Cadastra o primeiro material.
+POST {{hostname}}/materiais
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "nome": "Cimento Portland CP II 50kg",
+    "descricao": "Cimento para uso geral.",
+    "unidadeDeMedida": "saco",
+    "categoria": "Estrutural"
+}
+> {%
+    client.global.set("materialId", response.body.ID);
+%}
+
+

@@ -1,0 +1,45 @@
+@hostname = http://localhost:8080
+@token =
+@obraId =437ee5aa-75ef-4e88-958a-2369482bb009
+@etapaId =7bd75482-6d6d-48c7-938d-43d323d1a6d6
+@funcionarioId =
+@funcionarioParaDeletarId =
+@fornecedorId =b8a60b89-a647-425e-9cdb-46d574650307
+@materialId =c4d089ac-95d4-4b66-a7f3-af914518396e
+@orcamentoId =04b5a192-252d-447b-a00b-9fe11db0a00b
+@apontamentoId = c1377600-6c9d-42cd-aaba-a85b5df3d217
+
+
+###
+# @name CriarOrcamentoPrincipal
+# 10. Cria um orçamento para a etapa.
+POST {{hostname}}/etapas/{{etapaId}}/orcamentos
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "fornecedorId": "{{fornecedorId}}",
+    "itens": [
+        { "materialId": "{{materialId}}", "quantidade": 200, "valorUnitario": 55.75 }
+    ]
+}
+> {%
+    client.global.set("orcamentoId", response.body.ID);
+%}
+
+###
+# @name AprovarOrcamento
+# 11. Aprova o orçamento criado.
+PATCH {{hostname}}/orcamentos/{{orcamentoId}}
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "status": "Aprovado"
+}
+
+###
+# @name ListarTodosOrcamentos
+# Lista todos os orçamentos com paginação padrão.
+GET {{hostname}}/orcamentos
+Cookie: jwt-token={{token}}

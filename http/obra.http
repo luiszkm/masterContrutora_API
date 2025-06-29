@@ -1,0 +1,71 @@
+@hostname = http://localhost:8080
+@token =
+@obraId =7c07558a-d3bb-4105-b98f-602ab015f34c
+@etapaId =
+@funcionarioId =7afef6dd-9374-4131-b6b5-6ac3743711c7
+@funcionarioParaDeletarId =
+@fornecedorId =
+@materialId =
+@materialId2 =
+@orcamentoId =a740655b-24ec-4328-b9c5-7fdf4a7aa961
+@apontamentoId = c1377600-6c9d-42cd-aaba-a85b5df3d217
+
+
+# ===================================================================
+# [FLUXO 2] - CENÁRIO DE UMA OBRA COMPLETA
+# ===================================================================
+
+###
+# @name CriarObraPrincipal
+# 7. Cria a obra principal para os testes.
+POST {{hostname}}/obras
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "nome": "Sem Obra",
+    "cliente": "ncorporadora Morar Bem",
+    "endereco": "Rua das Palmeiras, 100",
+    "dataInicio": "2025-08-01"
+}
+
+> {%
+    client.global.set("obraId", response.body.ID);
+%}
+
+###
+# @name AdicionarEtapaPrincipal
+# 8. Adiciona uma etapa à obra.
+POST {{hostname}}/obras/{{obraId}}/etapas
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "nome": "Fundações",
+    "dataInicioPrevista": "2025-08-05",
+    "dataFimPrevista": "2025-08-30"
+}
+
+> {%
+    client.global.set("etapaId", response.body.ID);
+%}
+
+###
+# @name AlocarFuncionarioPrincipal
+# 9. Aloca o funcionário principal na obra.
+POST {{hostname}}/obras/{{obraId}}/alocacoes
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "funcionarioId": "{{funcionarioId}}",
+    "dataInicioAlocacao": "2025-08-05"
+}
+
+
+###
+# @name ListarTodasAsObras
+GET {{hostname}}/obras
+Cookie: jwt-token={{token}}
+###
+

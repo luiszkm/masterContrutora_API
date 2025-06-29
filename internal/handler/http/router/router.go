@@ -140,9 +140,8 @@ func New(c Config) *chi.Mux {
 		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).
 			Patch("/orcamentos/{orcamentoId}", c.SuprimentosHandler.HandleAtualizarOrcamentoStatus)
 
-			//lista tdoso orçamentos
-		// r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).
-		// 	Get("/orcamentos", c.SuprimentosHandler.HandleListarOrcamentos)
+		r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).
+			Get("/orcamentos", c.SuprimentosHandler.HandleListarOrcamentos)
 
 		// --- Recursos de Financeiro ---
 		r.With(auth.Authorize(authz.PermissaoFinanceiroEscrever)).

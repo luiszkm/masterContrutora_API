@@ -202,6 +202,7 @@ func (r *FuncionarioRepositoryPostgres) ListarComUltimoApontamento(ctx context.C
 			LIMIT 1
 		) a ON true
 		WHERE f.desligamento_data IS NULL
+		AND a.status IS NULL OR a.status = 'EM_ABERTO'
 	`
 	// ... (Lógica de construção de query para filtros e contagem)
 	whereClauses := []string{"f.desligamento_data IS NULL"}

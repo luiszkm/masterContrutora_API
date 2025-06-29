@@ -1,6 +1,10 @@
 package suprimentos
 
-import "context"
+import (
+	"context"
+
+	"github.com/luiszkm/masterCostrutora/internal/domain/common"
+)
 
 // Repository define o contrato para a persistência de Fornecedores.
 type FornecedorRepository interface {
@@ -24,7 +28,7 @@ type OrcamentoRepository interface {
 	Salvar(ctx context.Context, orcamento *Orcamento) error
 	ListarPorEtapaID(ctx context.Context, etapaID string) ([]*Orcamento, error)
 	BuscarPorID(ctx context.Context, id string) (*Orcamento, error)
-	ListarTodos(ctx context.Context) ([]*Orcamento, error)
+	ListarTodos(ctx context.Context, filtros common.ListarFiltros) ([]*Orcamento, *common.PaginacaoInfo, error)
 	Atualizar(ctx context.Context, orcamento *Orcamento) error // NOVO
 }
 

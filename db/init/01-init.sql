@@ -169,21 +169,19 @@ IF NOT EXISTS apontamentos_quinzenais
 (funcionario_id, periodo_inicio, periodo_fim) -- Garante que não haja apontamentos duplicados.
 );
 
-CREATE TABLE
-IF NOT EXISTS orcamentos
-(
+CREATE TABLE IF NOT EXISTS orcamentos (
     id UUID PRIMARY KEY,
-    numero VARCHAR
-(50) NOT NULL UNIQUE,
-    etapa_id UUID NOT NULL REFERENCES etapas
-(id),
-    fornecedor_id UUID NOT NULL REFERENCES fornecedores
-(id),
-    valor_total NUMERIC
-(15, 2) NOT NULL,
-    status VARCHAR
-(50) NOT NULL,
-    data_emissao TIMESTAMPTZ NOT NULL
+    numero VARCHAR(50) NOT NULL UNIQUE,
+    etapa_id UUID NOT NULL REFERENCES etapas(id),
+    fornecedor_id UUID NOT NULL REFERENCES fornecedores(id),
+    valor_total NUMERIC(15, 2) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    data_emissao TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    data_aprovacao TIMESTAMPTZ,
+    observacoes TEXT,
+    criado_por_usuario_id UUID NOT NULL REFERENCES usuarios(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE
@@ -249,3 +247,5 @@ IF NOT EXISTS idx_pagamentos_funcionario_id ON registros_pagamento
 CREATE INDEX
 IF NOT EXISTS idx_pagamentos_obra_id ON registros_pagamento
 (obra_id);
+
+CREATE INDEX IF NOT EXISTS idx_orcamentos_criado_por ON orcamentos(criado_por_usuario_id);

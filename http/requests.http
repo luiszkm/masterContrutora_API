@@ -1,0 +1,196 @@
+###
+# @name Variáveis Globais
+# Estas variáveis serão preenchidas dinamicamente ao executar as requisições em ordem.
+@hostname = http://localhost:8080
+@token =
+@obraId =b5f2644a-bf92-4f16-8a6d-5a6e8a7b7322
+@etapaId =
+@funcionarioId =7afef6dd-9374-4131-b6b5-6ac3743711c7
+@funcionarioParaDeletarId =
+@fornecedorId =
+@materialId =
+@materialId2 =
+@orcamentoId =d3e78e40-5449-432b-b582-0f2ed636ff3c
+@apontamentoId = 860fa31d-5727-4227-866f-41604d1025f9
+
+
+# ===================================================================
+# [FLUXO 1] - AUTENTICAÇÃO E SETUP INICIAL
+# ===================================================================
+
+###
+# @name Registrar
+# 1. Registra um novo usuário administrador.
+POST {{hostname}}/usuarios/registrar
+Content-Type: application/json
+
+{
+    "nome": "Admin Geral",
+    "email": "admin@construtora.com",
+    "senha": "senha_forte_123",
+    "confirmarSenha": "senha_forte_123"
+}
+
+###
+# @name Login
+# 2. Faz o login para obter o token que será usado nos cookies.
+POST {{hostname}}/usuarios/login
+Content-Type: application/json
+
+{
+    "email": "admin@construtora.com",
+    "senha": "senha_forte_123"
+}
+
+> {%
+    client.global.set("token", response.body.accessToken);
+%}
+
+
+
+
+
+
+
+
+
+
+
+###
+# @name RegistrarPagamentoFuncionario
+# 12. Registra um pagamento para o funcionário nesta obra.
+POST {{hostname}}/pagamentos
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "funcionarioId": "{{funcionarioId}}",
+    "obraId": "{{obraId}}",
+    "periodoReferencia": "Agosto/2025",
+    "valorCalculado": 7500.00,
+    "contaBancariaId": "b47a0631-9252-421c-9e27-378393589767"
+}
+
+###
+# @name VerificarDashboardCompleto
+# 13. VERIFICAÇÃO FINAL: Busca o dashboard completo.
+# Todos os campos devem estar preenchidos com dados reais.
+GET {{hostname}}/obras/{{obraId}}
+Cookie: jwt-token={{token}}
+
+
+# ===================================================================
+# [FLUXO 3] - TESTANDO LISTAGENS
+# ===================================================================
+
+
+
+###
+# @name CriarApontamento
+# Cria um novo apontamento para um funcionário em uma obra.
+POST {{hostname}}/apontamentos
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "funcionarioId": "{{funcionarioId}}",
+    "obraId": "{{obraId}}",
+    "periodoInicio": "2025-11-01",
+    "periodoFim": "2025-12-15",
+    "Diaria": 99,
+    "DiasTrabalhados": 15,
+    "Descontos": 40,
+    "Adiantamento": 30,
+    "ValorAdicional": 10
+}
+###
+# @name AprovarApontamento
+# Aprova o apontamento criado acima.
+# A resposta deve mostrar o status: "APROVADO_PARA_PAGAMENTO"
+PATCH {{hostname}}/apontamentos/{{apontamentoId}}/aprovar
+Cookie: jwt-token={{token}}
+
+###
+# @name RegistrarPagamentoApontamento
+# Paga o apontamento previamente aprovado.
+# A resposta deve mostrar o status: "PAGO"
+# E um evento será disparado para o contexto Financeiro.
+PATCH {{hostname}}/apontamentos/{{apontamentoId}}/pagar
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "contaBancariaId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+    "apontamentoId" : [
+        "{{apontamentoId}}"
+    ]
+}
+
+###
+# @name ListarTodosApontamentos
+# Lista todos os apontamentos do sistema, com paginação.
+GET {{hostname}}/apontamentos
+Cookie: jwt-token={{token}}
+
+###
+
+###
+# @name ListarTodosApontamentos
+# Lista todos os apontamentos do sistema, com paginação.
+GET {{hostname}}/apontamentos/{{apontamentoId}}
+Cookie: jwt-token={{token}}
+
+###
+# @name ListarApontamentosDeUmFuncionario
+# Lista os apontamentos apenas do funcionário principal dos nossos testes.
+GET {{hostname}}/funcionarios/{{funcionarioId}}/apontamentos
+Cookie: jwt-token={{token}}
+
+###
+# @name ListarFuncionariosComDetalhes
+# Busca a lista de funcionários, trazendo os dados do último apontamento de cada um.
+# Permite filtros, como ?status=Ativo
+GET {{hostname}}/funcionarios/apontamentos
+Cookie: jwt-token={{token}}
+
+
+###
+# @name AtualizarApontamento
+# Atualiza os dados de um apontamento que ainda está "EM_ABERTO".
+# O valorTotalCalculado deve ser recalculado automaticamente.
+PUT  {{hostname}}/funcionarios/apontamentos/{{apontamentoId}}
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+   "funcionarioId": "f-9a8b7c6d-5e4f-3a2b-1c0d-9a8b7c6d5e4f",
+  "obraId": "o-1a2b3c4d-5e6f-7a8b-9c0d-1a2b3c4d5e6f",
+  "periodoInicio": "2025-07-01",
+  "periodoFim": "2025-07-31",
+  "diaria": 185.50,
+  "diasTrabalhados": 22,
+  "valorAdicional": 350.00,
+  "descontos": 75.25,
+  "adiantamento": 1200.00,
+  "status": "Aprovado para Pagamento"
+
+
+}
+
+
+###
+# @name replicarApontamento
+# TESTE PRINCIPAL DA V3
+# Tenta replicar o apontamento para a próxima quinzena para o funcionário.
+# O resultado esperado é um status 207 Multi-Status com sucesso.
+POST {{hostname}}/funcionarios/apontamentos/replicar
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "funcionarioIds": [
+        "{{funcionarioId}}"
+    ]
+}
+
+###

@@ -93,7 +93,7 @@ func (r *ApontamentoRepositoryPostgres) Atualizar(ctx context.Context, dbtx db.D
 
 func (r *ApontamentoRepositoryPostgres) Listar(ctx context.Context, filtros common.ListarFiltros) ([]*pessoal.ApontamentoQuinzenal, *common.PaginacaoInfo, error) {
 	// A query base para buscar todos os apontamentos
-	baseQuery := "FROM apontamentos_quinzenais a"
+	baseQuery := "FROM apontamentos_quinzenais a "
 	// Para os filtros, passamos um mapa que será preenchido
 	filterArgs := make(map[string]interface{})
 	if filtros.Status != "" {
@@ -120,8 +120,6 @@ func (r *ApontamentoRepositoryPostgres) listarComFiltros(ctx context.Context, ba
 
 	args := pgx.NamedArgs(filterArgs)
 
-	// --- INÍCIO DA CORREÇÃO ---
-	// Em vez de adicionar "AND" diretamente, construímos uma lista de condições.
 	whereClauses := []string{}
 	if baseQueryWhere := strings.SplitN(baseQuery, "WHERE", 2); len(baseQueryWhere) > 1 {
 		baseQuery = baseQueryWhere[0] // A base da query fica sem o WHERE
@@ -131,6 +129,10 @@ func (r *ApontamentoRepositoryPostgres) listarComFiltros(ctx context.Context, ba
 	if status, ok := filterArgs["status"]; ok {
 		whereClauses = append(whereClauses, "status = @status")
 		args["status"] = status
+	}
+	if filtros.ApontamentoStatus != "" {
+		whereClauses = append(whereClauses, "a.status = @apontamentoStatus")
+		args["apontamentoStatus"] = filtros.ApontamentoStatus
 	}
 
 	// Monta a string final da cláusula WHERE
@@ -175,10 +177,6 @@ func (r *ApontamentoRepositoryPostgres) listarComFiltros(ctx context.Context, ba
 		return nil, nil, fmt.Errorf("%s: %w", op, err)
 	}
 	defer rows.Close()
-
-	// A função pgx.RowToAddrOfStructByPos é ótima, mas sensível à ordem das colunas.
-	// Se a ordem no SELECT mudar, o scan irá falhar ou colocar dados em campos errados.
-	// Para este caso, está correto.
 	apontamentos, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByPos[pessoal.ApontamentoQuinzenal])
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s: falha ao escanear apontamentos: %w", op, err)

@@ -10,15 +10,90 @@
 @fornecedorId =
 @materialId =
 @materialId2 =
-@orcamentoId =d3e78e40-5449-432b-b582-0f2ed636ff3c
-@apontamentoId = 860fa31d-5727-4227-866f-41604d1025f9
+@orcamentoId =f800547b-b0d1-4869-bcde-4ed77ae26ae0
+@apontamentoId = c1377600-6c9d-42cd-aaba-a85b5df3d217
 
 
 ###
 # ==============================================================================
 #  V4 - PAGAMENTO EM LOTE DE APONTAMENTOS
 # ==============================================================================
-#
+
+###
+# @name CadastrarFuncionarioPrincipal
+# 3. Cadastra o funcionário principal que será usado nos testes.
+POST {{hostname}}/funcionarios
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "nome": "João da Silva (Eng. Chefe)",
+    "cpf": "211.512.313-11",
+    "cargo": "Engenheiro Civil",
+    "departamento": "Construção Civil",
+    "telefone": "11987654321",
+    "email": "teste@email.com",
+    "dataContratacao": "2020-01-10",
+    "chavePix": "ffsfsfsfsfsfs"
+    }
+
+> {%
+    client.global.set("funcionarioId", response.body.ID);
+%}
+
+### @name BuscarFuncionarios
+# 4.1. Busca todos os funcionários cadastrados.
+GET {{hostname}}/funcionarios
+Cookie: jwt-token={{token}}
+
+# ===================================================================
+### 4.2 Buscar Funcionário Específico
+GET {{hostname}}/funcionarios/{{funcionarioId}}
+Cookie: jwt-token={{token}}
+
+# ===================================================================
+## 4.3 Deletar Funcionário  
+### @name DeletarFuncionario
+
+DELETE {{hostname}}/funcionarios/{{funcionarioId}}
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+# ===================================================================
+## 4.3 Deletar Funcionário  
+### @name AtivarFuncionario
+
+PATCH  {{hostname}}/funcionarios/{{funcionarioId}}/ativar
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+# ===================================================================
+### 4.4 Atualizar Funcionário
+
+# ===================================================================
+### 4.4 Atualizar Funcionário
+
+PUT  {{hostname}}/funcionarios/{{funcionarioId}}
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+   "id": "e549f8a3-342f-4f3d-bdda-1627b3b18755",
+  "nome": "João da Silva (Eng. Chefe Atualizado)",
+  "cpf": "211.512.313-11",
+  "telefone": "11987654321",
+  "cargo": "Engenheiro Civil",
+  "departamento": "Construção Civil",
+  "dataContratacao": "2025-06-21T00:00:00Z",
+  "valorDiaria": 0,
+  "chavePix": "ffsfsfsfsfsfs",
+  "status": "Ativo",
+  "motivoDesligamento": "muito gay",
+  "avaliacaoDesempenho": "5",
+  "observacoes": "gay demais",
+  "email": "gay@email.com"
+}
+
 # @name criarApontamentoLote1
 # Criando o primeiro apontamento para o lote
 POST {{hostname}}/apontamentos
@@ -28,8 +103,8 @@ Cookie: jwt-token={{token}}
 {
     "funcionarioId": "{{funcionarioId}}",
     "obraId": "{{obraId}}",
-    "periodoInicio": "2025-07-01",
-    "periodoFim": "2025-07-15",
+    "periodoInicio": "2025-05-01",
+    "periodoFim": "2025-06-15",
     "diaria": 250.00,
     "diasTrabalhados": 14
 }
@@ -45,7 +120,7 @@ Cookie: jwt-token={{token}}
     "funcionarioId": "{{funcionarioId}}",
     "obraId": "{{obraId}}",
     "periodoInicio": "2025-08-01",
-    "periodoFim": "2025-08-15",
+    "periodoFim": "2025-09-15",
     "diaria": 250.00,
     "diasTrabalhados": 15
 }

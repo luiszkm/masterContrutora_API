@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/luiszkm/masterCostrutora/internal/domain/common"
 	"github.com/luiszkm/masterCostrutora/internal/domain/suprimentos"
 )
 
@@ -93,8 +95,54 @@ func (r *OrcamentoRepositoryPostgres) ListarPorEtapaID(ctx context.Context, etap
 }
 
 // ListarTodos implements suprimentos.OrcamentoRepository.
-func (r *OrcamentoRepositoryPostgres) ListarTodos(ctx context.Context) ([]*suprimentos.Orcamento, error) {
-	panic("unimplemented")
+func (r *OrcamentoRepositoryPostgres) ListarTodos(ctx context.Context, filtros common.ListarFiltros) ([]*suprimentos.Orcamento, *common.PaginacaoInfo, error) {
+	const op = "repository.postgres.orcamento.ListarTodos"
+
+	args := pgx.NamedArgs{}
+	whereClauses := []string{"1 = 1"} // Cláusula base para facilitar a adição de filtros
+
+	if filtros.Status != "" {
+		whereClauses = append(whereClauses, "status = @status")
+		args["status"] = filtros.Status
+	}
+
+	whereString := " WHERE " + strings.Join(whereClauses, " AND ")
+
+	// Query para contar o total de itens
+	countQuery := "SELECT COUNT(*) FROM orcamentos" + whereString
+	var totalItens int
+	err := r.db.QueryRow(ctx, countQuery, args).Scan(&totalItens)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s: falha ao contar orçamentos: %w", op, err)
+	}
+
+	paginacao := common.NewPaginacaoInfo(totalItens, filtros.Pagina, filtros.TamanhoPagina)
+	if totalItens == 0 {
+		return []*suprimentos.Orcamento{}, paginacao, nil
+	}
+
+	// Query para buscar os dados da página
+	query := "SELECT id, numero, etapa_id, fornecedor_id, valor_total, status, data_emissao, data_aprovacao, observacoes FROM orcamentos" +
+		whereString + " ORDER BY data_emissao DESC LIMIT @limit OFFSET @offset"
+
+	args["limit"] = filtros.TamanhoPagina
+	offset := (filtros.Pagina - 1) * filtros.TamanhoPagina
+	args["offset"] = offset
+
+	rows, err := r.db.Query(ctx, query, args)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s: %w", op, err)
+	}
+	defer rows.Close()
+
+	orcamentos, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByPos[suprimentos.Orcamento])
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s: falha ao escanear orçamentos: %w", op, err)
+	}
+
+	// Nota: Esta listagem não popula os Itens de cada orçamento para manter a performance.
+	// Os itens devem ser buscados em uma chamada separada ao GET /orcamentos/{id}.
+	return orcamentos, paginacao, nil
 }
 
 // Salvar usa uma transação para garantir atomicidade.

@@ -25,6 +25,7 @@ IF NOT EXISTS obras
     cliente VARCHAR
 (255) NOT NULL,
     endereco TEXT NOT NULL,
+    descricao TEXT NOT NULL,
     data_inicio DATE NOT NULL,
     data_fim DATE,
     status VARCHAR
@@ -216,7 +217,7 @@ IF NOT EXISTS registros_pagamento
     conta_bancaria_id UUID NOT NULL
 );
 CREATE TABLE
-IF NOT EXISTS categorias
+IF NOT EXISTS categorias_materiais
 (
     id UUID PRIMARY KEY,
     nome VARCHAR

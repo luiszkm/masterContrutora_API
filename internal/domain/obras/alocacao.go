@@ -12,6 +12,5 @@ type Alocacao struct {
 	ObraID             string
 	FuncionarioID      string
 	DataInicioAlocacao time.Time
-	// DataFimAlocacao pode ser nula, indicando que a alocação está ativa indefinidamente.
-	DataFimAlocacao *time.Time
+	DataFimAlocacao    *time.Time
 }

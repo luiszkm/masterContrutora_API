@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -24,9 +25,11 @@ type Service interface {
 	BuscarDashboard(ctx context.Context, id string) (*dto.ObraDashboard, error)
 	AdicionarEtapa(ctx context.Context, obraID string, input dto.AdicionarEtapaInput) (*obras.Etapa, error)
 	AtualizarStatusEtapa(ctx context.Context, etapaID string, input dto.AtualizarStatusEtapaInput) (*obras.Etapa, error)
-	AlocarFuncionario(ctx context.Context, obraID string, input dto.AlocarFuncionarioInput) (*obras.Alocacao, error)
+	AlocarFuncionarios(ctx context.Context, obraID string, input dto.AlocarFuncionariosInput) ([]*obras.Alocacao, error)
 	ListarObras(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*dto.ObraListItemDTO], error)
 	DeletarObra(ctx context.Context, obraID string) error
+	BuscarDetalhesPorID(ctx context.Context, obraID string) (*dto.ObraDetalhadaDTO, error) // NOVO
+
 }
 
 // ObrasHandler gerencia as requisições HTTP para o contexto de Obras.
@@ -148,13 +151,15 @@ func (h *Handler) HandleAtualizarEtapaStatus(w http.ResponseWriter, r *http.Requ
 func (h *Handler) HandleAlocarFuncionario(w http.ResponseWriter, r *http.Request) {
 	obraID := chi.URLParam(r, "obraId")
 
-	var input dto.AlocarFuncionarioInput
+	var input dto.AlocarFuncionariosInput
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		web.RespondError(w, r, "PAYLOAD_INVALIDO", "Payload inválido", http.StatusBadRequest)
 		return
 	}
+	fmt.Println("Alocando funcionários para a obra:", obraID, "com os dados:", input)
 
-	alocacao, err := h.service.AlocarFuncionario(r.Context(), obraID, input)
+	alocacoes, err := h.service.AlocarFuncionarios(r.Context(), obraID, input)
+	fmt.Println(alocacoes)
 	if err != nil {
 		// TODO: Tratar erros específicos (obra ou funcionário não encontrado) com 404
 		h.logger.ErrorContext(r.Context(), "falha ao alocar funcionário", "erro", err)
@@ -162,28 +167,10 @@ func (h *Handler) HandleAlocarFuncionario(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	web.Respond(w, r, alocacao, http.StatusCreated)
+	web.Respond(w, r, alocacoes, http.StatusCreated)
 }
 
 func (h *Handler) HandleListarObras(w http.ResponseWriter, r *http.Request) {
-	// q := r.URL.Query()
-	// status := q.Get("status")
-
-	// pagina, err := strconv.Atoi(q.Get("page"))
-	// if err != nil || pagina < 1 {
-	// 	pagina = 1
-	// }
-
-	// tamanhoPagina, err := strconv.Atoi(q.Get("pageSize"))
-	// if err != nil || tamanhoPagina < 1 || tamanhoPagina > 100 {
-	// 	tamanhoPagina = 20
-	// }
-
-	// filtros := common.ListarFiltros{
-	// 	Status:        status,
-	// 	Pagina:        pagina,
-	// 	TamanhoPagina: tamanhoPagina,
-	// }
 	filtros := web.ParseFiltros(r)
 
 	resposta, err := h.service.ListarObras(r.Context(), filtros)
@@ -210,4 +197,21 @@ func (h *Handler) HandleDeletarObra(w http.ResponseWriter, r *http.Request) {
 	}
 	// Em um DELETE bem-sucedido, a resposta padrão é 204 No Content.
 	web.Respond(w, r, nil, http.StatusNoContent)
+}
+
+func (h *Handler) HandleBuscarObraPorID(w http.ResponseWriter, r *http.Request) {
+	obraID := chi.URLParam(r, "obraId")
+
+	obraDetalhada, err := h.service.BuscarDetalhesPorID(r.Context(), obraID)
+	if err != nil {
+		if errors.Is(err, postgres.ErrNaoEncontrado) {
+			web.RespondError(w, r, "NAO_ENCONTRADO", "Obra não encontrada", http.StatusNotFound)
+			return
+		}
+		h.logger.ErrorContext(r.Context(), "falha ao buscar detalhes da obra", "erro", err, "obra_id", obraID)
+		web.RespondError(w, r, "ERRO_INTERNO", "Falha ao buscar detalhes da obra", http.StatusInternalServerError)
+		return
+	}
+
+	web.Respond(w, r, obraDetalhada, http.StatusOK)
 }

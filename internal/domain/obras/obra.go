@@ -22,7 +22,8 @@ type Obra struct {
 	Cliente    string     `json:"cliente"`
 	Endereco   string     `json:"endereco"`
 	DataInicio time.Time  `json:"dataInicio"`
-	DataFim    *time.Time `json:"dataFim,omitempty"`
+	DataFim    time.Time  `json:"dataFim,omitempty"`
 	Status     Status     `json:"status"`
 	DeletedAt  *time.Time `json:"deletedAt,omitempty"` // Marca de exclusão lógica
+	Descricao  string     `json:"descricao,omitempty"` // Descrição opcional da obra
 }

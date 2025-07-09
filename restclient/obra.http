@@ -1,8 +1,8 @@
 @hostname = http://localhost:8080
 @token =
-@obraId =7c07558a-d3bb-4105-b98f-602ab015f34c
+@obraId =4f45c1b3-210f-4f48-aa6b-158d26ddf014
 @etapaId =
-@funcionarioId =7afef6dd-9374-4131-b6b5-6ac3743711c7
+@funcionarioId =fb0677ac-4c9a-49a9-b601-c0ed35f5b9fb
 @funcionarioParaDeletarId =
 @fornecedorId =
 @materialId =
@@ -23,10 +23,12 @@ Content-Type: application/json
 Cookie: jwt-token={{token}}
 
 {
-    "nome": "Sem Obra",
+    "nome": "Obra teste",
     "cliente": "ncorporadora Morar Bem",
     "endereco": "Rua das Palmeiras, 100",
-    "dataInicio": "2025-08-01"
+    "dataInicio": "2025-08-01",
+    "DataFim": "2025-12-31",
+    "descricao": "Obra de teste para o fluxo completo"
 }
 
 > {%
@@ -58,7 +60,7 @@ Content-Type: application/json
 Cookie: jwt-token={{token}}
 
 {
-    "funcionarioId": "{{funcionarioId}}",
+    "funcionarioIds": ["{{funcionarioId}}"],
     "dataInicioAlocacao": "2025-08-05"
 }
 
@@ -66,6 +68,18 @@ Cookie: jwt-token={{token}}
 ###
 # @name ListarTodasAsObras
 GET {{hostname}}/obras
+Cookie: jwt-token={{token}}
+###
+
+###
+# @name ListarTodasAsObras
+GET {{hostname}}/obras/{{obraId}}/dashboard
+Cookie: jwt-token={{token}}
+###
+
+###
+# @name ListarTodasAsObras
+GET {{hostname}}/obras/{{obraId}}
 Cookie: jwt-token={{token}}
 ###
 

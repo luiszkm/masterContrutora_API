@@ -12,6 +12,7 @@ type ObrasRepository interface {
 
 type AlocacaoRepository interface {
 	Salvar(ctx context.Context, alocacao *Alocacao) error
+	SalvarMuitos(ctx context.Context, alocacoes []*Alocacao) error
 	ExistemAlocacoesAtivasParaFuncionario(ctx context.Context, funcionarioID string) (bool, error) // NOVO
 
 }

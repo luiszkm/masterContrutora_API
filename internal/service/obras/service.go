@@ -18,6 +18,7 @@ import (
 type ObrasQuerier interface {
 	BuscarDashboardPorID(ctx context.Context, id string) (*dto.ObraDashboard, error)
 	ListarObras(ctx context.Context, filtros common.ListarFiltros) ([]*dto.ObraListItemDTO, *common.PaginacaoInfo, error)
+	BuscarDetalhesPorID(ctx context.Context, obraID string) (*dto.ObraDetalhadaDTO, error)
 }
 type PessoalFinder interface {
 	BuscarPorID(ctx context.Context, funcionarioID string) (*pessoal.Funcionario, error)
@@ -73,6 +74,10 @@ func (s *Service) CriarNovaObra(ctx context.Context, input dto.CriarNovaObraInpu
 	if err != nil {
 		return nil, fmt.Errorf("%s: formato de data de início inválido: %w", op, err)
 	}
+	dataFim, err := time.Parse("2006-01-02", input.DataFim)
+	if err != nil {
+		return nil, fmt.Errorf("%s: formato de data de início inválido: %w", op, err)
+	}
 
 	novaObra := &obras.Obra{
 		ID:         uuid.NewString(),
@@ -81,6 +86,8 @@ func (s *Service) CriarNovaObra(ctx context.Context, input dto.CriarNovaObraInpu
 		Endereco:   input.Endereco,
 		DataInicio: dataInicio,
 		Status:     obras.StatusEmPlanejamento, // Status inicial padrão
+		Descricao:  input.Descricao,            // Descrição opcional
+		DataFim:    dataFim,                    // Data de fim pode ser nula inicialmente
 	}
 
 	// Delega a persistência para o repositório
@@ -159,39 +166,46 @@ func (s *Service) AtualizarStatusEtapa(ctx context.Context, etapaID string, inpu
 	s.logger.InfoContext(ctx, "status da etapa atualizado", "etapa_id", etapa.ID, "novo_status", etapa.Status)
 	return etapa, nil
 }
-func (s *Service) AlocarFuncionario(ctx context.Context, obraID string, input dto.AlocarFuncionarioInput) (*obras.Alocacao, error) {
-	const op = "service.obras.AlocarFuncionario"
+func (s *Service) AlocarFuncionarios(ctx context.Context, obraID string, input dto.AlocarFuncionariosInput) ([]*obras.Alocacao, error) {
+	const op = "service.obras.AlocarFuncionarios"
 
 	// --- Lógica de Negócio e Validação ---
-	// 1. Verifica se a obra existe (podemos usar o querier para isso)
+	// 1. Valida a obra uma única vez.
 	_, err := s.obrasQuerier.BuscarDashboardPorID(ctx, obraID)
 	if err != nil {
 		return nil, fmt.Errorf("%s: obra não encontrada: %w", op, err)
 	}
-	// 2. Verifica se o funcionário existe (colaboração entre contextos!)
-	_, err = s.pessoalFinder.BuscarPorID(ctx, input.FuncionarioID)
-	if err != nil {
-		return nil, fmt.Errorf("%s: funcionário não encontrado: %w", op, err)
-	}
 
+	// 2. Valida a data de início uma única vez.
 	inicio, err := time.Parse("2006-01-02", input.DataInicioAlocacao)
 	if err != nil {
 		return nil, fmt.Errorf("%s: formato de data inválido: %w", op, err)
 	}
 
-	novaAlocacao := &obras.Alocacao{
-		ID:                 uuid.NewString(),
-		ObraID:             obraID,
-		FuncionarioID:      input.FuncionarioID,
-		DataInicioAlocacao: inicio,
-		// DataFimAlocacao fica nula por padrão
+	var alocacoesParaSalvar []*obras.Alocacao
+	// 3. Itera sobre cada funcionário para validar e criar a alocação.
+	for _, funcionarioID := range input.FuncionarioIDs {
+		// Verifica se o funcionário existe.
+		_, err = s.pessoalFinder.BuscarPorID(ctx, funcionarioID)
+		if err != nil {
+			return nil, fmt.Errorf("%s: funcionário com ID %s não encontrado: %w", op, funcionarioID, err)
+		}
+
+		novaAlocacao := &obras.Alocacao{
+			ID:                 uuid.NewString(),
+			ObraID:             obraID,
+			FuncionarioID:      funcionarioID,
+			DataInicioAlocacao: inicio,
+		}
+		alocacoesParaSalvar = append(alocacoesParaSalvar, novaAlocacao)
 	}
 
-	if err := s.alocacaoRepo.Salvar(ctx, novaAlocacao); err != nil {
+	// 4. Salva todas as alocações de uma vez.
+	if err := s.alocacaoRepo.SalvarMuitos(ctx, alocacoesParaSalvar); err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
-	s.logger.InfoContext(ctx, "funcionário alocado com sucesso", "alocacao_id", novaAlocacao.ID)
-	return novaAlocacao, nil
+	s.logger.InfoContext(ctx, "funcionários alocados com sucesso", "obra_id", obraID, "quantidade", len(alocacoesParaSalvar))
+	return alocacoesParaSalvar, nil
 }
 func (s *Service) DeletarObra(ctx context.Context, id string) error {
 	const op = "service.obras.DeletarObra"
@@ -201,4 +215,8 @@ func (s *Service) DeletarObra(ctx context.Context, id string) error {
 	}
 	s.logger.InfoContext(ctx, "obra movida para a lixeira", "obra_id", id)
 	return nil
+}
+
+func (s *Service) BuscarDetalhesPorID(ctx context.Context, obraID string) (*dto.ObraDetalhadaDTO, error) {
+	return s.obrasQuerier.BuscarDetalhesPorID(ctx, obraID)
 }

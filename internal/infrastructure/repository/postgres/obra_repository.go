@@ -24,6 +24,11 @@ type ObraRepositoryPostgres struct {
 	db     *pgxpool.Pool
 	logger *slog.Logger
 }
+type ListarObrasFiltros struct {
+	Status        string
+	Pagina        int
+	TamanhoPagina int
+}
 
 func NovaObraRepository(db *pgxpool.Pool, logger *slog.Logger) *ObraRepositoryPostgres {
 	return &ObraRepositoryPostgres{db: db, logger: logger}
@@ -32,48 +37,65 @@ func NovaObraRepository(db *pgxpool.Pool, logger *slog.Logger) *ObraRepositoryPo
 func (r *ObraRepositoryPostgres) ListarObras(ctx context.Context, filtros common.ListarFiltros) ([]*dto.ObraListItemDTO, *common.PaginacaoInfo, error) {
 	const op = "repository.postgres.ListarObras"
 
-	var args []interface{}
-	var countArgs []interface{} // Slice separado para os argumentos da contagem
-	paramCount := 1
-
-	queryBuilder := strings.Builder{}
-	queryBuilder.WriteString("SELECT id, nome, cliente, status FROM obras WHERE deleted_at IS NULL")
-
-	countQueryBuilder := strings.Builder{}
-	countQueryBuilder.WriteString("SELECT COUNT(*) FROM obras WHERE deleted_at IS NULL")
+	args := pgx.NamedArgs{}
+	whereClauses := []string{"o.deleted_at IS NULL"}
 
 	if filtros.Status != "" {
-		queryBuilder.WriteString(fmt.Sprintf(" AND status = $%d", paramCount))
-		countQueryBuilder.WriteString(fmt.Sprintf(" AND status = $%d", paramCount))
-		// Adiciona o argumento a ambos os slices
-		args = append(args, filtros.Status)
-		countArgs = append(countArgs, filtros.Status)
-		paramCount++
+		whereClauses = append(whereClauses, "o.status = @status")
+		args["status"] = filtros.Status
 	}
 
+	whereString := " WHERE " + strings.Join(whereClauses, " AND ")
+
+	// Query para contar o total de itens
+	countQuery := "SELECT COUNT(o.id) FROM obras o" + whereString
 	var totalItens int
-	err := r.db.QueryRow(ctx, countQueryBuilder.String(), countArgs...).Scan(&totalItens)
+	err := r.db.QueryRow(ctx, countQuery, args).Scan(&totalItens)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s: erro ao contar obras: %w", op, err)
 	}
 
 	paginacao := common.NewPaginacaoInfo(totalItens, filtros.Pagina, filtros.TamanhoPagina)
-	// Se não houver itens, retornamos uma lista vazia e a paginação correta.
 	if totalItens == 0 {
 		return []*dto.ObraListItemDTO{}, paginacao, nil
 	}
 
-	offset := (filtros.Pagina - 1) * filtros.TamanhoPagina
-	queryBuilder.WriteString(fmt.Sprintf(" ORDER BY nome ASC LIMIT $%d OFFSET $%d", paramCount, paramCount+1))
-	args = append(args, filtros.TamanhoPagina, offset)
+	// Query para buscar os dados da página, incluindo a etapa atual e a evolução.
+	query := `
+		SELECT
+			o.id,
+			o.nome,
+			o.cliente,
+			o.status,
+			COALESCE(etapa_atual.nome, 'N/A') AS etapa,
+			CONCAT(ROUND(COALESCE(etapa_stats.percentual_concluido, 0)), ' %') AS evolucao
+		FROM
+			obras o
+		LEFT JOIN LATERAL (
+			SELECT e.nome
+			FROM etapas e
+			WHERE e.obra_id = o.id AND e.status = 'Em Andamento'
+			ORDER BY e.data_inicio_prevista DESC
+			LIMIT 1
+		) etapa_atual ON true
+		LEFT JOIN LATERAL (
+			SELECT
+				(CAST(COUNT(CASE WHEN e.status = 'Concluída' THEN 1 END) AS FLOAT) / GREATEST(COUNT(e.id), 1)) * 100 AS percentual_concluido
+			FROM etapas e
+			WHERE e.obra_id = o.id
+		) etapa_stats ON true
+	` + whereString + ` ORDER BY o.nome ASC LIMIT @limit OFFSET @offset`
 
-	rows, err := r.db.Query(ctx, queryBuilder.String(), args...)
+	args["limit"] = filtros.TamanhoPagina
+	offset := (filtros.Pagina - 1) * filtros.TamanhoPagina
+	args["offset"] = offset
+
+	rows, err := r.db.Query(ctx, query, args)
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s: erro ao listar obras: %w", op, err)
 	}
 	defer rows.Close()
 
-	// SIMPLIFICAÇÃO: Usamos pgx.CollectRows para escanear diretamente para a struct do DTO.
 	obrasList, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByPos[dto.ObraListItemDTO])
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -82,14 +104,7 @@ func (r *ObraRepositoryPostgres) ListarObras(ctx context.Context, filtros common
 		return nil, nil, fmt.Errorf("%s: falha ao escanear obras: %w", op, err)
 	}
 
-	// Não precisamos mais do loop de conversão no final.
 	return obrasList, paginacao, nil
-}
-
-type ListarObrasFiltros struct {
-	Status        string
-	Pagina        int
-	TamanhoPagina int
 }
 
 // BuscarDashboardPorID implements obras.Querier.
@@ -154,7 +169,7 @@ func (r *ObraRepositoryPostgres) BuscarDashboardPorID(ctx context.Context, id st
         COALESCE(es.percentual_concluido, 0),
         COALESCE(als.funcionarios_alocados, 0),
         COALESCE(os.orcamento_total_aprovado, 0),
-        COALESCE(os.custo_total_realizado, 0)
+        COALESCE(ps.custo_real, 0)
     FROM
         obras o
     LEFT JOIN etapa_stats es ON o.id = es.obra_id
@@ -217,8 +232,8 @@ func (r *ObraRepositoryPostgres) Salvar(ctx context.Context, obra *obras.Obra) e
 
 	// A query SQL para inserir uma nova obra.
 	// Usamos $1, $2, etc., como placeholders para prevenir SQL Injection.
-	query := `INSERT INTO obras (id, nome, cliente, endereco, data_inicio, data_fim, status)
-	          VALUES ($1, $2, $3, $4, $5, $6, $7)`
+	query := `INSERT INTO obras (id, nome, cliente, endereco, data_inicio, data_fim, status, descricao)
+	          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
 
 	// Passamos o contexto para a chamada do banco, permitindo o cancelamento.
 	_, err := r.db.Exec(ctx, query,
@@ -229,6 +244,8 @@ func (r *ObraRepositoryPostgres) Salvar(ctx context.Context, obra *obras.Obra) e
 		obra.DataInicio,
 		obra.DataFim, // Será NULL se o time.Time estiver zerado
 		obra.Status,
+		obra.Descricao, // Adicionamos a descrição aqui
+
 	)
 
 	if err != nil {

@@ -220,3 +220,39 @@ func (s *Service) DeletarObra(ctx context.Context, id string) error {
 func (s *Service) BuscarDetalhesPorID(ctx context.Context, obraID string) (*dto.ObraDetalhadaDTO, error) {
 	return s.obrasQuerier.BuscarDetalhesPorID(ctx, obraID)
 }
+
+func (s *Service) AtualizarObra(ctx context.Context, obraID string, input dto.AtualizarObraInput) (*obras.Obra, error) {
+	const op = "service.obras.AtualizarObra"
+
+	if input.Nome == "" || input.Cliente == "" || input.Endereco == "" {
+		return nil, fmt.Errorf("%s: nome, cliente e endereço são obrigatórios", op)
+	}
+
+	dataInicio, err := time.Parse("2006-01-02", input.DataInicio)
+	if err != nil {
+		return nil, fmt.Errorf("%s: formato de data de início inválido: %w", op, err)
+	}
+	dataFim, err := time.Parse("2006-01-02", input.DataFim)
+	if err != nil {
+		return nil, fmt.Errorf("%s: formato de data de fim inválido: %w", op, err)
+	}
+
+	obraAtualizada := &obras.Obra{
+		ID:         obraID,
+		Nome:       input.Nome,
+		Cliente:    input.Cliente,
+		Endereco:   input.Endereco,
+		DataInicio: dataInicio,
+		DataFim:    dataFim,
+		Status:     obras.Status(input.Status),
+		Descricao:  input.Descricao,
+	}
+
+	if err := s.obraRepo.Atualizar(ctx, obraAtualizada); err != nil {
+		return nil, fmt.Errorf("%s: falha ao atualizar obra: %w", op, err)
+	}
+
+	s.logger.InfoContext(ctx, "obra atualizada com sucesso", "obra_id", obraAtualizada.ID)
+
+	return obraAtualizada, nil
+}

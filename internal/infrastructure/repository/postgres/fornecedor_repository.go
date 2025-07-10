@@ -3,6 +3,7 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -23,19 +24,45 @@ func NovoFornecedorRepository(db *pgxpool.Pool, logger *slog.Logger) suprimentos
 }
 
 // Atualizar implements suprimentos.FornecedorRepository.
-func (r *FornecedorRepositoryPostgres) Atualizar(ctx context.Context, fornecedor *suprimentos.Fornecedor) error {
+func (r *FornecedorRepositoryPostgres) Atualizar(ctx context.Context, f *suprimentos.Fornecedor, categoriaIDs []string) error {
 	const op = "repository.postgres.fornecedor.Atualizar"
-	query := `
-		UPDATE fornecedores
-		SET nome = $1, cnpj = $2, categoria = $3, contato = $4, email = $5, status = $6
-		WHERE id = $7
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("%s: falha ao iniciar transação: %w", op, err)
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. Atualiza os dados principais do fornecedor. A coluna 'categoria' foi removida.
+	queryUpdate := `
+		UPDATE fornecedores SET
+			nome = $1, cnpj = $2, contato = $3, email = $4, status = $5,
+			endereco = $6, avaliacao = $7, observacoes = $8
+		WHERE id = $9
 	`
-	_, err := r.db.Exec(ctx, query, fornecedor.Nome, fornecedor.CNPJ, fornecedor.Categoria, fornecedor.Contato, fornecedor.Email, fornecedor.Status, fornecedor.ID)
+	_, err = tx.Exec(ctx, queryUpdate, f.Nome, f.CNPJ, f.Contato, f.Email, f.Status, f.Endereco, f.Avaliacao, f.Observacoes, f.ID)
 	if err != nil {
 		return fmt.Errorf("%s: falha ao atualizar fornecedor: %w", op, err)
 	}
-	return nil
+	// 2. Remove todas as associações de categoria antigas para este fornecedor.
+	queryDeleteCategorias := `DELETE FROM fornecedor_categorias WHERE fornecedor_id = $1`
+	if _, err := tx.Exec(ctx, queryDeleteCategorias, f.ID); err != nil {
+		return fmt.Errorf("%s: falha ao limpar categorias antigas: %w", op, err)
+	}
 
+	// 3. Insere as novas associações de categoria.
+	if len(categoriaIDs) > 0 {
+		queryInsertCategorias := `INSERT INTO fornecedor_categorias (fornecedor_id, categoria_id) VALUES ($1, $2)`
+		batch := &pgx.Batch{}
+		for _, catID := range categoriaIDs {
+			batch.Queue(queryInsertCategorias, f.ID, catID)
+		}
+		br := tx.SendBatch(ctx, batch)
+		if err := br.Close(); err != nil {
+			return fmt.Errorf("%s: falha ao inserir novas associações de categoria: %w", op, err)
+		}
+	}
+
+	return tx.Commit(ctx)
 }
 
 // Deletar implements suprimentos.FornecedorRepository.
@@ -58,38 +85,99 @@ func (r *FornecedorRepositoryPostgres) Deletar(ctx context.Context, id string) e
 // BuscarPorID implements suprimentos.FornecedorRepository.
 func (r *FornecedorRepositoryPostgres) BuscarPorID(ctx context.Context, id string) (*suprimentos.Fornecedor, error) {
 	const op = "repository.postgres.fornecedor.BuscarPorID"
-	query := `SELECT id, nome, cnpj, categoria, contato, email, status FROM fornecedores WHERE id = $1`
-	row := r.db.QueryRow(ctx, query, id)
+
+	// A query agora usa LEFT JOIN e json_agg para buscar as categorias em uma única chamada.
+	query := `
+		SELECT
+			f.id, f.nome, f.cnpj, f.contato, f.email, f.status,
+			COALESCE(
+				json_agg(json_build_object('ID', c.id, 'Nome', c.nome)) FILTER (WHERE c.id IS NOT NULL),
+				'[]'
+			) as categorias
+		FROM fornecedores f
+		LEFT JOIN fornecedor_categorias fc ON f.id = fc.fornecedor_id
+		LEFT JOIN categorias c ON fc.categoria_id = c.id
+		WHERE f.id = $1 AND f.deleted_at IS NULL
+		GROUP BY f.id`
 
 	var f suprimentos.Fornecedor
-	err := row.Scan(&f.ID, &f.Nome, &f.CNPJ, &f.Categoria, &f.Contato, &f.Email, &f.Status)
+	var categoriasJSON []byte // Recebe o resultado do json_agg como bytes
+
+	err := r.db.QueryRow(ctx, query, id).Scan(&f.ID, &f.Nome, &f.CNPJ, &f.Contato, &f.Email, &f.Status, &categoriasJSON)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, fmt.Errorf("%s: fornecedor não encontrado com ID %s", op, id)
+			return nil, ErrNaoEncontrado
 		}
 		return nil, fmt.Errorf("%s: falha ao escanear fornecedor: %w", op, err)
+	}
+
+	// Decodifica o JSON das categorias para a struct Go.
+	if err := json.Unmarshal(categoriasJSON, &f.Categorias); err != nil {
+		return nil, fmt.Errorf("%s: falha ao decodificar JSON das categorias: %w", op, err)
 	}
 
 	return &f, nil
 }
 
-func (r *FornecedorRepositoryPostgres) Salvar(ctx context.Context, f *suprimentos.Fornecedor) error {
+func (r *FornecedorRepositoryPostgres) Salvar(ctx context.Context, f *suprimentos.Fornecedor, categoriaIDs []string) error {
 	const op = "repository.postgres.fornecedor.Salvar"
-	query := `
-		INSERT INTO fornecedores (id, nome, cnpj, categoria, contato, email, status)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-	`
-	_, err := r.db.Exec(ctx, query, f.ID, f.Nome, f.CNPJ, f.Categoria, f.Contato, f.Email, f.Status)
+
+	// Inicia a transação
+	tx, err := r.db.Begin(ctx)
 	if err != nil {
-		// TODO: Tratar erro de violação de constraint UNIQUE do CNPJ com um erro customizado.
-		return fmt.Errorf("%s: %w", op, err)
+		return fmt.Errorf("%s: falha ao iniciar transação: %w", op, err)
 	}
-	return nil
+	defer tx.Rollback(ctx) // Garante o rollback em caso de erro
+
+	// 1. Insere o registro principal na tabela 'fornecedores'
+	queryFornecedor := `
+		INSERT INTO fornecedores (id, nome, cnpj, contato, email, status, endereco, avaliacao, observacoes)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+	`
+	_, err = tx.Exec(ctx, queryFornecedor, f.ID, f.Nome, f.CNPJ, f.Contato, f.Email, f.Status, f.Endereco, f.Avaliacao, f.Observacoes)
+	if err != nil {
+		return fmt.Errorf("%s: falha ao inserir fornecedor: %w", op, err)
+	}
+	// 2. Insere as associações na tabela de junção 'fornecedor_categorias'
+	if len(categoriaIDs) > 0 {
+		queryCategorias := `INSERT INTO fornecedor_categorias (fornecedor_id, categoria_id) VALUES ($1, $2)`
+		batch := &pgx.Batch{}
+		for _, catID := range categoriaIDs {
+			batch.Queue(queryCategorias, f.ID, catID)
+		}
+
+		br := tx.SendBatch(ctx, batch)
+		_, err := br.Exec()
+		if err != nil {
+			return fmt.Errorf("%s: falha ao executar lote de associações de categoria: %w", op, err)
+		}
+
+		if err := br.Close(); err != nil {
+			return fmt.Errorf("%s: falha ao inserir associações de categoria: %w", op, err)
+		}
+	}
+
+	// Se tudo deu certo, confirma a transação (COMMIT).
+	return tx.Commit(ctx)
 }
 
 func (r *FornecedorRepositoryPostgres) ListarTodos(ctx context.Context) ([]*suprimentos.Fornecedor, error) {
 	const op = "repository.postgres.fornecedor.ListarTodos"
-	query := `SELECT id, nome, cnpj, categoria, contato, email, status FROM fornecedores ORDER BY nome ASC`
+	query := `
+		SELECT
+			f.id, f.nome, f.cnpj, f.contato, f.email, f.status, f.endereco, f.avaliacao, f.observacoes,
+			COUNT(DISTINCT o.id) as orcamentos_count, -- Contagem de orçamentos distintos
+			COALESCE(
+				json_agg(json_build_object('ID', c.id, 'Nome', c.nome)) FILTER (WHERE c.id IS NOT NULL),
+				'[]'
+			) as categorias
+		FROM fornecedores f
+		LEFT JOIN fornecedor_categorias fc ON f.id = fc.fornecedor_id
+		LEFT JOIN categorias c ON fc.categoria_id = c.id
+		LEFT JOIN orcamentos o ON f.id = o.fornecedor_id 
+		WHERE f.deleted_at IS NULL
+		GROUP BY f.id 
+		ORDER BY f.nome ASC`
 
 	rows, err := r.db.Query(ctx, query)
 	if err != nil {
@@ -97,17 +185,27 @@ func (r *FornecedorRepositoryPostgres) ListarTodos(ctx context.Context) ([]*supr
 	}
 	defer rows.Close()
 
-	fornecedores, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (*suprimentos.Fornecedor, error) {
+	var fornecedores []*suprimentos.Fornecedor
+	for rows.Next() {
 		var f suprimentos.Fornecedor
-		err := row.Scan(&f.ID, &f.Nome, &f.CNPJ, &f.Categoria, &f.Contato, &f.Email, &f.Status)
-		return &f, err
-	})
+		var categoriasJSON []byte
 
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return []*suprimentos.Fornecedor{}, nil // Retorna lista vazia se não houver resultados
+		if err := rows.Scan(
+			&f.ID, &f.Nome, &f.CNPJ, &f.Contato, &f.Email, &f.Status, &f.Endereco, &f.Avaliacao, &f.Observacoes,
+			&f.OrcamentosCount, // NOVO CAMPO NO SCAN
+			&categoriasJSON,
+		); err != nil {
+			return nil, fmt.Errorf("%s: falha ao escanear linha de fornecedor: %w", op, err)
 		}
-		return nil, fmt.Errorf("%s: falha ao escanear fornecedores: %w", op, err)
+
+		if err := json.Unmarshal(categoriasJSON, &f.Categorias); err != nil {
+			return nil, fmt.Errorf("%s: falha ao decodificar JSON das categorias para %s: %w", op, f.Nome, err)
+		}
+		fornecedores = append(fornecedores, &f)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: erro ao iterar sobre as linhas: %w", op, err)
 	}
 
 	return fornecedores, nil

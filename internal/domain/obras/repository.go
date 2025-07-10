@@ -8,6 +8,7 @@ type ObrasRepository interface {
 	Salvar(ctx context.Context, obra *Obra) error
 	BuscarPorID(ctx context.Context, id string) (*Obra, error)
 	Deletar(ctx context.Context, id string) error
+	Atualizar(ctx context.Context, obra *Obra) error
 }
 
 type AlocacaoRepository interface {

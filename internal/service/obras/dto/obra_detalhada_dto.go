@@ -11,6 +11,7 @@ type ObraDetalhadaDTO struct {
 	Endereco     string                  `json:"endereco"`
 	DataInicio   time.Time               `json:"dataInicio"`
 	DataFim      time.Time               `json:"dataFim,omitempty"`
+	Descricao    string                  `json:"descricao,omitempty"` // Adiciona descrição opcional
 	Status       string                  `json:"status"`
 	Etapas       []EtapaDTO              `json:"etapas"`
 	Funcionarios []FuncionarioAlocadoDTO `json:"funcionarios"`

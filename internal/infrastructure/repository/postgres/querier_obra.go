@@ -103,6 +103,7 @@ func (q *ObraRepositoryPostgres) BuscarDetalhesPorID(ctx context.Context, obraID
 		DataInicio:   obraBase.DataInicio,
 		DataFim:      obraBase.DataFim,
 		Status:       string(obraBase.Status),
+		Descricao:    obraBase.Descricao, // Adiciona descrição opcional
 		Etapas:       etapas,
 		Funcionarios: funcionarios,
 		Fornecedores: fornecedores,

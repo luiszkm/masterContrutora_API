@@ -4,8 +4,8 @@
 @etapaId =
 @funcionarioId =7afef6dd-9374-4131-b6b5-6ac3743711c7
 @funcionarioParaDeletarId =
-@fornecedorId =
-@materialId =
+@fornecedorId =7e34c661-9117-4524-a992-05c819a25f33
+@materialId =4e0134c8-f965-40f0-9d83-a449447724cc
 @materialId2 =
 @orcamentoId =f800547b-b0d1-4869-bcde-4ed77ae26ae0
 @apontamentoId = c1377600-6c9d-42cd-aaba-a85b5df3d217
@@ -18,18 +18,13 @@ Cookie: jwt-token={{token}}
 
 {
     "nome": "Casa do Construtor Center",
-    "cnpj": "12.345.678/0001-10",
-    "categoria": "Materiais Básicos",
+    "cnpj": "12.345.678/0001-61",
     "contato": "Carlos Andrade",
-    "email": "comercial@casadoconstrutor.com"
+    "email": "comercial@casadoconstrutor.com",
+    "categoriaIds": [
+        "ef2d8220-dbea-4ad2-bd7b-6b47c6d90a4a"
+    ]
 }
-> {%
-    client.global.set("fornecedorId", response.body.ID);
-%}
-
-
-
-
 
 
 ######
@@ -54,8 +49,33 @@ Cookie: jwt-token={{token}}
     "unidadeDeMedida": "saco",
     "categoria": "Estrutural"
 }
-> {%
-    client.global.set("materialId", response.body.ID);
-%}
 
 
+
+### Cadastrar Fornecedor com Todos os Campos
+POST {{hostname}}/fornecedores
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "nome": "Super Concreto",
+    "cnpj": "55.666.777/0001-08",
+    "contato": "Ana Lima",
+    "email": "contato@superconcreto.com.br",
+    "categoriaIds": [        "ef2d8220-dbea-4ad2-bd7b-6b47c6d90a4a"
+],
+    "endereco": "Rua das Betoneiras, 123, Bairro Industrial",
+    "avaliacao": 4.5,
+    "observacoes": "Entrega sempre no prazo. Excelente qualidade."
+}
+
+
+### Atualizar Parcialmente um Fornecedor
+PUT {{hostname}}/fornecedores/{{fornecedorId}}
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "avaliacao": 5.0,
+    "observacoes": "Cliente muito satisfeito na última entrega."
+}

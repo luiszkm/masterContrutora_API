@@ -8,11 +8,11 @@ import (
 
 // Repository define o contrato para a persistência de Fornecedores.
 type FornecedorRepository interface {
-	Salvar(ctx context.Context, fornecedor *Fornecedor) error
-	ListarTodos(ctx context.Context) ([]*Fornecedor, error)
+	Salvar(ctx context.Context, fornecedor *Fornecedor, categoriaIDs []string) error
+	Atualizar(ctx context.Context, fornecedor *Fornecedor, categoriaIDs []string) error
 	BuscarPorID(ctx context.Context, id string) (*Fornecedor, error)
-	Atualizar(ctx context.Context, fornecedor *Fornecedor) error // NOVO
-	Deletar(ctx context.Context, id string) error                // NOVO
+	ListarTodos(ctx context.Context) ([]*Fornecedor, error)
+	Deletar(ctx context.Context, id string) error
 }
 
 // MaterialRepository define o contrato para a persistência de Materiais.

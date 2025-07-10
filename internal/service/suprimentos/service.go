@@ -75,20 +75,22 @@ func (s *Service) CadastrarFornecedor(ctx context.Context, input dto.CadastrarFo
 	// TODO: Adicionar validações de negócio (ex: formato do CNPJ).
 
 	novoFornecedor := &suprimentos.Fornecedor{
-		ID:        uuid.NewString(),
-		Nome:      input.Nome,
-		CNPJ:      input.CNPJ,
-		Categoria: input.Categoria,
-		Contato:   input.Contato,
-		Email:     input.Email,
-		Status:    "Ativo",
+		ID:          uuid.NewString(),
+		Nome:        input.Nome,
+		CNPJ:        input.CNPJ,
+		Contato:     input.Contato,
+		Email:       input.Email,
+		Status:      "Ativo",
+		Endereco:    input.Endereco,    // NOVO
+		Observacoes: input.Observacoes, // NOVO
+		Avaliacao:   input.Avaliacao,
 	}
 
-	if err := s.fornecedorRepo.Salvar(ctx, novoFornecedor); err != nil {
+	if err := s.fornecedorRepo.Salvar(ctx, novoFornecedor, input.CategoriaIDs); err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 	s.logger.InfoContext(ctx, "novo fornecedor cadastrado", "fornecedor_id", novoFornecedor.ID)
-	return novoFornecedor, nil
+	return s.fornecedorRepo.BuscarPorID(ctx, novoFornecedor.ID)
 }
 
 func (s *Service) ListarFornecedores(ctx context.Context) ([]*suprimentos.Fornecedor, error) {
@@ -106,18 +108,37 @@ func (s *Service) AtualizarFornecedor(ctx context.Context, id string, input dto.
 	if err != nil {
 		return nil, fmt.Errorf("%s: fornecedor com id [%s] não encontrado: %w", op, id, err)
 	}
-	fornecedor.Nome = input.Nome
-	fornecedor.CNPJ = input.CNPJ
-	fornecedor.Categoria = input.Categoria
-	fornecedor.Contato = input.Contato
-	fornecedor.Email = input.Email
-	fornecedor.Status = input.Status
-	if err := s.fornecedorRepo.Atualizar(ctx, fornecedor); err != nil {
+	if input.Nome != nil {
+		fornecedor.Nome = *input.Nome
+	}
+	if input.CNPJ != nil {
+		fornecedor.CNPJ = *input.CNPJ
+	}
+	if input.Contato != nil {
+		fornecedor.Contato = *input.Contato
+	}
+	if input.Email != nil {
+		fornecedor.Email = *input.Email
+	}
+	if input.Status != nil {
+		fornecedor.Status = *input.Status
+	}
+	if input.Endereco != nil {
+		fornecedor.Endereco = input.Endereco
+	}
+	if input.Avaliacao != nil {
+		fornecedor.Avaliacao = input.Avaliacao
+	}
+	if input.Observacoes != nil {
+		fornecedor.Observacoes = input.Observacoes
+	}
+	if err := s.fornecedorRepo.Atualizar(ctx, fornecedor, input.CategoriaIDs); err != nil {
 		return nil, fmt.Errorf("%s: falha ao atualizar fornecedor: %w", op, err)
 	}
 	s.logger.InfoContext(ctx, "fornecedor atualizado", "fornecedor_id", fornecedor.ID)
-	return fornecedor, nil
+	return s.fornecedorRepo.BuscarPorID(ctx, id)
 }
+
 func (s *Service) DeletarFornecedor(ctx context.Context, id string) error {
 	const op = "service.suprimentos.DeletarFornecedor"
 	fornecedor, err := s.fornecedorRepo.BuscarPorID(ctx, id)

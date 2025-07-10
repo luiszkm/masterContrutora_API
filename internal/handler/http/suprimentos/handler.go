@@ -41,27 +41,23 @@ func NovoSuprimentosHandler(s Service, l *slog.Logger) *Handler {
 	return &Handler{service: s, logger: l}
 }
 
-type cadastrarRequest struct {
-	Nome      string `json:"nome"`
-	CNPJ      string `json:"cnpj"`
-	Categoria string `json:"categoria"`
-	Contato   string `json:"contato"`
-	Email     string `json:"email"`
-}
-
 func (h *Handler) HandleCadastrarFornecedor(w http.ResponseWriter, r *http.Request) {
-	var req cadastrarRequest
+	var req handler_dto.CadastrarFornecedorRequest
+
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		web.RespondError(w, r, "PAYLOAD_INVALIDO", "Payload inválido", http.StatusBadRequest)
 		return
 	}
 
 	input := dto.CadastrarFornecedorInput{
-		Nome:      req.Nome,
-		CNPJ:      req.CNPJ,
-		Categoria: req.Categoria,
-		Contato:   req.Contato,
-		Email:     req.Email,
+		Nome:         req.Nome,
+		CNPJ:         req.CNPJ,
+		CategoriaIDs: req.CategoriaIDs,
+		Contato:      req.Contato,
+		Email:        req.Email,
+		Endereco:     req.Endereco,
+		Avaliacao:    req.Avaliacao,
+		Observacoes:  req.Observacoes,
 	}
 
 	f, err := h.service.CadastrarFornecedor(r.Context(), input)
@@ -157,11 +153,15 @@ func (h *Handler) HandleAtualizarFornecedor(w http.ResponseWriter, r *http.Reque
 	}
 
 	input := dto.AtualizarFornecedorInput{
-		Nome:      req.Nome,
-		CNPJ:      req.CNPJ,
-		Categoria: req.Categoria,
-		Contato:   req.Contato,
-		Email:     req.Email,
+		Nome:         &req.Nome,
+		CNPJ:         &req.CNPJ,
+		CategoriaIDs: req.CategoriaIDs,
+		Contato:      &req.Contato,
+		Email:        &req.Email,
+		Status:       &req.Status,
+		Endereco:     &req.Endereco,
+		Avaliacao:    &req.Avaliacao,
+		Observacoes:  &req.Observacoes,
 	}
 
 	fornecedor, err := h.service.AtualizarFornecedor(r.Context(), id, input)

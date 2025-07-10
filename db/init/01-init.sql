@@ -80,16 +80,21 @@ IF NOT EXISTS fornecedores
 (255) NOT NULL,
     cnpj VARCHAR
 (18) NOT NULL UNIQUE,
-    categoria VARCHAR
-(100) NOT NULL,
     contato VARCHAR
 (255),
     email VARCHAR
 (255),
     status VARCHAR
 (50) NOT NULL,
-    deleted_at TIMESTAMPTZ DEFAULT NULL
+endereco TEXT,
+    avaliacao NUMERIC
+(3, 1),
+    observacoes TEXT,
+    deleted_at TIMESTAMPTZ DEFAULT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
 
 CREATE TABLE
 IF NOT EXISTS materiais
@@ -217,12 +222,26 @@ IF NOT EXISTS registros_pagamento
     conta_bancaria_id UUID NOT NULL
 );
 CREATE TABLE
-IF NOT EXISTS categorias_materiais
+IF NOT EXISTS categorias
 (
     id UUID PRIMARY KEY,
     nome VARCHAR
 (100) NOT NULL UNIQUE
 );
+
+-- Removendo a coluna antiga e menos flexível da tabela de fornecedores
+ALTER TABLE fornecedores DROP COLUMN IF EXISTS categoria;
+
+-- Tabela de junção para a relação Muitos-para-Muitos
+CREATE TABLE IF NOT EXISTS fornecedor_categorias (
+    fornecedor_id UUID NOT NULL REFERENCES fornecedores(id) ON DELETE CASCADE,
+    categoria_id UUID NOT NULL REFERENCES categorias(id) ON DELETE CASCADE,
+    PRIMARY KEY (fornecedor_id, categoria_id) -- Garante que a mesma relação não seja inserida duas vezes
+);
+
+-- Adicionando um índice para otimizar as buscas na tabela de junção
+CREATE INDEX IF NOT EXISTS idx_fornecedor_categorias_categoria_id ON fornecedor_categorias(categoria_id);
+
 -- Adiciona índices para otimizar as buscas (JOINs).
 CREATE INDEX
 IF NOT EXISTS idx_etapas_obra_id ON etapas

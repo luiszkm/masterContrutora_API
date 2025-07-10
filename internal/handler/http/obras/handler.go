@@ -28,8 +28,8 @@ type Service interface {
 	AlocarFuncionarios(ctx context.Context, obraID string, input dto.AlocarFuncionariosInput) ([]*obras.Alocacao, error)
 	ListarObras(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*dto.ObraListItemDTO], error)
 	DeletarObra(ctx context.Context, obraID string) error
-	BuscarDetalhesPorID(ctx context.Context, obraID string) (*dto.ObraDetalhadaDTO, error) // NOVO
-
+	BuscarDetalhesPorID(ctx context.Context, obraID string) (*dto.ObraDetalhadaDTO, error)
+	AtualizarObra(ctx context.Context, obraID string, input dto.AtualizarObraInput) (*obras.Obra, error)
 }
 
 // ObrasHandler gerencia as requisições HTTP para o contexto de Obras.
@@ -46,7 +46,6 @@ func NovoObrasHandler(s Service, l *slog.Logger) *Handler {
 	}
 }
 
-// HandleCriarObra trata a criação de uma nova obra.
 func (h *Handler) HandleCriarObra(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		h.logger.Warn("Método não permitido", "método", r.Method, "rota", r.URL.Path)
@@ -195,7 +194,7 @@ func (h *Handler) HandleDeletarObra(w http.ResponseWriter, r *http.Request) {
 		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao deletar obra", http.StatusInternalServerError)
 		return
 	}
-	// Em um DELETE bem-sucedido, a resposta padrão é 204 No Content.
+
 	web.Respond(w, r, nil, http.StatusNoContent)
 }
 
@@ -214,4 +213,28 @@ func (h *Handler) HandleBuscarObraPorID(w http.ResponseWriter, r *http.Request) 
 	}
 
 	web.Respond(w, r, obraDetalhada, http.StatusOK)
+}
+
+func (h *Handler) HandleAtualizarObra(w http.ResponseWriter, r *http.Request) {
+	obraID := chi.URLParam(r, "obraId")
+	if obraID == "" {
+		h.logger.Warn("ID da obra não fornecido na URL", "rota", r.URL.Path)
+		web.RespondError(w, r, "ID_OBRA_OBRIGATORIO", "ID da obra na URL é obrigatório", http.StatusBadRequest)
+		return
+	}
+
+	var input dto.AtualizarObraInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		h.logger.Error("falha ao decodificar payload de atualização de obra", "erro", err)
+		web.RespondError(w, r, "PAYLOAD_INVALIDO", "Payload inválido", http.StatusBadRequest)
+		return
+	}
+	_, err := h.service.AtualizarObra(r.Context(), obraID, input)
+	if err != nil {
+		h.logger.ErrorContext(r.Context(), "falha ao atualizar obra", "erro", err)
+		web.RespondError(w, r, "ERRO_INTERNO", "Erro interno ao processar sua requisição", http.StatusInternalServerError)
+		return
+	}
+
+	web.Respond(w, r, nil, http.StatusNoContent)
 }

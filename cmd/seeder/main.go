@@ -162,7 +162,7 @@ func seedCategoriasMaterial(ctx context.Context, db *pgxpool.Pool, logger *slog.
 
 	// Passo 1: Inserir cada categoria se ela não existir.
 	queryInsert := `
-		INSERT INTO categorias_materiais (id, nome)
+		INSERT INTO categorias (id, nome)
 		VALUES ($1, $2)
 		ON CONFLICT (nome) DO NOTHING
 	`

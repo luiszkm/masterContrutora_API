@@ -124,7 +124,7 @@ func New(c Config) *chi.Mux {
 				r.With(auth.Authorize(authz.PermissaoObrasLer)).Get("/dashboard", c.ObrasHandler.HandleBuscarObra)
 				r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Delete("/", c.ObrasHandler.HandleDeletarObra) // NOVA ROTA
 				r.With(auth.Authorize(authz.PermissaoObrasLer)).Get("/", c.ObrasHandler.HandleBuscarObraPorID)
-
+				r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Put("/", c.ObrasHandler.HandleAtualizarObra)
 				r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Post("/etapas", c.ObrasHandler.HandleAdicionarEtapa)
 				r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Post("/alocacoes", c.ObrasHandler.HandleAlocarFuncionario)
 			})

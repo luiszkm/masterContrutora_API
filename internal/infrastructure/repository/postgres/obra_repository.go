@@ -286,3 +286,35 @@ func (r *ObraRepositoryPostgres) Deletar(ctx context.Context, id string) error {
 	}
 	return nil
 }
+
+func (r *ObraRepositoryPostgres) Atualizar(ctx context.Context, obra *obras.Obra) error {
+	const op = "repository.postgres.obra.Atualizar"
+
+	query := `
+		UPDATE obras
+		SET nome = $1, cliente = $2, endereco = $3, data_inicio = $4, data_fim = $5, status = $6, descricao = $7
+		WHERE id = $8 AND deleted_at IS NULL
+	`
+
+	cmd, err := r.db.Exec(ctx, query,
+		obra.Nome,
+		obra.Cliente,
+		obra.Endereco,
+		obra.DataInicio,
+		obra.DataFim,
+		obra.Status,
+		obra.Descricao,
+		obra.ID,
+	)
+
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	if cmd.RowsAffected() == 0 {
+		return ErrNaoEncontrado
+	}
+
+	r.logger.InfoContext(ctx, "obra atualizada com sucesso", "obra_id", obra.ID)
+	return nil
+}

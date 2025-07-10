@@ -3,11 +3,14 @@ package dto
 
 // CadastrarFornecedorInput é o DTO para o caso de uso de cadastro.
 type CadastrarFornecedorInput struct {
-	Nome      string
-	CNPJ      string
-	Categoria string
-	Contato   string
-	Email     string
+	Nome         string
+	CNPJ         string
+	CategoriaIDs []string
+	Contato      string
+	Email        string
+	Endereco     *string  // NOVO
+	Observacoes  *string  // NOVO
+	Avaliacao    *float64 // NOVO
 }
 
 // CadastrarMaterialInput é o DTO para o caso de uso de cadastro de material.

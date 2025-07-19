@@ -93,3 +93,9 @@ Cookie: jwt-token={{token}}
         "311eb84a-bb34-483a-9bbd-505c2764f550"
     ]
 }
+
+
+### Deletar Fornecedor
+DELETE {{hostname}}/fornecedores/{{fornecedorId}}
+Content-Type: application/json
+Cookie: jwt-token={{token}}

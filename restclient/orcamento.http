@@ -2,6 +2,8 @@
 @token =
 @obraId =437ee5aa-75ef-4e88-958a-2369482bb009
 @etapaId =7bd75482-6d6d-48c7-938d-43d323d1a6d6
+@fornecedorId =9702a069-b0a6-4bf5-856d-fb65e1294d47
+
 @funcionarioId =
 @funcionarioParaDeletarId =
 @fornecedorId =b8a60b89-a647-425e-9cdb-46d574650307
@@ -41,5 +43,5 @@ Cookie: jwt-token={{token}}
 ###
 # @name ListarTodosOrcamentos
 # Lista todos os orçamentos com paginação padrão.
-GET {{hostname}}/orcamentos
+GET {{hostname}}/orcamentos?fornecedorId={{fornecedorId}}
 Cookie: jwt-token={{token}}

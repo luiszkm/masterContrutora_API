@@ -73,6 +73,7 @@ func ParseFiltros(r *http.Request) common.ListarFiltros {
 
 	// Parse do tamanho da página com valor padrão e limite máximo
 	tamanhoPagina, err := strconv.Atoi(q.Get("pageSize"))
+
 	if err != nil || tamanhoPagina < 1 {
 		tamanhoPagina = defaultPageSize
 	}
@@ -80,9 +81,12 @@ func ParseFiltros(r *http.Request) common.ListarFiltros {
 		tamanhoPagina = maxPageSize
 	}
 
+	fornecedorID := q.Get("fornecedorId")
+
 	return common.ListarFiltros{
 		Status:        status,
 		Pagina:        pagina,
+		FornecedorID:  fornecedorID,
 		TamanhoPagina: tamanhoPagina,
 	}
 }

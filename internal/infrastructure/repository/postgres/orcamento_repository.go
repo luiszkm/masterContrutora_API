@@ -105,6 +105,11 @@ func (r *OrcamentoRepositoryPostgres) ListarTodos(ctx context.Context, filtros c
 		whereClauses = append(whereClauses, "status = @status")
 		args["status"] = filtros.Status
 	}
+	// Se um FornecedorID for fornecido, adiciona a condição à query.
+	if filtros.FornecedorID != "" {
+		whereClauses = append(whereClauses, "fornecedor_id = @fornecedorID")
+		args["fornecedorID"] = filtros.FornecedorID
+	}
 
 	whereString := " WHERE " + strings.Join(whereClauses, " AND ")
 

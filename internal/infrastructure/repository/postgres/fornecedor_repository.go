@@ -109,59 +109,6 @@ func (r *FornecedorRepositoryPostgres) Atualizar(ctx context.Context, f *suprime
 	return tx.Commit(ctx)
 }
 
-func (r *FornecedorRepositoryPostgres) AtualizarCampos(
-	ctx context.Context,
-	fornecedorID string,
-	campos map[string]interface{},
-	categoriaIDs *[]string,
-) error {
-	const op = "repository.postgres.fornecedor.AtualizarCampos"
-
-	tx, err := r.db.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("%s: falha ao iniciar transação: %w", op, err)
-	}
-	defer tx.Rollback(ctx)
-
-	if len(campos) > 0 {
-		setClauses := []string{}
-		args := []interface{}{}
-		i := 1
-		for col, val := range campos {
-			setClauses = append(setClauses, fmt.Sprintf("%s = $%d", col, i))
-			args = append(args, val)
-			i++
-		}
-
-		args = append(args, fornecedorID)
-		query := fmt.Sprintf("UPDATE fornecedores SET %s WHERE id = $%d", strings.Join(setClauses, ", "), i)
-		if _, err := tx.Exec(ctx, query, args...); err != nil {
-			return fmt.Errorf("%s: erro ao atualizar campos: %w", op, err)
-		}
-	}
-
-	if categoriaIDs != nil {
-		if _, err := tx.Exec(ctx, `DELETE FROM fornecedor_categorias WHERE fornecedor_id = $1`, fornecedorID); err != nil {
-			return fmt.Errorf("%s: erro ao limpar categorias: %w", op, err)
-		}
-
-		if len(*categoriaIDs) > 0 {
-			query := `INSERT INTO fornecedor_categorias (fornecedor_id, categoria_id) VALUES ($1, $2)`
-			batch := &pgx.Batch{}
-			for _, catID := range *categoriaIDs {
-				batch.Queue(query, fornecedorID, catID)
-			}
-
-			br := tx.SendBatch(ctx, batch)
-			if err := br.Close(); err != nil {
-				return fmt.Errorf("%s: erro ao inserir novas categorias: %w", op, err)
-			}
-		}
-	}
-
-	return tx.Commit(ctx)
-}
-
 // Deletar implements suprimentos.FornecedorRepository.
 func (r *FornecedorRepositoryPostgres) Deletar(ctx context.Context, id string) error {
 	const op = "repository.postgres.fornecedor.Deletar"
@@ -171,7 +118,7 @@ func (r *FornecedorRepositoryPostgres) Deletar(ctx context.Context, id string) e
 			status = 'Inativo'
 		 WHERE id = $1 AND deleted_at IS NULL
 	`
-	_, err := r.db.Exec(ctx, query)
+	_, err := r.db.Exec(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("%s: falha ao atualizar fornecedor: %w", op, err)
 	}

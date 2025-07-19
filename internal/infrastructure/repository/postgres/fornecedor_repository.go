@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -24,41 +25,137 @@ func NovoFornecedorRepository(db *pgxpool.Pool, logger *slog.Logger) suprimentos
 }
 
 // Atualizar implements suprimentos.FornecedorRepository.
-func (r *FornecedorRepositoryPostgres) Atualizar(ctx context.Context, f *suprimentos.Fornecedor, categoriaIDs []string) error {
+func (r *FornecedorRepositoryPostgres) Atualizar(ctx context.Context, f *suprimentos.Fornecedor, categoriaIDs *[]string) error {
 	const op = "repository.postgres.fornecedor.Atualizar"
+
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("%s: falha ao iniciar transação: %w", op, err)
 	}
 	defer tx.Rollback(ctx)
 
-	// 1. Atualiza os dados principais do fornecedor. A coluna 'categoria' foi removida.
-	queryUpdate := `
-		UPDATE fornecedores SET
-			nome = $1, cnpj = $2, contato = $3, email = $4, status = $5,
-			endereco = $6, avaliacao = $7, observacoes = $8
-		WHERE id = $9
-	`
-	_, err = tx.Exec(ctx, queryUpdate, f.Nome, f.CNPJ, f.Contato, f.Email, f.Status, f.Endereco, f.Avaliacao, f.Observacoes, f.ID)
-	if err != nil {
-		return fmt.Errorf("%s: falha ao atualizar fornecedor: %w", op, err)
+	setClauses := []string{}
+	args := []interface{}{}
+	argIndex := 1
+
+	if f.Nome != "" {
+		setClauses = append(setClauses, fmt.Sprintf("nome = $%d", argIndex))
+		args = append(args, f.Nome)
+		argIndex++
 	}
-	// 2. Remove todas as associações de categoria antigas para este fornecedor.
-	queryDeleteCategorias := `DELETE FROM fornecedor_categorias WHERE fornecedor_id = $1`
-	if _, err := tx.Exec(ctx, queryDeleteCategorias, f.ID); err != nil {
-		return fmt.Errorf("%s: falha ao limpar categorias antigas: %w", op, err)
+	if f.CNPJ != "" {
+		setClauses = append(setClauses, fmt.Sprintf("cnpj = $%d", argIndex))
+		args = append(args, f.CNPJ)
+		argIndex++
+	}
+	if f.Contato != "" {
+		setClauses = append(setClauses, fmt.Sprintf("contato = $%d", argIndex))
+		args = append(args, f.Contato)
+		argIndex++
+	}
+	if f.Email != "" {
+		setClauses = append(setClauses, fmt.Sprintf("email = $%d", argIndex))
+		args = append(args, f.Email)
+		argIndex++
+	}
+	if f.Status != "" {
+		setClauses = append(setClauses, fmt.Sprintf("status = $%d", argIndex))
+		args = append(args, f.Status)
+		argIndex++
+	}
+	if f.Endereco != nil {
+		setClauses = append(setClauses, fmt.Sprintf("endereco = $%d", argIndex))
+		args = append(args, f.Endereco)
+		argIndex++
+	}
+	if f.Avaliacao != nil {
+		setClauses = append(setClauses, fmt.Sprintf("avaliacao = $%d", argIndex))
+		args = append(args, f.Avaliacao)
+		argIndex++
+	}
+	if f.Observacoes != nil {
+		setClauses = append(setClauses, fmt.Sprintf("observacoes = $%d", argIndex))
+		args = append(args, f.Observacoes)
+		argIndex++
 	}
 
-	// 3. Insere as novas associações de categoria.
-	if len(categoriaIDs) > 0 {
-		queryInsertCategorias := `INSERT INTO fornecedor_categorias (fornecedor_id, categoria_id) VALUES ($1, $2)`
-		batch := &pgx.Batch{}
-		for _, catID := range categoriaIDs {
-			batch.Queue(queryInsertCategorias, f.ID, catID)
+	if len(setClauses) > 0 {
+		query := fmt.Sprintf(`UPDATE fornecedores SET %s WHERE id = $%d`, strings.Join(setClauses, ", "), argIndex)
+		args = append(args, f.ID)
+
+		if _, err := tx.Exec(ctx, query, args...); err != nil {
+			return fmt.Errorf("%s: falha ao atualizar fornecedor: %w", op, err)
 		}
-		br := tx.SendBatch(ctx, batch)
-		if err := br.Close(); err != nil {
-			return fmt.Errorf("%s: falha ao inserir novas associações de categoria: %w", op, err)
+	}
+
+	if categoriaIDs != nil {
+		queryDelete := `DELETE FROM fornecedor_categorias WHERE fornecedor_id = $1`
+		if _, err := tx.Exec(ctx, queryDelete, f.ID); err != nil {
+			return fmt.Errorf("%s: falha ao limpar categorias: %w", op, err)
+		}
+
+		if len(*categoriaIDs) > 0 {
+			batch := &pgx.Batch{}
+			queryInsert := `INSERT INTO fornecedor_categorias (fornecedor_id, categoria_id) VALUES ($1, $2)`
+			for _, catID := range *categoriaIDs {
+				batch.Queue(queryInsert, f.ID, catID)
+			}
+			if err := tx.SendBatch(ctx, batch).Close(); err != nil {
+				return fmt.Errorf("%s: falha ao inserir categorias: %w", op, err)
+			}
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (r *FornecedorRepositoryPostgres) AtualizarCampos(
+	ctx context.Context,
+	fornecedorID string,
+	campos map[string]interface{},
+	categoriaIDs *[]string,
+) error {
+	const op = "repository.postgres.fornecedor.AtualizarCampos"
+
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("%s: falha ao iniciar transação: %w", op, err)
+	}
+	defer tx.Rollback(ctx)
+
+	if len(campos) > 0 {
+		setClauses := []string{}
+		args := []interface{}{}
+		i := 1
+		for col, val := range campos {
+			setClauses = append(setClauses, fmt.Sprintf("%s = $%d", col, i))
+			args = append(args, val)
+			i++
+		}
+
+		args = append(args, fornecedorID)
+		query := fmt.Sprintf("UPDATE fornecedores SET %s WHERE id = $%d", strings.Join(setClauses, ", "), i)
+		if _, err := tx.Exec(ctx, query, args...); err != nil {
+			return fmt.Errorf("%s: erro ao atualizar campos: %w", op, err)
+		}
+	}
+
+	if categoriaIDs != nil {
+		if _, err := tx.Exec(ctx, `DELETE FROM fornecedor_categorias WHERE fornecedor_id = $1`, fornecedorID); err != nil {
+			return fmt.Errorf("%s: erro ao limpar categorias: %w", op, err)
+		}
+
+		if len(*categoriaIDs) > 0 {
+			query := `INSERT INTO fornecedor_categorias (fornecedor_id, categoria_id) VALUES ($1, $2)`
+			batch := &pgx.Batch{}
+			for _, catID := range *categoriaIDs {
+				batch.Queue(query, fornecedorID, catID)
+			}
+
+			br := tx.SendBatch(ctx, batch)
+			if err := br.Close(); err != nil {
+				return fmt.Errorf("%s: erro ao inserir novas categorias: %w", op, err)
+			}
 		}
 	}
 

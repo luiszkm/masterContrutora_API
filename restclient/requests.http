@@ -194,3 +194,13 @@ Cookie: jwt-token={{token}}
 }
 
 ###
+
+
+# @name ListarCategorias
+# Busca a lista de funcionários, trazendo os dados do último apontamento de cada um.
+# Permite filtros, como ?status=Ativo
+GET {{hostname}}/categorias
+Cookie: jwt-token={{token}}
+
+
+###

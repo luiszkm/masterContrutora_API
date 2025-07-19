@@ -27,8 +27,10 @@ type Service interface {
 	AtualizarFornecedor(ctx context.Context, id string, input dto.AtualizarFornecedorInput) (*suprimentos.Fornecedor, error)
 	DeletarFornecedor(ctx context.Context, id string) error
 	BuscarPorID(ctx context.Context, id string) (*suprimentos.Fornecedor, error)
-	CriarCategoria(ctx context.Context, nome string) (*suprimentos.Categoria, error)
+	CriarCategoria(ctx context.Context, input dto.CriarCategoriaInput) (*suprimentos.Categoria, error)
 	ListarCategorias(ctx context.Context) ([]*suprimentos.Categoria, error)
+	AtualizarCategoria(ctx context.Context, id string, input dto.AtualizarCategoriaInput) (*suprimentos.Categoria, error)
+	DeletarCategoria(ctx context.Context, id string) error
 	ListarOrcamentos(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*suprimentos.Orcamento], error)
 }
 
@@ -153,15 +155,15 @@ func (h *Handler) HandleAtualizarFornecedor(w http.ResponseWriter, r *http.Reque
 	}
 
 	input := dto.AtualizarFornecedorInput{
-		Nome:         &req.Nome,
-		CNPJ:         &req.CNPJ,
+		Nome:         req.Nome,
+		CNPJ:         req.CNPJ,
 		CategoriaIDs: req.CategoriaIDs,
-		Contato:      &req.Contato,
-		Email:        &req.Email,
-		Status:       &req.Status,
-		Endereco:     &req.Endereco,
-		Avaliacao:    &req.Avaliacao,
-		Observacoes:  &req.Observacoes,
+		Contato:      req.Contato,
+		Email:        req.Email,
+		Status:       req.Status,
+		Endereco:     req.Endereco,
+		Avaliacao:    req.Avaliacao,
+		Observacoes:  req.Observacoes,
 	}
 
 	fornecedor, err := h.service.AtualizarFornecedor(r.Context(), id, input)
@@ -217,39 +219,4 @@ func (h *Handler) HandleBuscarFornecedor(w http.ResponseWriter, r *http.Request)
 	}
 
 	web.Respond(w, r, fornecedor, http.StatusOK)
-}
-
-func (h *Handler) HandleCriarCategoria(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Nome string `json:"nome"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		web.RespondError(w, r, "PAYLOAD_INVALIDO", "Payload inválido", http.StatusBadRequest)
-		return
-	}
-	if req.Nome == "" {
-		web.RespondError(w, r, "NOME_CATEGORIA_OBRIGATORIO", "O nome da categoria é obrigatório", http.StatusBadRequest)
-		return
-	}
-	_, err := h.service.CriarCategoria(r.Context(), req.Nome)
-	if err != nil {
-		if errors.Is(err, postgres.ErrCategoriaJaExiste) {
-			web.RespondError(w, r, "CATEGORIA_JA_EXISTE", "Categoria já existe", http.StatusConflict)
-			return
-		}
-		h.logger.ErrorContext(r.Context(), "falha ao criar categoria", "erro", err)
-		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao criar categoria", http.StatusInternalServerError)
-		return
-	}
-	web.Respond(w, r, map[string]string{"message": "Categoria criada com sucesso"}, http.StatusCreated)
-}
-
-func (h *Handler) HandleListarCategorias(w http.ResponseWriter, r *http.Request) {
-	categorias, err := h.service.ListarCategorias(r.Context())
-	if err != nil {
-		h.logger.ErrorContext(r.Context(), "falha ao listar categorias", "erro", err)
-		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao listar categorias", http.StatusInternalServerError)
-		return
-	}
-	web.Respond(w, r, categorias, http.StatusOK)
 }

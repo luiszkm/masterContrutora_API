@@ -2,9 +2,9 @@
 @token =
 @obraId =437ee5aa-75ef-4e88-958a-2369482bb009
 @etapaId =
-@funcionarioId =7afef6dd-9374-4131-b6b5-6ac3743711c7
+@funcionarioId =5dba14aa-681d-4f29-be01-4b4c9f1645c6
 @funcionarioParaDeletarId =
-@fornecedorId =7e34c661-9117-4524-a992-05c819a25f33
+@fornecedorId =9702a069-b0a6-4bf5-856d-fb65e1294d47
 @materialId =4e0134c8-f965-40f0-9d83-a449447724cc
 @materialId2 =
 @orcamentoId =f800547b-b0d1-4869-bcde-4ed77ae26ae0
@@ -18,11 +18,11 @@ Cookie: jwt-token={{token}}
 
 {
     "nome": "Casa do Construtor Center",
-    "cnpj": "12.345.678/0001-61",
+    "cnpj": "12.345.678/0001-62",
     "contato": "Carlos Andrade",
     "email": "comercial@casadoconstrutor.com",
     "categoriaIds": [
-        "ef2d8220-dbea-4ad2-bd7b-6b47c6d90a4a"
+        "311eb84a-bb34-483a-9bbd-505c2764f550"
     ]
 }
 
@@ -30,9 +30,19 @@ Cookie: jwt-token={{token}}
 ######
 # @name ListarFornecedores
 # 4. Cadastra o fornecedor principal.
+
 Get {{hostname}}/fornecedores
 Content-Type: application/json
 Cookie: jwt-token={{token}}
+
+
+### 
+# @name BusrcarPorID
+GET {{hostname}}/fornecedores/{{fornecedorId}}
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+###
 
 
 
@@ -62,7 +72,7 @@ Cookie: jwt-token={{token}}
     "cnpj": "55.666.777/0001-08",
     "contato": "Ana Lima",
     "email": "contato@superconcreto.com.br",
-    "categoriaIds": [        "ef2d8220-dbea-4ad2-bd7b-6b47c6d90a4a"
+    "categoriaIds": [        "311eb84a-bb34-483a-9bbd-505c2764f550"
 ],
     "endereco": "Rua das Betoneiras, 123, Bairro Industrial",
     "avaliacao": 4.5,
@@ -76,6 +86,10 @@ Content-Type: application/json
 Cookie: jwt-token={{token}}
 
 {
-    "avaliacao": 5.0,
-    "observacoes": "Cliente muito satisfeito na última entrega."
+    "nome": "Casa do Construtor Center Atualizado",
+    "email": "comercial@casadoconstrutor.com",
+    "contato": "Carlos Andrade Atualizado",
+     "categoriaIds": [
+        "311eb84a-bb34-483a-9bbd-505c2764f550"
+    ]
 }

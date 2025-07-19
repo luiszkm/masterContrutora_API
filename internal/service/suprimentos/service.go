@@ -104,10 +104,13 @@ func (s *Service) ListarFornecedores(ctx context.Context) ([]*suprimentos.Fornec
 
 func (s *Service) AtualizarFornecedor(ctx context.Context, id string, input dto.AtualizarFornecedorInput) (*suprimentos.Fornecedor, error) {
 	const op = "service.suprimentos.AtualizarFornecedor"
+
 	fornecedor, err := s.fornecedorRepo.BuscarPorID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("%s: fornecedor com id [%s] não encontrado: %w", op, id, err)
 	}
+
+	// Somente altera os campos enviados
 	if input.Nome != nil {
 		fornecedor.Nome = *input.Nome
 	}
@@ -132,9 +135,13 @@ func (s *Service) AtualizarFornecedor(ctx context.Context, id string, input dto.
 	if input.Observacoes != nil {
 		fornecedor.Observacoes = input.Observacoes
 	}
-	if err := s.fornecedorRepo.Atualizar(ctx, fornecedor, input.CategoriaIDs); err != nil {
+
+	// Atualização de categorias somente se input.CategoriaIDs != nil
+	err = s.fornecedorRepo.Atualizar(ctx, fornecedor, input.CategoriaIDs)
+	if err != nil {
 		return nil, fmt.Errorf("%s: falha ao atualizar fornecedor: %w", op, err)
 	}
+
 	s.logger.InfoContext(ctx, "fornecedor atualizado", "fornecedor_id", fornecedor.ID)
 	return s.fornecedorRepo.BuscarPorID(ctx, id)
 }
@@ -264,20 +271,4 @@ func (s *Service) AtualizarStatusOrcamento(ctx context.Context, orcamentoID stri
 
 	s.logger.InfoContext(ctx, "status do orçamento atualizado e evento publicado", "orcamento_id", orcamentoID)
 	return orcamento, nil
-}
-
-func (s *Service) CriarCategoria(ctx context.Context, nome string) (*suprimentos.Categoria, error) {
-	// TODO: Validar se já existe uma categoria com este nome para evitar erro do banco.
-	novaCategoria := &suprimentos.Categoria{
-		ID:   uuid.NewString(),
-		Nome: nome,
-	}
-	if err := s.categoriaRepo.Salvar(ctx, novaCategoria); err != nil {
-		return nil, fmt.Errorf("falha ao salvar categoria: %w", err)
-	}
-	return novaCategoria, nil
-}
-
-func (s *Service) ListarCategorias(ctx context.Context) ([]*suprimentos.Categoria, error) {
-	return s.categoriaRepo.ListarTodas(ctx)
 }

@@ -31,15 +31,15 @@ type AtualizarStatusRequest struct {
 }
 
 type AtualizarFornecedorRequest struct {
-	Nome         string   `json:"nome"`
-	CNPJ         string   `json:"cnpj"`
-	CategoriaIDs []string `json:"categoria"`
-	Contato      string   `json:"contato"`
-	Email        string   `json:"email"`
-	Status       string   `json:"status,omitempty"`
-	Endereco     string   `json:"endereco,omitempty"`
-	Avaliacao    float64  `json:"avaliacao,omitempty"`
-	Observacoes  string   `json:"observacoes,omitempty"`
+	Nome         *string   `json:"nome,omitempty"`
+	CNPJ         *string   `json:"cnpj,omitempty"`
+	CategoriaIDs *[]string `json:"categoriaIds,omitempty"`
+	Contato      *string   `json:"contato,omitempty"`
+	Email        *string   `json:"email,omitempty"`
+	Status       *string   `json:"status,omitempty"`
+	Endereco     *string   `json:"endereco,omitempty"`
+	Avaliacao    *float64  `json:"avaliacao,omitempty"`
+	Observacoes  *string   `json:"observacoes,omitempty"`
 }
 
 type CadastrarFornecedorRequest struct {

@@ -5,4 +5,5 @@ type ListarFiltros struct {
 	ApontamentoStatus string
 	Pagina            int
 	TamanhoPagina     int
+	FornecedorID      string
 }

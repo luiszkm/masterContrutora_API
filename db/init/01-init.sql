@@ -221,12 +221,15 @@ IF NOT EXISTS registros_pagamento
     data_de_efetivacao TIMESTAMPTZ NOT NULL,
     conta_bancaria_id UUID NOT NULL
 );
+
 CREATE TABLE
 IF NOT EXISTS categorias
 (
     id UUID PRIMARY KEY,
     nome VARCHAR
-(100) NOT NULL UNIQUE
+(100) NOT NULL UNIQUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Removendo a coluna antiga e menos flexível da tabela de fornecedores

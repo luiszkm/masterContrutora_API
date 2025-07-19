@@ -109,10 +109,12 @@ func New(c Config) *chi.Mux {
 		// --- Recursos de Materiais ---
 		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).Post("/materiais", c.SuprimentosHandler.HandleCadastrarMaterial)
 		r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).Get("/materiais", c.SuprimentosHandler.HandleListarMateriais)
-		// Apontamentos são um recurso de Pessoal
-
-		// r.With(auth.Authorize(authz.PermissaoPessoalApontamentoLer)).
-		// 	Get("/apontamentos", c.PessoalHandler.HandleListarApontamentos)
+		// categorias do material
+		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).Post("/categorias", c.SuprimentosHandler.HandleCriarCategoria)
+		r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).Get("/categorias", c.SuprimentosHandler.HandleListarCategorias)
+		// r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).Put("/categorias/{categoriaId}", c.SuprimentosHandler.HandleAtualizarCategoria)
+		// r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).Delete("/categorias/{categoriaId}", c.SuprimentosHandler.HandleDeletarCategoria)
+		// r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).Get("/categorias/{categoriaId}", c.SuprimentosHandler.HandleBuscarCategoria)
 
 		// --- Recursos de Obras ---
 		r.Route("/obras", func(r chi.Router) {
@@ -150,6 +152,7 @@ func New(c Config) *chi.Mux {
 		r.With(auth.Authorize(authz.PermissaoFinanceiroEscrever)).
 			Post("/pagamentos/lote", c.FinanceiroHandler.HandleRegistrarPagamentosEmLote)
 		// r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).Get("/pagamentos", c.FinanceiroHandler.HandleListarPagamentos)
+
 	})
 
 	return r

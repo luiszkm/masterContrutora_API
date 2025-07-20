@@ -15,7 +15,7 @@ type CadastrarFornecedorInput struct {
 
 type CadastrarProdutoInput struct {
 	Nome            string
-	Descricao       string
+	Descricao       *string
 	UnidadeDeMedida string
 	Categoria       string
 }

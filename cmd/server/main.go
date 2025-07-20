@@ -128,7 +128,7 @@ func main() {
 		logger,
 	)
 
-	// Handlers HTTP
+	// Handlers HTTP (Correto)
 	identidadeHandler := identidade_handler.NovoIdentidadeHandler(identidadeSvc, logger)
 	pessoalHandler := pessoal_handler.NovoPessoalHandler(pessoalSvc, logger)
 	obraHandler := obras_handler.NovoObrasHandler(obraSvc, logger)

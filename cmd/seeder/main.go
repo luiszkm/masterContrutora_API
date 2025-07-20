@@ -95,7 +95,7 @@ func seedDefaultObra(ctx context.Context, db *pgxpool.Pool, logger *slog.Logger)
 		Endereco:   "N/A",
 		DataInicio: time.Now(),
 		Status:     obras.StatusEmAndamento,
-		Descricao:  "Obra padrão criada pelo seeder para inicialização do sistema.",
+		Descricao:  nil, // Descrição opcional, pode ser nil
 	}
 
 	// O método Salvar do repositório precisa ser adaptado para aceitar a transação (tx)

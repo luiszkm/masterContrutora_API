@@ -131,6 +131,7 @@ func New(c Config) *chi.Mux {
 				r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Post("/alocacoes", c.ObrasHandler.HandleAlocarFuncionario)
 				r.With(auth.Authorize(authz.PermissaoObrasLer)).
 					Get("/etapas", c.ObrasHandler.HandleListarEtapasPorObra)
+
 			})
 		})
 
@@ -142,11 +143,19 @@ func New(c Config) *chi.Mux {
 			r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).Post("/orcamentos", c.SuprimentosHandler.HandleCriarOrcamento)
 		})
 
-		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).
-			Patch("/orcamentos/{orcamentoId}", c.SuprimentosHandler.HandleAtualizarOrcamentoStatus)
+		r.Route("/orcamentos", func(r chi.Router) {
+			r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).
+				Get("/", c.SuprimentosHandler.HandleListarOrcamentos)
 
-		r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).
-			Get("/orcamentos", c.SuprimentosHandler.HandleListarOrcamentos)
+			r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).
+				Put("/{orcamentoId}", c.SuprimentosHandler.HandleAtualizarOrcamento)
+
+			r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).
+				Get("/{orcamentoId}", c.SuprimentosHandler.HandleBuscarOrcamentoPorID)
+
+			r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).
+				Patch("/{orcamentoId}/status", c.SuprimentosHandler.HandleAtualizarOrcamentoStatus)
+		})
 
 		// --- Recursos de Financeiro ---
 		r.With(auth.Authorize(authz.PermissaoFinanceiroEscrever)).

@@ -31,7 +31,9 @@ type Service interface {
 	ListarCategorias(ctx context.Context) ([]*suprimentos.Categoria, error)
 	AtualizarCategoria(ctx context.Context, id string, input dto.AtualizarCategoriaInput) (*suprimentos.Categoria, error)
 	DeletarCategoria(ctx context.Context, id string) error
-	ListarOrcamentos(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*suprimentos.Orcamento], error)
+	ListarOrcamentos(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*dto.OrcamentoListItemDTO], error)
+	BuscarOrcamentoPorID(ctx context.Context, id string) (*dto.OrcamentoDetalhadoDTO, error)
+	AtualizarOrcamento(ctx context.Context, orcamentoID string, input dto.AtualizarOrcamentoInput) (*dto.OrcamentoDetalhadoDTO, error)
 }
 
 type Handler struct {

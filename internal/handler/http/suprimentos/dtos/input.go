@@ -1,18 +1,18 @@
 package dtos
 
 type CadastrarMaterialRequest struct {
-	Nome            string `json:"nome"`
-	Descricao       string `json:"descricao"`
-	UnidadeDeMedida string `json:"unidadeDeMedida"`
-	Categoria       string `json:"categoria"`
+	Nome            string  `json:"nome"`
+	Descricao       *string `json:"descricao"`
+	UnidadeDeMedida string  `json:"unidadeDeMedida"`
+	Categoria       string  `json:"categoria"`
 }
 
 type MaterialResponse struct {
-	ID              string `json:"id"`
-	Nome            string `json:"nome"`
-	Descricao       string `json:"descricao"`
-	UnidadeDeMedida string `json:"unidadeDeMedida"`
-	Categoria       string `json:"categoria"`
+	ID              string  `json:"id"`
+	Nome            string  `json:"nome"`
+	Descricao       *string `json:"descricao"`
+	UnidadeDeMedida string  `json:"unidadeDeMedida"`
+	Categoria       string  `json:"categoria"`
 }
 
 type CriarOrcamentoRequest struct {
@@ -52,4 +52,12 @@ type CadastrarFornecedorRequest struct {
 	Endereco     *string  `json:"endereco,omitempty"`
 	Observacoes  *string  `json:"observacoes,omitempty"`
 	Avaliacao    *float64 `json:"avaliacao,omitempty"`
+}
+
+type AtualizarOrcamentoRequest struct {
+	FornecedorID       string        `json:"fornecedorId"`
+	EtapaID            string        `json:"etapaId"`
+	Observacoes        *string       `json:"observacoes"`
+	CondicoesPagamento *string       `json:"condicoesPagamento"`
+	Itens              []ItemRequest `json:"itens"`
 }

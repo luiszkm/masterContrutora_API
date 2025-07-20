@@ -6,4 +6,7 @@ type ListarFiltros struct {
 	Pagina            int
 	TamanhoPagina     int
 	FornecedorID      string
+	ObraID            string
+	DataInicio        string
+	DataFim           string
 }

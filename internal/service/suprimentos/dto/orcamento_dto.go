@@ -1,6 +1,8 @@
 // file: internal/service/suprimentos/dto/orcamento_dto.go
 package dto
 
+import "time"
+
 // CriarOrcamentoInput é o DTO para o caso de uso de criação de orçamento.
 type CriarOrcamentoInput struct {
 	FornecedorID string
@@ -15,4 +17,61 @@ type ItemOrcamentoInput struct {
 }
 type AtualizarStatusOrcamentoInput struct {
 	Status string
+}
+
+type OrcamentoListItemDTO struct {
+	ID             string    `json:"id" db:"id"`
+	Numero         string    `json:"numero" db:"numero"`
+	ValorTotal     float64   `json:"valorTotal" db:"valor_total"`
+	Status         string    `json:"status" db:"status"`
+	DataEmissao    time.Time `json:"dataEmissao" db:"data_emissao"`
+	ObraID         string    `json:"obraId" db:"obra_id"`
+	ObraNome       string    `json:"obraNome" db:"obra_nome"`
+	FornecedorID   string    `json:"fornecedorId" db:"fornecedor_id"`
+	FornecedorNome string    `json:"fornecedorNome" db:"fornecedor_nome"` // CAMPO ADICIONADO
+	ItensCount     int       `json:"itensCount" db:"itens_count"`         // NOVO CAMPO
+}
+
+type OrcamentoDetalhadoDTO struct {
+	ID                 string                      `json:"id" db:"id"`
+	Numero             string                      `json:"numero" db:"numero"`
+	ValorTotal         float64                     `json:"valorTotal" db:"valor_total"`
+	Status             string                      `json:"status" db:"status"`
+	DataEmissao        time.Time                   `json:"dataEmissao" db:"data_emissao"`
+	Observacoes        *string                     `json:"observacoes,omitempty" db:"observacoes"`
+	CondicoesPagamento *string                     `json:"condicoesPagamento,omitempty" db:"condicoes_pagamento"`
+	Obra               ObraInfoDTO                 `json:"obra" db:"obra"`
+	Etapa              EtapaInfoDTO                `json:"etapa" db:"etapa"`
+	Fornecedor         FornecedorInfoDTO           `json:"fornecedor" db:"fornecedor"`
+	Itens              []ItemOrcamentoDetalhadoDTO `json:"itens" db:"itens"`
+}
+
+// Sub-DTOs para manter a resposta organizada
+type ObraInfoDTO struct {
+	ID   string `json:"id" db:"id"`
+	Nome string `json:"nome" db:"nome"`
+}
+type EtapaInfoDTO struct {
+	ID   string `json:"id" db:"id"`
+	Nome string `json:"nome" db:"nome"`
+}
+type FornecedorInfoDTO struct {
+	ID   string `json:"id" db:"id"`
+	Nome string `json:"nome" db:"nome"`
+}
+
+type ItemOrcamentoDetalhadoDTO struct {
+	NomeProduto     string `json:"ProdutoNome" db:"produto_nome"`
+	UnidadeDeMedida string `json:"UnidadeDeMedida" db:"unidade_de_medida"`
+	Categoria       string `json:"Categoria" db:"categoria"`
+	Quantidade      float64
+	ValorUnitario   float64
+}
+
+type AtualizarOrcamentoInput struct {
+	FornecedorID       string
+	EtapaID            string
+	Observacoes        *string
+	CondicoesPagamento *string
+	Itens              []ItemOrcamentoInput
 }

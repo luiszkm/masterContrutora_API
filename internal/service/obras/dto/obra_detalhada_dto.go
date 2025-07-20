@@ -10,8 +10,8 @@ type ObraDetalhadaDTO struct {
 	Cliente      string                  `json:"cliente"`
 	Endereco     string                  `json:"endereco"`
 	DataInicio   time.Time               `json:"dataInicio"`
-	DataFim      time.Time               `json:"dataFim,omitempty"`
-	Descricao    string                  `json:"descricao,omitempty"` // Adiciona descrição opcional
+	DataFim      *time.Time              `json:"dataFim,omitempty"`
+	Descricao    *string                 `json:"descricao,omitempty"` // Adiciona descrição opcional
 	Status       string                  `json:"status"`
 	Etapas       []EtapaDTO              `json:"etapas"`
 	Funcionarios []FuncionarioAlocadoDTO `json:"funcionarios"`
@@ -42,8 +42,10 @@ type FornecedorDTO struct {
 }
 
 type OrcamentoDTO struct {
-	ID     string `json:"id"`
-	numero string `json:"numero"`
+	ID         string  `json:"id"`
+	Numero     string  `json:"numero"`
+	ValorTotal float64 `json:"valorTotal"` // ADICIONADO: Expõe o valor total
+	Status     string  `json:"status"`     // ADICIONADO: Expõe o status
 }
 
 type ProdutoDto struct {

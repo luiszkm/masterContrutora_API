@@ -20,8 +20,8 @@ import (
 type Service interface {
 	CadastrarFornecedor(ctx context.Context, input dto.CadastrarFornecedorInput) (*suprimentos.Fornecedor, error)
 	ListarFornecedores(ctx context.Context) ([]*suprimentos.Fornecedor, error)
-	CadastrarMaterial(ctx context.Context, input dto.CadastrarMaterialInput) (*suprimentos.Material, error)
-	ListarMateriais(ctx context.Context) ([]*suprimentos.Material, error)
+	CadastrarMaterial(ctx context.Context, input dto.CadastrarProdutoInput) (*suprimentos.Produto, error)
+	ListarMateriais(ctx context.Context) ([]*suprimentos.Produto, error)
 	CriarOrcamento(ctx context.Context, etapaID string, input dto.CriarOrcamentoInput) (*suprimentos.Orcamento, error)
 	AtualizarStatusOrcamento(ctx context.Context, orcamentoID string, input dto.AtualizarStatusOrcamentoInput) (*suprimentos.Orcamento, error)
 	AtualizarFornecedor(ctx context.Context, id string, input dto.AtualizarFornecedorInput) (*suprimentos.Fornecedor, error)
@@ -91,7 +91,7 @@ func (h *Handler) HandleCadastrarMaterial(w http.ResponseWriter, r *http.Request
 
 	// TODO: Adicionar validação para os campos da requisição.
 
-	input := dto.CadastrarMaterialInput{
+	input := dto.CadastrarProdutoInput{
 		Nome:            req.Nome,
 		Descricao:       req.Descricao,
 		UnidadeDeMedida: req.UnidadeDeMedida,

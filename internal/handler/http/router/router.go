@@ -129,6 +129,8 @@ func New(c Config) *chi.Mux {
 				r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Put("/", c.ObrasHandler.HandleAtualizarObra)
 				r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Post("/etapas", c.ObrasHandler.HandleAdicionarEtapa)
 				r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Post("/alocacoes", c.ObrasHandler.HandleAlocarFuncionario)
+				r.With(auth.Authorize(authz.PermissaoObrasLer)).
+					Get("/etapas", c.ObrasHandler.HandleListarEtapasPorObra)
 			})
 		})
 
@@ -153,6 +155,15 @@ func New(c Config) *chi.Mux {
 			Post("/pagamentos/lote", c.FinanceiroHandler.HandleRegistrarPagamentosEmLote)
 		// r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).Get("/pagamentos", c.FinanceiroHandler.HandleListarPagamentos)
 
+		r.Route("/etapas-padroes", func(r chi.Router) {
+			r.With(auth.Authorize(authz.PermissaoObrasLer)).
+				Get("/", c.ObrasHandler.HandleListarEtapasPadrao)
+
+			// AQUI IRIAM AS ROTAS DE POST, PUT, DELETE
+			// r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Post("/", c.ObrasHandler.HandleCriarEtapaPadrao)
+			// r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Put("/{etapaId}", c.ObrasHandler.HandleAtualizarEtapaPadrao)
+			// r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Delete("/{etapaId}", c.ObrasHandler.HandleDeletarEtapaPadrao)
+		})
 	})
 
 	return r

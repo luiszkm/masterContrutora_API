@@ -1,7 +1,7 @@
 @hostname = http://localhost:8080
 @token =
-@obraId =4f45c1b3-210f-4f48-aa6b-158d26ddf014
-@etapaId =
+@obraId =e0656c64-fd78-47e1-972c-8f8d1ccddb7a
+@etapaId =e830a43a-bbb3-49ec-8171-9f86a062f30f
 @funcionarioId =fb0677ac-4c9a-49a9-b601-c0ed35f5b9fb
 @funcionarioParaDeletarId =
 @fornecedorId =
@@ -9,7 +9,7 @@
 @materialId2 =
 @orcamentoId =a740655b-24ec-4328-b9c5-7fdf4a7aa961
 @apontamentoId = c1377600-6c9d-42cd-aaba-a85b5df3d217
-
+@etapaPadraoId = 4525251c-999c-4417-aa9e-72d7a9809b09
 
 # ===================================================================
 # [FLUXO 2] - CENÁRIO DE UMA OBRA COMPLETA
@@ -23,7 +23,7 @@ Content-Type: application/json
 Cookie: jwt-token={{token}}
 
 {
-    "nome": "Obra teste",
+    "nome": "Obra teste para o fluxo completo",
     "cliente": "ncorporadora Morar Bem",
     "endereco": "Rua das Palmeiras, 100",
     "dataInicio": "2025-08-01",
@@ -43,7 +43,7 @@ Content-Type: application/json
 Cookie: jwt-token={{token}}
 
 {
-    "nome": "Fundações",
+    "etapaPadraoId": "61029696-f7bf-4c52-a183-92b3a93580e6",
     "dataInicioPrevista": "2025-08-05",
     "dataFimPrevista": "2025-08-30"
 }
@@ -83,3 +83,12 @@ GET {{hostname}}/obras/{{obraId}}
 Cookie: jwt-token={{token}}
 ###
 
+
+# @name ListarEtapasPadrao
+GET {{hostname}}/etapas-padroes
+Cookie: jwt-token={{token}}
+###
+
+GET {{hostname}}/obras/{{obraId}}/etapas
+Content-Type: application/json
+Cookie: jwt-token={{token}}

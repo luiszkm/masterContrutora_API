@@ -30,6 +30,9 @@ type Service interface {
 	DeletarObra(ctx context.Context, obraID string) error
 	BuscarDetalhesPorID(ctx context.Context, obraID string) (*dto.ObraDetalhadaDTO, error)
 	AtualizarObra(ctx context.Context, obraID string, input dto.AtualizarObraInput) (*obras.Obra, error)
+	ListarEtapasPadrao(ctx context.Context) ([]*obras.EtapaPadrao, error)           // NOVO
+	ListarEtapasPorObra(ctx context.Context, obraID string) ([]*obras.Etapa, error) // NOVO
+
 }
 
 // ObrasHandler gerencia as requisições HTTP para o contexto de Obras.
@@ -45,7 +48,14 @@ func NovoObrasHandler(s Service, l *slog.Logger) *Handler {
 		logger:  l,
 	}
 }
-
+func (h *Handler) HandleListarEtapasPadrao(w http.ResponseWriter, r *http.Request) {
+	etapas, err := h.service.ListarEtapasPadrao(r.Context())
+	if err != nil {
+		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao listar etapas padrão", http.StatusInternalServerError)
+		return
+	}
+	web.Respond(w, r, etapas, http.StatusOK)
+}
 func (h *Handler) HandleCriarObra(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		h.logger.Warn("Método não permitido", "método", r.Method, "rota", r.URL.Path)
@@ -75,31 +85,33 @@ func (h *Handler) HandleCriarObra(w http.ResponseWriter, r *http.Request) {
 		h.logger.ErrorContext(r.Context(), "falha ao encodificar resposta", "erro", err)
 	}
 }
-
 func (h *Handler) HandleAdicionarEtapa(w http.ResponseWriter, r *http.Request) {
 	obraID := chi.URLParam(r, "obraId")
 	if obraID == "" {
-		h.logger.Warn("ID da obra não fornecido na URL", "rota", r.URL.Path)
 		web.RespondError(w, r, "ID_OBRA_OBRIGATORIO", "ID da obra na URL é obrigatório", http.StatusBadRequest)
 		return
 	}
 
 	var input dto.AdicionarEtapaInput
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		h.logger.Error("falha ao decodificar payload da etapa", "erro", err)
-		web.RespondError(w, r, "ERRO_INTERNO", "Payload inválido", http.StatusBadRequest)
+		web.RespondError(w, r, "PAYLOAD_INVALIDO", "Payload inválido", http.StatusBadRequest)
 		return
 	}
 
 	etapa, err := h.service.AdicionarEtapa(r.Context(), obraID, input)
 	if err != nil {
+		// Tratar erros específicos do serviço, como "não encontrado"
+		if errors.Is(err, postgres.ErrNaoEncontrado) {
+			web.RespondError(w, r, "RECURSO_NAO_ENCONTRADO", err.Error(), http.StatusNotFound)
+			return
+		}
 		h.logger.ErrorContext(r.Context(), "falha ao adicionar etapa", "erro", err)
 		web.RespondError(w, r, "ERRO_INTERNO", "Erro interno ao processar sua requisição", http.StatusInternalServerError)
 		return
 	}
+
 	web.Respond(w, r, etapa, http.StatusCreated)
 }
-
 func (h *Handler) HandleBuscarObra(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "obraId")
 
@@ -123,7 +135,6 @@ func (h *Handler) HandleBuscarObra(w http.ResponseWriter, r *http.Request) {
 
 	web.Respond(w, r, dashboard, http.StatusOK)
 }
-
 func (h *Handler) HandleAtualizarEtapaStatus(w http.ResponseWriter, r *http.Request) {
 	etapaID := chi.URLParam(r, "etapaId")
 
@@ -146,7 +157,6 @@ func (h *Handler) HandleAtualizarEtapaStatus(w http.ResponseWriter, r *http.Requ
 	}
 	web.Respond(w, r, etapa, http.StatusOK)
 }
-
 func (h *Handler) HandleAlocarFuncionario(w http.ResponseWriter, r *http.Request) {
 	obraID := chi.URLParam(r, "obraId")
 
@@ -168,7 +178,6 @@ func (h *Handler) HandleAlocarFuncionario(w http.ResponseWriter, r *http.Request
 
 	web.Respond(w, r, alocacoes, http.StatusCreated)
 }
-
 func (h *Handler) HandleListarObras(w http.ResponseWriter, r *http.Request) {
 	filtros := web.ParseFiltros(r)
 
@@ -181,7 +190,6 @@ func (h *Handler) HandleListarObras(w http.ResponseWriter, r *http.Request) {
 
 	web.Respond(w, r, resposta, http.StatusOK)
 }
-
 func (h *Handler) HandleDeletarObra(w http.ResponseWriter, r *http.Request) {
 	obraID := chi.URLParam(r, "obraId")
 
@@ -197,7 +205,6 @@ func (h *Handler) HandleDeletarObra(w http.ResponseWriter, r *http.Request) {
 
 	web.Respond(w, r, nil, http.StatusNoContent)
 }
-
 func (h *Handler) HandleBuscarObraPorID(w http.ResponseWriter, r *http.Request) {
 	obraID := chi.URLParam(r, "obraId")
 
@@ -214,7 +221,6 @@ func (h *Handler) HandleBuscarObraPorID(w http.ResponseWriter, r *http.Request) 
 
 	web.Respond(w, r, obraDetalhada, http.StatusOK)
 }
-
 func (h *Handler) HandleAtualizarObra(w http.ResponseWriter, r *http.Request) {
 	obraID := chi.URLParam(r, "obraId")
 	if obraID == "" {
@@ -237,4 +243,20 @@ func (h *Handler) HandleAtualizarObra(w http.ResponseWriter, r *http.Request) {
 	}
 
 	web.Respond(w, r, nil, http.StatusNoContent)
+}
+func (h *Handler) HandleListarEtapasPorObra(w http.ResponseWriter, r *http.Request) {
+	obraID := chi.URLParam(r, "obraId")
+
+	etapas, err := h.service.ListarEtapasPorObra(r.Context(), obraID)
+	if err != nil {
+		if errors.Is(err, postgres.ErrNaoEncontrado) {
+			web.RespondError(w, r, "NAO_ENCONTRADO", "Obra não encontrada", http.StatusNotFound)
+			return
+		}
+		h.logger.ErrorContext(r.Context(), "falha ao listar etapas por obra", "erro", err)
+		web.RespondError(w, r, "ERRO_INTERNO", "Falha ao listar etapas da obra", http.StatusInternalServerError)
+		return
+	}
+
+	web.Respond(w, r, etapas, http.StatusOK)
 }

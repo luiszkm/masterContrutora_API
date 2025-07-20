@@ -48,12 +48,12 @@ func (r *FornecedorRepositoryPostgres) Atualizar(ctx context.Context, f *suprime
 		args = append(args, f.CNPJ)
 		argIndex++
 	}
-	if f.Contato != "" {
+	if f.Contato != nil {
 		setClauses = append(setClauses, fmt.Sprintf("contato = $%d", argIndex))
 		args = append(args, f.Contato)
 		argIndex++
 	}
-	if f.Email != "" {
+	if f.Email != nil {
 		setClauses = append(setClauses, fmt.Sprintf("email = $%d", argIndex))
 		args = append(args, f.Email)
 		argIndex++
@@ -130,10 +130,11 @@ func (r *FornecedorRepositoryPostgres) Deletar(ctx context.Context, id string) e
 func (r *FornecedorRepositoryPostgres) BuscarPorID(ctx context.Context, id string) (*suprimentos.Fornecedor, error) {
 	const op = "repository.postgres.fornecedor.BuscarPorID"
 
-	// A query agora usa LEFT JOIN e json_agg para buscar as categorias em uma única chamada.
 	query := `
 		SELECT
 			f.id, f.nome, f.cnpj, f.contato, f.email, f.status,
+			f.endereco, f.avaliacao, f.observacoes,
+			COUNT(DISTINCT o.id) as orcamentos_count,
 			COALESCE(
 				json_agg(json_build_object('ID', c.id, 'Nome', c.nome)) FILTER (WHERE c.id IS NOT NULL),
 				'[]'
@@ -141,13 +142,21 @@ func (r *FornecedorRepositoryPostgres) BuscarPorID(ctx context.Context, id strin
 		FROM fornecedores f
 		LEFT JOIN fornecedor_categorias fc ON f.id = fc.fornecedor_id
 		LEFT JOIN categorias c ON fc.categoria_id = c.id
+		LEFT JOIN orcamentos o ON f.id = o.fornecedor_id
 		WHERE f.id = $1 AND f.deleted_at IS NULL
 		GROUP BY f.id`
 
 	var f suprimentos.Fornecedor
-	var categoriasJSON []byte // Recebe o resultado do json_agg como bytes
+	var categoriasJSON []byte
 
-	err := r.db.QueryRow(ctx, query, id).Scan(&f.ID, &f.Nome, &f.CNPJ, &f.Contato, &f.Email, &f.Status, &categoriasJSON)
+	// A ordem do Scan deve corresponder exatamente à ordem das colunas no SELECT.
+	err := r.db.QueryRow(ctx, query, id).Scan(
+		&f.ID, &f.Nome, &f.CNPJ, &f.Contato, &f.Email, &f.Status,
+		&f.Endereco, &f.Avaliacao, &f.Observacoes,
+		&f.OrcamentosCount,
+		&categoriasJSON,
+	)
+
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNaoEncontrado
@@ -155,14 +164,12 @@ func (r *FornecedorRepositoryPostgres) BuscarPorID(ctx context.Context, id strin
 		return nil, fmt.Errorf("%s: falha ao escanear fornecedor: %w", op, err)
 	}
 
-	// Decodifica o JSON das categorias para a struct Go.
 	if err := json.Unmarshal(categoriasJSON, &f.Categorias); err != nil {
 		return nil, fmt.Errorf("%s: falha ao decodificar JSON das categorias: %w", op, err)
 	}
 
 	return &f, nil
 }
-
 func (r *FornecedorRepositoryPostgres) Salvar(ctx context.Context, f *suprimentos.Fornecedor, categoriaIDs []string) error {
 	const op = "repository.postgres.fornecedor.Salvar"
 

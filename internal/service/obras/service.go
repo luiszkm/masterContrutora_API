@@ -7,7 +7,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/google/uuid"                                     // Usaremos UUID para os IDs.
+	"github.com/google/uuid" // Usaremos UUID para os IDs.
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/luiszkm/masterCostrutora/internal/domain/common" // Importa o pacote de filtros e paginação
 	"github.com/luiszkm/masterCostrutora/internal/domain/obras"
 	"github.com/luiszkm/masterCostrutora/internal/domain/pessoal"
@@ -26,12 +27,31 @@ type PessoalFinder interface {
 
 // Service encapsula a lógica de negócio para o contexto de Obras.
 type Service struct {
-	obraRepo      obras.ObrasRepository
-	etapaRepo     obras.EtapaRepository
-	alocacaoRepo  obras.AlocacaoRepository
-	pessoalFinder PessoalFinder
-	obrasQuerier  ObrasQuerier
-	logger        *slog.Logger
+	obraRepo        obras.ObrasRepository
+	etapaRepo       obras.EtapaRepository
+	alocacaoRepo    obras.AlocacaoRepository
+	etapaPadraoRepo obras.EtapaPadraoRepository
+	pessoalFinder   PessoalFinder
+	obrasQuerier    ObrasQuerier
+	logger          *slog.Logger
+	dbpool          *pgxpool.Pool // NOVO
+
+}
+
+func NovoServico(obraRepo obras.ObrasRepository, etapaRepo obras.EtapaRepository,
+	etapaPadraoRepo obras.EtapaPadraoRepository,
+	alocacaoRepo obras.AlocacaoRepository, pessoalFinder PessoalFinder, obrasQuerier ObrasQuerier,
+	logger *slog.Logger, dbpool *pgxpool.Pool) *Service {
+	return &Service{
+		alocacaoRepo:    alocacaoRepo,
+		pessoalFinder:   pessoalFinder,
+		obraRepo:        obraRepo,
+		etapaRepo:       etapaRepo,
+		etapaPadraoRepo: etapaPadraoRepo,
+		obrasQuerier:    obrasQuerier,
+		logger:          logger,
+		dbpool:          dbpool, // NOVO
+	}
 }
 
 // ListarObras implements obras.Service.
@@ -49,56 +69,71 @@ func (s *Service) ListarObras(ctx context.Context, filtros common.ListarFiltros)
 	}, nil
 }
 
-func NovoServico(obraRepo obras.ObrasRepository, etapaRepo obras.EtapaRepository,
-	alocacaoRepo obras.AlocacaoRepository, pessoalFinder PessoalFinder, obrasQuerier ObrasQuerier, logger *slog.Logger) *Service {
-	return &Service{
-		alocacaoRepo:  alocacaoRepo,
-		pessoalFinder: pessoalFinder,
-		obraRepo:      obraRepo,
-		etapaRepo:     etapaRepo,
-		obrasQuerier:  obrasQuerier,
-		logger:        logger,
-	}
-}
-
 // CriarNovaObra é o caso de uso para registrar uma nova construção.
 func (s *Service) CriarNovaObra(ctx context.Context, input dto.CriarNovaObraInput) (*obras.Obra, error) {
 	const op = "service.obras.CriarNovaObra"
 
-	// Validação básica de entrada
-	if input.Nome == "" || input.Cliente == "" || input.Endereco == "" {
-		return nil, fmt.Errorf("%s: nome, cliente e endereço são obrigatórios", op)
+	// Inicia a transação
+	tx, err := s.dbpool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("%s: falha ao iniciar transação: %w", op, err)
 	}
+	defer tx.Rollback(ctx) // Garante o rollback em caso de erro
 
+	// 1. Cria a entidade Obra principal
 	dataInicio, err := time.Parse("2006-01-02", input.DataInicio)
 	if err != nil {
-		return nil, fmt.Errorf("%s: formato de data de início inválido: %w", op, err)
+		return nil, fmt.Errorf("%s: formato de data inválido: %w", op, err)
 	}
-	dataFim, err := time.Parse("2006-01-02", input.DataFim)
-	if err != nil {
-		return nil, fmt.Errorf("%s: formato de data de início inválido: %w", op, err)
-	}
-
 	novaObra := &obras.Obra{
 		ID:         uuid.NewString(),
 		Nome:       input.Nome,
 		Cliente:    input.Cliente,
 		Endereco:   input.Endereco,
 		DataInicio: dataInicio,
-		Status:     obras.StatusEmPlanejamento, // Status inicial padrão
-		Descricao:  input.Descricao,            // Descrição opcional
-		DataFim:    dataFim,                    // Data de fim pode ser nula inicialmente
+		Status:     obras.StatusEmPlanejamento,
 	}
-
-	// Delega a persistência para o repositório
-	if err := s.obraRepo.Salvar(ctx, novaObra); err != nil {
-		// Adiciona contexto ao erro original usando %w
+	if err := s.obraRepo.Salvar(ctx, tx, novaObra); err != nil {
 		return nil, fmt.Errorf("%s: falha ao salvar nova obra: %w", op, err)
 	}
 
-	s.logger.InfoContext(ctx, "nova obra criada com sucesso", "obra_id", novaObra.ID, "obra_nome", novaObra.Nome)
+	// 2. Busca todas as etapas padrão do catálogo
+	etapasPadrao, err := s.etapaPadraoRepo.ListarTodas(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("%s: falha ao buscar catálogo de etapas: %w", op, err)
+	}
 
+	// 3. Cria uma instância de cada etapa padrão para a nova obra
+	for _, etapaPadrao := range etapasPadrao {
+		// Regra de negócio: A primeira etapa ("Fundações") começa em planejamento, as outras pendentes.
+		status := obras.StatusEtapaPendente
+		if etapaPadrao.Nome == "Fundações" {
+			status = obras.StatusEtapaEmAndamento // Corrigido para "Em Andamento" para ser mais realista
+		}
+
+		novaEtapa := &obras.Etapa{
+			ID:                 uuid.NewString(),
+			ObraID:             novaObra.ID,
+			Nome:               etapaPadrao.Nome,
+			DataInicioPrevista: &time.Time{}, // Data padrão, pode ser ajustada depois
+			DataFimPrevista:    &time.Time{}, // Previsão de 1 mês
+			Status:             status,
+		}
+		if err := s.etapaRepo.Salvar(ctx, tx, novaEtapa); err != nil {
+			return nil, fmt.Errorf("%s: falha ao salvar etapa '%s': %w", op, novaEtapa.Nome, err)
+		}
+	}
+
+	// Se tudo deu certo, comita a transação
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("%s: falha ao comitar transação: %w", op, err)
+	}
+
+	s.logger.InfoContext(ctx, "nova obra criada com etapas padrão", "obra_id", novaObra.ID, "etapas_criadas", len(etapasPadrao))
 	return novaObra, nil
+}
+func (s *Service) ListarEtapasPadrao(ctx context.Context) ([]*obras.EtapaPadrao, error) {
+	return s.etapaPadraoRepo.ListarTodas(ctx)
 }
 func (s *Service) BuscarDashboard(ctx context.Context, id string) (*dto.ObraDashboard, error) {
 	const op = "service.obras.BuscarDashboard"
@@ -111,12 +146,28 @@ func (s *Service) BuscarDashboard(ctx context.Context, id string) (*dto.ObraDash
 
 	return dashboard, nil
 }
+
 func (s *Service) AdicionarEtapa(ctx context.Context, obraID string, input dto.AdicionarEtapaInput) (*obras.Etapa, error) {
 	const op = "service.obras.AdicionarEtapa"
 
-	// TODO: Antes de adicionar, poderíamos validar se a Obra com o 'obraID' realmente existe
-	// usando s.obraRepo.BuscarPorID(ctx, obraID).
+	// Inicia a transação
+	tx, err := s.dbpool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("%s: falha ao iniciar transação: %w", op, err)
+	}
+	defer tx.Rollback(ctx) // Garante o rollback em caso de erro
+	// 1. Valida se a obra de destino existe.
+	if _, err := s.obraRepo.BuscarPorID(ctx, obraID); err != nil {
+		return nil, fmt.Errorf("%s: obra não encontrada: %w", op, err)
+	}
 
+	// 2. Busca a Etapa Padrão no catálogo para obter o nome e outras informações.
+	etapaPadrao, err := s.etapaPadraoRepo.BuscarPorID(ctx, input.EtapaPadraoID)
+	if err != nil {
+		return nil, fmt.Errorf("%s: etapa padrão não encontrada no catálogo: %w", op, err)
+	}
+
+	// 3. Valida e converte as datas da requisição.
 	inicio, err := time.Parse("2006-01-02", input.DataInicioPrevista)
 	if err != nil {
 		return nil, fmt.Errorf("%s: formato de data de início inválido: %w", op, err)
@@ -126,23 +177,25 @@ func (s *Service) AdicionarEtapa(ctx context.Context, obraID string, input dto.A
 		return nil, fmt.Errorf("%s: formato de data de fim inválido: %w", op, err)
 	}
 
+	// 4. Cria a nova entidade 'Etapa' (a instância na obra).
 	novaEtapa := &obras.Etapa{
 		ID:                 uuid.NewString(),
 		ObraID:             obraID,
-		Nome:               input.Nome,
-		DataInicioPrevista: inicio,
-		DataFimPrevista:    fim,
-		Status:             "Pendente", // Status inicial padrão
+		Nome:               etapaPadrao.Nome, // O nome vem do catálogo
+		DataInicioPrevista: &inicio,
+		DataFimPrevista:    &fim,
+		Status:             obras.StatusEtapaPendente, // Status inicial padrão
 	}
 
-	if err := s.etapaRepo.Salvar(ctx, novaEtapa); err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+	// 5. Salva a nova etapa no banco de dados.
+	if err := s.etapaRepo.Salvar(ctx, tx, novaEtapa); err != nil {
+		return nil, fmt.Errorf("%s: falha ao salvar nova etapa na obra: %w", op, err)
 	}
 
-	s.logger.InfoContext(ctx, "etapa adicionada com sucesso", "etapa_id", novaEtapa.ID, "obra_id", obraID)
-
+	s.logger.InfoContext(ctx, "etapa adicionada à obra com sucesso", "etapa_id", novaEtapa.ID, "obra_id", obraID, "nome_etapa", novaEtapa.Nome)
 	return novaEtapa, nil
 }
+
 func (s *Service) AtualizarStatusEtapa(ctx context.Context, etapaID string, input dto.AtualizarStatusEtapaInput) (*obras.Etapa, error) {
 	const op = "service.obras.AtualizarStatusEtapa"
 
@@ -243,9 +296,9 @@ func (s *Service) AtualizarObra(ctx context.Context, obraID string, input dto.At
 		Cliente:    input.Cliente,
 		Endereco:   input.Endereco,
 		DataInicio: dataInicio,
-		DataFim:    dataFim,
+		DataFim:    &dataFim,
 		Status:     obras.Status(input.Status),
-		Descricao:  input.Descricao,
+		Descricao:  &input.Descricao,
 	}
 
 	if err := s.obraRepo.Atualizar(ctx, obraAtualizada); err != nil {
@@ -255,4 +308,15 @@ func (s *Service) AtualizarObra(ctx context.Context, obraID string, input dto.At
 	s.logger.InfoContext(ctx, "obra atualizada com sucesso", "obra_id", obraAtualizada.ID)
 
 	return obraAtualizada, nil
+}
+
+func (s *Service) ListarEtapasPorObra(ctx context.Context, obraID string) ([]*obras.Etapa, error) {
+	const op = "service.obras.ListarEtapasPorObra"
+
+	// Valida se a obra existe antes de buscar suas etapas
+	if _, err := s.obraRepo.BuscarPorID(ctx, obraID); err != nil {
+		return nil, fmt.Errorf("%s: obra não encontrada: %w", op, err)
+	}
+
+	return s.etapaRepo.ListarPorObraID(ctx, obraID)
 }

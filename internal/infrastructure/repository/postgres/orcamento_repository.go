@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -64,7 +65,7 @@ func (r *OrcamentoRepositoryPostgres) BuscarPorID(ctx context.Context, orcamento
 	}
 
 	// 2. Busca todos os itens associados a este orçamento
-	queryItens := `SELECT id, orcamento_id, material_id, quantidade, valor_unitario FROM orcamento_itens WHERE orcamento_id = $1`
+	queryItens := `SELECT id, orcamento_id, produto_id, quantidade, valor_unitario FROM orcamento_itens WHERE orcamento_id = $1`
 	rowsItens, err := tx.Query(ctx, queryItens, orcamentoID)
 	if err != nil {
 		return nil, fmt.Errorf("%s: falha ao buscar itens do orçamento: %w", op, err)
@@ -72,7 +73,7 @@ func (r *OrcamentoRepositoryPostgres) BuscarPorID(ctx context.Context, orcamento
 
 	itens, err := pgx.CollectRows(rowsItens, func(row pgx.CollectableRow) (suprimentos.ItemOrcamento, error) {
 		var item suprimentos.ItemOrcamento
-		err := row.Scan(&item.ID, &item.OrcamentoID, &item.MaterialID, &item.Quantidade, &item.ValorUnitario)
+		err := row.Scan(&item.ID, &item.OrcamentoID, &item.ProdutoID, &item.Quantidade, &item.ValorUnitario)
 		return item, err
 	})
 	if err != nil {
@@ -154,12 +155,10 @@ func (r *OrcamentoRepositoryPostgres) ListarTodos(ctx context.Context, filtros c
 func (r *OrcamentoRepositoryPostgres) Salvar(ctx context.Context, o *suprimentos.Orcamento) error {
 	const op = "repository.postgres.orcamento.Salvar"
 
-	// Inicia a transação
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("%s: falha ao iniciar transação: %w", op, err)
 	}
-	// Garante que a transação seja desfeita (ROLLBACK) em caso de erro em qualquer ponto.
 	defer tx.Rollback(ctx)
 
 	// 1. Insere o registro principal na tabela 'orcamentos'
@@ -173,21 +172,47 @@ func (r *OrcamentoRepositoryPostgres) Salvar(ctx context.Context, o *suprimentos
 	}
 
 	// 2. Insere cada item na tabela 'orcamento_itens'
-	queryItem := `
-		INSERT INTO orcamento_itens (id, orcamento_id, material_id, quantidade, valor_unitario)
-		VALUES ($1, $2, $3, $4, $5)
-	`
-	// Usamos um "batch" para inserir múltiplos itens de forma eficiente dentro da mesma transação.
-	batch := &pgx.Batch{}
-	for _, item := range o.Itens {
-		batch.Queue(queryItem, item.ID, item.OrcamentoID, item.MaterialID, item.Quantidade, item.ValorUnitario)
+	if len(o.Itens) > 0 {
+		queryItem := `
+			INSERT INTO orcamento_itens (id, orcamento_id, produto_id, quantidade, valor_unitario)
+			VALUES ($1, $2, $3, $4, $5)
+		`
+		batch := &pgx.Batch{}
+		for _, item := range o.Itens {
+			batch.Queue(queryItem, item.ID, item.OrcamentoID, item.ProdutoID, item.Quantidade, item.ValorUnitario)
+		}
+
+		batchResult := tx.SendBatch(ctx, batch)
+
+		// --- CORREÇÃO CRÍTICA APLICADA AQUI ---
+		// Executa o lote e verifica se houve erros na inserção dos itens.
+		if _, err := batchResult.Exec(); err != nil {
+			return fmt.Errorf("%s: falha ao executar lote de inserção de itens do orçamento: %w", op, err)
+		}
+		// --- FIM DA CORREÇÃO ---
+
+		if err := batchResult.Close(); err != nil {
+			return fmt.Errorf("%s: falha ao fechar lote de inserção de itens: %w", op, err)
+		}
 	}
 
-	batchResult := tx.SendBatch(ctx, batch)
-	if err := batchResult.Close(); err != nil {
-		return fmt.Errorf("%s: falha ao inserir itens do orçamento: %w", op, err)
-	}
-
-	// Se tudo deu certo até aqui, confirma a transação (COMMIT).
+	// Se tudo deu certo, confirma a transação (COMMIT).
 	return tx.Commit(ctx)
+}
+
+func (r *OrcamentoRepositoryPostgres) ContarPorMesAno(ctx context.Context, ano int, mes time.Month) (int, error) {
+	const op = "repository.postgres.orcamento.ContarPorMesAno"
+
+	query := `
+		SELECT COUNT(*)
+		FROM orcamentos
+		WHERE EXTRACT(YEAR FROM data_emissao) = $1
+		  AND EXTRACT(MONTH FROM data_emissao) = $2
+	`
+	var count int
+	err := r.db.QueryRow(ctx, query, ano, mes).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+	return count, nil
 }

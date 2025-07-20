@@ -21,11 +21,12 @@ type CriarOrcamentoRequest struct {
 	Itens        []ItemRequest `json:"itens"`
 }
 type ItemRequest struct {
-	MaterialID    string  `json:"materialId"`
-	Quantidade    float64 `json:"quantidade"`
-	ValorUnitario float64 `json:"valorUnitario"`
+	NomeProduto     string  `json:"nomeProduto"`
+	UnidadeDeMedida string  `json:"unidadeDeMedida"`
+	Categoria       string  `json:"categoria"`
+	Quantidade      float64 `json:"quantidade"`
+	ValorUnitario   float64 `json:"valorUnitario"`
 }
-
 type AtualizarStatusRequest struct {
 	Status string `json:"status"`
 }

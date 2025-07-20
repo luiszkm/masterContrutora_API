@@ -13,8 +13,7 @@ type CadastrarFornecedorInput struct {
 	Avaliacao    *float64 // NOVO
 }
 
-// CadastrarMaterialInput é o DTO para o caso de uso de cadastro de material.
-type CadastrarMaterialInput struct {
+type CadastrarProdutoInput struct {
 	Nome            string
 	Descricao       string
 	UnidadeDeMedida string

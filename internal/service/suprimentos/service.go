@@ -5,12 +5,10 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/luiszkm/masterCostrutora/internal/domain/obras"
 	"github.com/luiszkm/masterCostrutora/internal/domain/suprimentos"
-	"github.com/luiszkm/masterCostrutora/internal/events"
 	"github.com/luiszkm/masterCostrutora/internal/platform/bus"
 	"github.com/luiszkm/masterCostrutora/internal/service/suprimentos/dto"
 )
@@ -31,11 +29,11 @@ type FornecedorFinder interface {
 	BuscarPorID(ctx context.Context, id string) (*suprimentos.Fornecedor, error)
 }
 type MaterialFinder interface {
-	BuscarPorID(ctx context.Context, id string) (*suprimentos.Material, error)
+	BuscarPorID(ctx context.Context, id string) (*suprimentos.Produto, error)
 }
 type Service struct {
 	fornecedorRepo   suprimentos.FornecedorRepository
-	materialRepo     suprimentos.MaterialRepository
+	produtoRepo      suprimentos.ProdutoRepository
 	orcamentoRepo    suprimentos.OrcamentoRepository
 	categoriaRepo    suprimentos.CategoriaRepository
 	etapaFinder      EtapaFinder
@@ -47,7 +45,7 @@ type Service struct {
 
 func NovoServico(
 	fRepo suprimentos.FornecedorRepository,
-	mRepo suprimentos.MaterialRepository,
+	mRepo suprimentos.ProdutoRepository,
 	oRepo suprimentos.OrcamentoRepository,
 	catRepo suprimentos.CategoriaRepository,
 	eFinder EtapaFinder,
@@ -58,7 +56,7 @@ func NovoServico(
 ) *Service {
 	return &Service{
 		fornecedorRepo:   fRepo,
-		materialRepo:     mRepo,
+		produtoRepo:      mRepo,
 		orcamentoRepo:    oRepo,
 		categoriaRepo:    catRepo,
 		etapaFinder:      eFinder,
@@ -78,8 +76,8 @@ func (s *Service) CadastrarFornecedor(ctx context.Context, input dto.CadastrarFo
 		ID:          uuid.NewString(),
 		Nome:        input.Nome,
 		CNPJ:        input.CNPJ,
-		Contato:     input.Contato,
-		Email:       input.Email,
+		Contato:     &input.Contato,
+		Email:       &input.Email,
 		Status:      "Ativo",
 		Endereco:    input.Endereco,    // NOVO
 		Observacoes: input.Observacoes, // NOVO
@@ -118,10 +116,10 @@ func (s *Service) AtualizarFornecedor(ctx context.Context, id string, input dto.
 		fornecedor.CNPJ = *input.CNPJ
 	}
 	if input.Contato != nil {
-		fornecedor.Contato = *input.Contato
+		fornecedor.Contato = input.Contato
 	}
 	if input.Email != nil {
-		fornecedor.Email = *input.Email
+		fornecedor.Email = input.Email
 	}
 	if input.Status != nil {
 		fornecedor.Status = *input.Status
@@ -172,103 +170,19 @@ func (s *Service) BuscarPorID(ctx context.Context, id string) (*suprimentos.Forn
 	return fornecedor, nil
 }
 
-func (s *Service) CadastrarMaterial(ctx context.Context, input dto.CadastrarMaterialInput) (*suprimentos.Material, error) {
-	novoMaterial := &suprimentos.Material{
+func (s *Service) CadastrarMaterial(ctx context.Context, input dto.CadastrarProdutoInput) (*suprimentos.Produto, error) {
+	novoMaterial := &suprimentos.Produto{
 		ID:              uuid.NewString(),
 		Nome:            input.Nome,
 		Descricao:       input.Descricao,
 		UnidadeDeMedida: input.UnidadeDeMedida,
 		Categoria:       input.Categoria,
 	}
-	if err := s.materialRepo.Salvar(ctx, novoMaterial); err != nil {
+	if err := s.produtoRepo.Salvar(ctx, novoMaterial); err != nil {
 		return nil, fmt.Errorf("falha ao salvar material: %w", err)
 	}
 	return novoMaterial, nil
 }
-func (s *Service) ListarMateriais(ctx context.Context) ([]*suprimentos.Material, error) {
-	return s.materialRepo.ListarTodos(ctx)
-}
-
-func (s *Service) CriarOrcamento(ctx context.Context, etapaID string, input dto.CriarOrcamentoInput) (*suprimentos.Orcamento, error) {
-	const op = "service.suprimentos.CriarOrcamento"
-
-	// 1. Validações de Existência (colaboração entre contextos)
-	if _, err := s.etapaFinder.BuscarPorID(ctx, etapaID); err != nil {
-		return nil, fmt.Errorf("%s: etapa com id [%s] não encontrada: %w", op, etapaID, err)
-	}
-	if _, err := s.fornecedorFinder.BuscarPorID(ctx, input.FornecedorID); err != nil {
-		return nil, fmt.Errorf("%s: fornecedor com id [%s] não encontrado: %w", op, input.FornecedorID, err)
-	}
-	for _, item := range input.Itens {
-		if _, err := s.materialFinder.BuscarPorID(ctx, item.MaterialID); err != nil {
-			return nil, fmt.Errorf("%s: material com id [%s] não encontrado: %w", op, item.MaterialID, err)
-		}
-	}
-
-	// 2. Lógica de Negócio e Criação do Agregado
-	valorTotal := 0.0
-	orcamentoID := uuid.NewString()
-	itensOrcamento := make([]suprimentos.ItemOrcamento, len(input.Itens))
-
-	for i, itemInput := range input.Itens {
-		valorTotal += itemInput.Quantidade * itemInput.ValorUnitario
-		itensOrcamento[i] = suprimentos.ItemOrcamento{
-			ID:            uuid.NewString(),
-			OrcamentoID:   orcamentoID,
-			MaterialID:    itemInput.MaterialID,
-			Quantidade:    itemInput.Quantidade,
-			ValorUnitario: itemInput.ValorUnitario,
-		}
-	}
-
-	orcamento := &suprimentos.Orcamento{
-		ID:           orcamentoID,
-		Numero:       input.Numero,
-		EtapaID:      etapaID,
-		FornecedorID: input.FornecedorID,
-		Itens:        itensOrcamento,
-		ValorTotal:   valorTotal,
-		Status:       "Em Aberto",
-		DataEmissao:  time.Now(),
-	}
-
-	// 3. Persistência Atômica através do repositório
-	if err := s.orcamentoRepo.Salvar(ctx, orcamento); err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
-
-	s.logger.InfoContext(ctx, "novo orçamento cadastrado", "orcamento_id", orcamento.ID, "etapa_id", etapaID)
-	return orcamento, nil
-}
-
-func (s *Service) AtualizarStatusOrcamento(ctx context.Context, orcamentoID string, input dto.AtualizarStatusOrcamentoInput) (*suprimentos.Orcamento, error) {
-	const op = "service.suprimentos.AtualizarStatusOrcamento"
-
-	orcamento, err := s.orcamentoRepo.BuscarPorID(ctx, orcamentoID)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
-
-	// TODO: Adicionar validações de transição de status.
-	// Ex: um orçamento 'Rejeitado' não pode ser 'Pago'.
-	orcamento.Status = input.Status
-
-	if err := s.orcamentoRepo.Atualizar(ctx, orcamento); err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
-	payload := events.OrcamentoStatusAtualizadoPayload{
-		OrcamentoID: orcamento.ID,
-		EtapaID:     orcamento.EtapaID,
-		NovoStatus:  orcamento.Status,
-		Valor:       orcamento.ValorTotal,
-	}
-	evento := bus.Evento{
-		Nome:    events.OrcamentoStatusAtualizado,
-		Payload: payload,
-	}
-	s.eventBus.Publicar(ctx, evento)
-	// --- FIM DA MUDANÇA ---
-
-	s.logger.InfoContext(ctx, "status do orçamento atualizado e evento publicado", "orcamento_id", orcamentoID)
-	return orcamento, nil
+func (s *Service) ListarMateriais(ctx context.Context) ([]*suprimentos.Produto, error) {
+	return s.produtoRepo.ListarTodos(ctx)
 }

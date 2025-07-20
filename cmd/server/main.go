@@ -76,11 +76,12 @@ func main() {
 	alocacaoRepo := postgres.NovoAlocacaoRepository(dbpool, logger)
 	funcionarioRepo := postgres.NovoFuncionarioRepository(dbpool, logger)
 	fornecedorRepo := postgres.NovoFornecedorRepository(dbpool, logger)
-	materialRepo := postgres.NovoMaterialRepository(dbpool, logger)
+	produtoRepo := postgres.NovoProdutoRepository(dbpool, logger)
 	orcamentoRepo := postgres.NovoOrcamentoRepository(dbpool, logger)
 	financeiroRepo := postgres.NovoRegistroPagamentoRepository(dbpool, logger)
 	apontamentoRepo := postgres.NovoApontamentoRepository(dbpool, logger)
 	categoriaRepo := postgres.NovoCategoriaRepository(dbpool, logger)
+	etapaPadraoRepo := postgres.NovoEtapaPadraoRepository(dbpool, logger) // NOVO
 
 	// Serviços
 	identidadeSvc := identidade_service.NovoServico(usuarioRepo, passwordHasher, jwtService, logger)
@@ -107,20 +108,22 @@ func main() {
 	obraSvc := obras_service.NovoServico(
 		obraRepo,
 		etapaRepo,
+		etapaPadraoRepo,
 		alocacaoRepo,
-		funcionarioRepo, // PessoalFinder implementado por FuncionarioRepository
+		funcionarioRepo, // PessoalFinder implementado por FuncionarioRepository,
 		obraRepo,
 		logger,
+		dbpool, //
 	)
 
 	suprimentosSvc := suprimentos_service.NovoServico(
 		fornecedorRepo,
-		materialRepo,
+		produtoRepo,
 		orcamentoRepo,
 		categoriaRepo,
 		etapaRepo,      // EtapaRepository implementa a interface EtapaFinder
 		fornecedorRepo, // FornecedorRepository implementa a interface FornecedorFinder
-		materialRepo,   // MaterialRepository implementa a interface MaterialFinder
+		produtoRepo,    // MaterialRepository implementa a interface MaterialFinder
 		eventBus,
 		logger,
 	)

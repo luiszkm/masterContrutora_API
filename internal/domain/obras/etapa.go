@@ -18,7 +18,7 @@ type Etapa struct {
 	ID                 string
 	ObraID             string
 	Nome               string
-	DataInicioPrevista time.Time
-	DataFimPrevista    time.Time
+	DataInicioPrevista *time.Time `json:"data_inicio_prevista"`
+	DataFimPrevista    *time.Time `json:"data_fim_prevista"`
 	Status             StatusEtapa
 }

@@ -35,13 +35,14 @@ func (h *Handler) HandleCriarOrcamento(w http.ResponseWriter, r *http.Request) {
 	itensInput := make([]dto.ItemOrcamentoInput, len(req.Itens))
 	for i, item := range req.Itens {
 		itensInput[i] = dto.ItemOrcamentoInput{
-			MaterialID:    item.MaterialID,
-			Quantidade:    item.Quantidade,
-			ValorUnitario: item.ValorUnitario,
+			NomeProduto:     item.NomeProduto,
+			UnidadeDeMedida: item.UnidadeDeMedida,
+			Categoria:       item.Categoria,
+			Quantidade:      item.Quantidade,
+			ValorUnitario:   item.ValorUnitario,
 		}
 	}
 	input := dto.CriarOrcamentoInput{
-		Numero:       req.Numero,
 		FornecedorID: req.FornecedorID,
 		Itens:        itensInput,
 	}

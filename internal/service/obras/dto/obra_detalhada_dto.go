@@ -17,7 +17,7 @@ type ObraDetalhadaDTO struct {
 	Funcionarios []FuncionarioAlocadoDTO `json:"funcionarios"`
 	Fornecedores []FornecedorDTO         `json:"fornecedores"`
 	Orcamentos   []OrcamentoDTO          `json:"orcamentos"`
-	Materiais    []MaterialDTO           `json:"materiais"`
+	Produtos     []ProdutoDto            `json:"produtos"`
 }
 
 // EtapaDTO representa uma etapa dentro da resposta detalhada.
@@ -46,7 +46,7 @@ type OrcamentoDTO struct {
 	numero string `json:"numero"`
 }
 
-type MaterialDTO struct {
+type ProdutoDto struct {
 	ID   string `json:"id"`
 	Nome string `json:"nome"`
 }

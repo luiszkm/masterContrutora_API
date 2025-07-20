@@ -3,15 +3,15 @@ package dto
 
 // CriarOrcamentoInput é o DTO para o caso de uso de criação de orçamento.
 type CriarOrcamentoInput struct {
-	Numero       string
 	FornecedorID string
 	Itens        []ItemOrcamentoInput
 }
-
 type ItemOrcamentoInput struct {
-	MaterialID    string
-	Quantidade    float64
-	ValorUnitario float64
+	NomeProduto     string
+	UnidadeDeMedida string
+	Categoria       string
+	Quantidade      float64
+	ValorUnitario   float64
 }
 type AtualizarStatusOrcamentoInput struct {
 	Status string

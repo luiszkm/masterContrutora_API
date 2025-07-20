@@ -26,8 +26,7 @@ func (q *ObraRepositoryPostgres) BuscarDetalhesPorID(ctx context.Context, obraID
 	var funcionarios []dto.FuncionarioAlocadoDTO
 	var fornecedores []dto.FornecedorDTO
 	var orcamentos []dto.OrcamentoDTO
-	var materiais []dto.MaterialDTO
-
+	var produtos []dto.ProdutoDto
 	// Goroutine para buscar a obra principal
 	g.Go(func() error {
 		var err error
@@ -82,10 +81,10 @@ func (q *ObraRepositoryPostgres) BuscarDetalhesPorID(ctx context.Context, obraID
 
 	g.Go(func() error {
 		var err error
-		materiais, err = q.fetchMateriais(gCtx, obraID)
+		produtos, err = q.fetchProdutos(gCtx, obraID)
 		if err != nil {
-			q.logger.ErrorContext(gCtx, "falha na goroutine fetchMateriais", "erro", err)
-			return fmt.Errorf("%s: falha ao buscar materiais: %w", op, err)
+			q.logger.ErrorContext(gCtx, "falha na goroutine fetchProdutos", "erro", err)
+			return fmt.Errorf("%s: falha ao buscar produtos: %w", op, err)
 		}
 		return nil
 	})
@@ -101,14 +100,14 @@ func (q *ObraRepositoryPostgres) BuscarDetalhesPorID(ctx context.Context, obraID
 		Cliente:      obraBase.Cliente,
 		Endereco:     obraBase.Endereco,
 		DataInicio:   obraBase.DataInicio,
-		DataFim:      obraBase.DataFim,
+		DataFim:      *obraBase.DataFim,
 		Status:       string(obraBase.Status),
-		Descricao:    obraBase.Descricao, // Adiciona descrição opcional
+		Descricao:    *obraBase.Descricao, // Adiciona descrição opcional
 		Etapas:       etapas,
 		Funcionarios: funcionarios,
 		Fornecedores: fornecedores,
 		Orcamentos:   orcamentos,
-		Materiais:    materiais,
+		Produtos:     produtos,
 	}, nil
 }
 
@@ -183,13 +182,13 @@ func (q *ObraRepositoryPostgres) fetchOrcamentos(ctx context.Context, obraID str
 	return pgx.CollectRows(rows, pgx.RowToStructByName[dto.OrcamentoDTO])
 }
 
-func (q *ObraRepositoryPostgres) fetchMateriais(ctx context.Context, obraID string) ([]dto.MaterialDTO, error) {
+func (q *ObraRepositoryPostgres) fetchProdutos(ctx context.Context, obraID string) ([]dto.ProdutoDto, error) {
 	// A lógica é: encontre as etapas da obra, os orçamentos, os itens de orçamento,
-	// e finalmente os materiais distintos desses itens.
+	// e finalmente os produtos distintos desses itens.
 	query := `
 		SELECT DISTINCT m.id, m.nome
-		FROM materiais m
-		JOIN orcamento_itens oi ON m.id = oi.material_id
+		FROM produtos m
+		JOIN orcamento_itens oi ON m.id = oi.produto_id
 		JOIN orcamentos o ON oi.orcamento_id = o.id
 		JOIN etapas e ON o.etapa_id = e.id
 		WHERE e.obra_id = $1
@@ -198,6 +197,6 @@ func (q *ObraRepositoryPostgres) fetchMateriais(ctx context.Context, obraID stri
 	if err != nil {                             // Corrected line
 		return nil, err // Corrected line
 	} // Corrected line
-	defer rows.Close()                                                   // Corrected line
-	return pgx.CollectRows(rows, pgx.RowToStructByName[dto.MaterialDTO]) // Corrected line
+	defer rows.Close()                                                  // Corrected line
+	return pgx.CollectRows(rows, pgx.RowToStructByName[dto.ProdutoDto]) // Corrected line
 }

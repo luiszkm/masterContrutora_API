@@ -2,6 +2,7 @@ package suprimentos
 
 import (
 	"context"
+	"time"
 
 	"github.com/luiszkm/masterCostrutora/internal/domain/common"
 )
@@ -15,11 +16,13 @@ type FornecedorRepository interface {
 	Deletar(ctx context.Context, id string) error
 }
 
-// MaterialRepository define o contrato para a persistência de Materiais.
-type MaterialRepository interface {
-	Salvar(ctx context.Context, material *Material) error
-	ListarTodos(ctx context.Context) ([]*Material, error)
-	BuscarPorID(ctx context.Context, id string) (*Material, error)
+// MaterialRepository define o contrato para a persistência de produto.
+type ProdutoRepository interface {
+	Salvar(ctx context.Context, material *Produto) error
+	ListarTodos(ctx context.Context) ([]*Produto, error)
+	BuscarPorID(ctx context.Context, id string) (*Produto, error)
+	BuscarPorNome(ctx context.Context, nome string) (*Produto, error) // NOVO
+
 }
 
 // OrcamentoRepository define o contrato para a persistência de Orçamentos.
@@ -29,7 +32,9 @@ type OrcamentoRepository interface {
 	ListarPorEtapaID(ctx context.Context, etapaID string) ([]*Orcamento, error)
 	BuscarPorID(ctx context.Context, id string) (*Orcamento, error)
 	ListarTodos(ctx context.Context, filtros common.ListarFiltros) ([]*Orcamento, *common.PaginacaoInfo, error)
-	Atualizar(ctx context.Context, orcamento *Orcamento) error // NOVO
+	Atualizar(ctx context.Context, orcamento *Orcamento) error                 // NOVO
+	ContarPorMesAno(ctx context.Context, ano int, mes time.Month) (int, error) // NOVO
+
 }
 
 type CategoriaRepository interface {

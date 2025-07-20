@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/luiszkm/masterCostrutora/internal/domain/common"
 	"github.com/luiszkm/masterCostrutora/internal/domain/obras"
+	"github.com/luiszkm/masterCostrutora/internal/platform/bus/db"
 	"github.com/luiszkm/masterCostrutora/internal/service/obras/dto"
 )
 
@@ -227,33 +228,17 @@ func (r *ObraRepositoryPostgres) BuscarDashboardPorID(ctx context.Context, id st
 }
 
 // Salvar agora insere a obra no banco de dados.
-func (r *ObraRepositoryPostgres) Salvar(ctx context.Context, obra *obras.Obra) error {
+func (r *ObraRepositoryPostgres) Salvar(ctx context.Context, dbtx db.DBTX, obra *obras.Obra) error {
 	const op = "repository.postgres.Salvar"
-
-	// A query SQL para inserir uma nova obra.
-	// Usamos $1, $2, etc., como placeholders para prevenir SQL Injection.
-	query := `INSERT INTO obras (id, nome, cliente, endereco, data_inicio, data_fim, status, descricao)
+	query := `INSERT INTO obras (id, nome, cliente, endereco, data_inicio, data_fim, descricao, status)
 	          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
-
-	// Passamos o contexto para a chamada do banco, permitindo o cancelamento.
-	_, err := r.db.Exec(ctx, query,
-		obra.ID,
-		obra.Nome,
-		obra.Cliente,
-		obra.Endereco,
-		obra.DataInicio,
-		obra.DataFim, // Será NULL se o time.Time estiver zerado
-		obra.Status,
-		obra.Descricao, // Adicionamos a descrição aqui
-
+	_, err := dbtx.Exec(ctx, query,
+		obra.ID, obra.Nome, obra.Cliente, obra.Endereco,
+		obra.DataInicio, obra.DataFim, obra.Descricao, obra.Status,
 	)
-
 	if err != nil {
-		// Adicionamos contexto ao erro para facilitar a depuração.
 		return fmt.Errorf("%s: %w", op, err)
 	}
-
-	r.logger.InfoContext(ctx, "obra salva no banco de dados com sucesso", "obra_id", obra.ID)
 	return nil
 }
 

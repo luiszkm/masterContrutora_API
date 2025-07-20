@@ -5,6 +5,15 @@ import (
 	"time"
 )
 
+type Status string
+
+const (
+	StatusEmAberto  Status = "Em Aberto"
+	StatusAprovado  Status = "Aprovado"
+	StatusRejeitado Status = "Rejeitado"
+	StatusPago      Status = "Pago"
+)
+
 type Orcamento struct {
 	ID            string
 	Numero        string // Um número de identificação amigável, ex: "ORC-2025-001"
@@ -21,7 +30,7 @@ type Orcamento struct {
 type ItemOrcamento struct {
 	ID            string
 	OrcamentoID   string
-	MaterialID    string
+	ProdutoID     string
 	Quantidade    float64
 	ValorUnitario float64
 }

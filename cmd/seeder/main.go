@@ -53,6 +53,10 @@ func main() {
 		logger.Error("falha ao inserir categorias de material", "erro", err)
 		os.Exit(1)
 	}
+	if err := seedEtapasPadrao(ctx, dbpool, logger); err != nil {
+		logger.Error("falha ao executar o seeder de etapas padrão", "erro", err)
+		os.Exit(1)
+	}
 
 	logger.Info("seeder executado com sucesso!")
 }
@@ -117,11 +121,12 @@ func seedDefaultObra(ctx context.Context, db *pgxpool.Pool, logger *slog.Logger)
 	batch := &pgx.Batch{}
 	for _, nome := range nomesEtapas {
 		etapa := obras.Etapa{
-			ID:                 uuid.NewString(),
-			ObraID:             obraPadrao.ID,
-			Nome:               nome,
-			DataInicioPrevista: time.Now(),
-			DataFimPrevista:    time.Now().AddDate(0, 1, 0), // Previsão de 1 mês
+			ID:     uuid.NewString(),
+			ObraID: obraPadrao.ID,
+			Nome:   nome,
+			// Fix: Cannot use time.Now() (value of struct type time.Time) as *time.Time value in struct literal
+			DataInicioPrevista: &time.Time{}, // Initialize with a pointer to a zero time.Time
+			DataFimPrevista:    &time.Time{}, // Initialize with a pointer to a zero time.Time
 			Status:             obras.StatusEtapaPendente,
 		}
 		batch.Queue(queryEtapa, etapa.ID, etapa.ObraID, etapa.Nome, etapa.DataInicioPrevista, etapa.DataFimPrevista, etapa.Status)
@@ -195,5 +200,53 @@ func seedCategoriasMaterial(ctx context.Context, db *pgxpool.Pool, logger *slog.
 	}
 
 	// Se tudo correu bem, comita a transação.
+	return tx.Commit(ctx)
+}
+func seedEtapasPadrao(ctx context.Context, db *pgxpool.Pool, logger *slog.Logger) error {
+	const op = "seeder.seedEtapasPadrao"
+
+	etapasPadrao := []string{
+		"Fundações", "Estrutura", "Alvenaria",
+		"Instalações", "Acabamentos", "Pintura", "Sem Etapa",
+	}
+
+	logger.Info("iniciando seeder para etapas padrão...")
+
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("%s: falha ao iniciar transação: %w", op, err)
+	}
+	defer tx.Rollback(ctx)
+
+	queryInsert := `
+		INSERT INTO etapas_padrao (id, nome)
+		VALUES ($1, $2)
+		ON CONFLICT (nome) DO NOTHING
+	`
+	batch := &pgx.Batch{}
+	for _, nomeEtapa := range etapasPadrao {
+		batch.Queue(queryInsert, uuid.NewString(), nomeEtapa)
+	}
+
+	br := tx.SendBatch(ctx, batch)
+	totalInserido := 0
+	for i := 0; i < len(etapasPadrao); i++ {
+		tag, err := br.Exec()
+		if err != nil {
+			return fmt.Errorf("%s: falha ao executar lote de inserção: %w", op, err)
+		}
+		totalInserido += int(tag.RowsAffected())
+	}
+
+	if err := br.Close(); err != nil {
+		return fmt.Errorf("%s: falha ao fechar lote de inserção: %w", op, err)
+	}
+
+	if totalInserido > 0 {
+		logger.Info("novas etapas padrão foram inseridas", "quantidade", totalInserido)
+	} else {
+		logger.Info("todas as etapas padrão já existem. Nenhuma ação necessária.")
+	}
+
 	return tx.Commit(ctx)
 }

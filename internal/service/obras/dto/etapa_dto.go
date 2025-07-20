@@ -3,7 +3,7 @@ package dto
 
 // AdicionarEtapaInput é o DTO para adicionar uma nova etapa a uma obra.
 type AdicionarEtapaInput struct {
-	Nome               string `json:"nome"`
+	EtapaPadraoID      string `json:"etapaPadraoId"`
 	DataInicioPrevista string `json:"dataInicioPrevista"` // Formato "YYYY-MM-DD"
 	DataFimPrevista    string `json:"dataFimPrevista"`    // Formato "YYYY-MM-DD"
 }

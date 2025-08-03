@@ -47,6 +47,15 @@ func (s *Service) AtualizarCategoria(ctx context.Context, id string, input dto.A
 	return categoria, nil
 }
 
+func (s *Service) BuscarCategoria(ctx context.Context, id string) (*suprimentos.Categoria, error) {
+	const op = "service.suprimentos.BuscarCategoria"
+	categoria, err := s.categoriaRepo.BuscarPorID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	return categoria, nil
+}
+
 func (s *Service) DeletarCategoria(ctx context.Context, id string) error {
 	const op = "service.suprimentos.DeletarCategoria"
 	// Primeiro, verifica se a categoria existe.

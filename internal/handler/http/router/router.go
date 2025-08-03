@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/luiszkm/masterCostrutora/internal/authz"
+	"github.com/luiszkm/masterCostrutora/internal/handler/http/dashboard"
 	"github.com/luiszkm/masterCostrutora/internal/handler/http/financeiro"
 	"github.com/luiszkm/masterCostrutora/internal/handler/http/identidade"
 	"github.com/luiszkm/masterCostrutora/internal/handler/http/obras"
@@ -23,6 +24,7 @@ type Config struct {
 	PessoalHandler     *pessoal.Handler
 	SuprimentosHandler *suprimentos.Handler
 	FinanceiroHandler  *financeiro.Handler
+	DashboardHandler   *dashboard.Handler
 }
 
 func New(c Config) *chi.Mux {
@@ -109,12 +111,15 @@ func New(c Config) *chi.Mux {
 		// --- Recursos de Materiais ---
 		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).Post("/materiais", c.SuprimentosHandler.HandleCadastrarMaterial)
 		r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).Get("/materiais", c.SuprimentosHandler.HandleListarMateriais)
+		r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).Get("/materiais/{materialId}", c.SuprimentosHandler.HandleBuscarMaterial)
+		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).Put("/materiais/{materialId}", c.SuprimentosHandler.HandleAtualizarMaterial)
+		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).Delete("/materiais/{materialId}", c.SuprimentosHandler.HandleDeletarMaterial)
 		// categorias do material
 		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).Post("/categorias", c.SuprimentosHandler.HandleCriarCategoria)
 		r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).Get("/categorias", c.SuprimentosHandler.HandleListarCategorias)
-		// r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).Put("/categorias/{categoriaId}", c.SuprimentosHandler.HandleAtualizarCategoria)
-		// r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).Delete("/categorias/{categoriaId}", c.SuprimentosHandler.HandleDeletarCategoria)
-		// r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).Get("/categorias/{categoriaId}", c.SuprimentosHandler.HandleBuscarCategoria)
+		r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).Get("/categorias/{categoriaId}", c.SuprimentosHandler.HandleBuscarCategoria)
+		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).Put("/categorias/{categoriaId}", c.SuprimentosHandler.HandleAtualizarCategoria)
+		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).Delete("/categorias/{categoriaId}", c.SuprimentosHandler.HandleDeletarCategoria)
 
 		// --- Recursos de Obras ---
 		r.Route("/obras", func(r chi.Router) {
@@ -155,6 +160,9 @@ func New(c Config) *chi.Mux {
 
 			r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).
 				Patch("/{orcamentoId}/status", c.SuprimentosHandler.HandleAtualizarOrcamentoStatus)
+			
+			r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).
+				Delete("/{orcamentoId}", c.SuprimentosHandler.HandleDeletarOrcamento)
 		})
 
 		// --- Recursos de Financeiro ---
@@ -162,16 +170,45 @@ func New(c Config) *chi.Mux {
 			Post("/pagamentos", c.FinanceiroHandler.HandleRegistrarPagamento)
 		r.With(auth.Authorize(authz.PermissaoFinanceiroEscrever)).
 			Post("/pagamentos/lote", c.FinanceiroHandler.HandleRegistrarPagamentosEmLote)
-		// r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).Get("/pagamentos", c.FinanceiroHandler.HandleListarPagamentos)
+		r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).Get("/pagamentos", c.FinanceiroHandler.HandleListarPagamentos)
 
 		r.Route("/etapas-padroes", func(r chi.Router) {
-			r.With(auth.Authorize(authz.PermissaoObrasLer)).
-				Get("/", c.ObrasHandler.HandleListarEtapasPadrao)
+			r.With(auth.Authorize(authz.PermissaoObrasLer)).Get("/", c.ObrasHandler.HandleListarEtapasPadrao)
+			r.With(auth.Authorize(authz.PermissaoObrasLer)).Get("/{etapaId}", c.ObrasHandler.HandleBuscarEtapaPadrao)
+			r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Post("/", c.ObrasHandler.HandleCriarEtapaPadrao)
+			r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Put("/{etapaId}", c.ObrasHandler.HandleAtualizarEtapaPadrao)
+			r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Delete("/{etapaId}", c.ObrasHandler.HandleDeletarEtapaPadrao)
+		})
 
-			// AQUI IRIAM AS ROTAS DE POST, PUT, DELETE
-			// r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Post("/", c.ObrasHandler.HandleCriarEtapaPadrao)
-			// r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Put("/{etapaId}", c.ObrasHandler.HandleAtualizarEtapaPadrao)
-			// r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Delete("/{etapaId}", c.ObrasHandler.HandleDeletarEtapaPadrao)
+		// --- Recursos de Dashboard ---
+		r.Route("/dashboard", func(r chi.Router) {
+			// Dashboard completo - requer permissão de leitura geral
+			r.With(auth.Authorize(authz.PermissaoObrasLer)).
+				Get("/", c.DashboardHandler.HandleObterDashboardCompleto)
+
+			// Seções específicas do dashboard
+			r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).
+				Get("/financeiro", c.DashboardHandler.HandleObterDashboardFinanceiro)
+			
+			r.With(auth.Authorize(authz.PermissaoObrasLer)).
+				Get("/obras", c.DashboardHandler.HandleObterDashboardObras)
+			
+			r.With(auth.Authorize(authz.PermissaoPessoalLer)).
+				Get("/funcionarios", c.DashboardHandler.HandleObterDashboardFuncionarios)
+			
+			r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).
+				Get("/fornecedores", c.DashboardHandler.HandleObterDashboardFornecedores)
+
+			// Endpoints específicos
+			r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).
+				Get("/fluxo-caixa", c.DashboardHandler.HandleObterFluxoCaixa)
+
+			// Endpoint genérico para seções por URL
+			r.With(auth.Authorize(authz.PermissaoObrasLer)).
+				Get("/{secao}", c.DashboardHandler.HandleObterDashboardPorSecao)
+
+			// Parâmetros de cache
+			r.Get("/cache-info", c.DashboardHandler.HandleObterParametrosCache)
 		})
 	})
 

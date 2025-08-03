@@ -1,0 +1,149 @@
+### Dashboard API - Testes HTTP
+### Base URL: http://localhost:8080
+
+@baseUrl = http://localhost:8080
+@authToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+### Health Check
+GET {{baseUrl}}/health
+
+### ===== DASHBOARD ENDPOINTS =====
+
+### 1. Dashboard Completo
+### Retorna todas as seções do dashboard com dados agregados
+GET {{baseUrl}}/dashboard
+Authorization: {{authToken}}
+
+### Dashboard Completo com Filtros
+GET {{baseUrl}}/dashboard?dataInicio=2024-01-01&dataFim=2024-12-31&secoes=financeiro,obras&incluirInativos=false
+Authorization: {{authToken}}
+
+### Dashboard Completo - Obras Específicas
+GET {{baseUrl}}/dashboard?obraIds=uuid1,uuid2&fornecedorIds=uuid3,uuid4
+Authorization: {{authToken}}
+
+### ===== SEÇÕES ESPECÍFICAS =====
+
+### 2. Dashboard Financeiro
+### Retorna fluxo de caixa e distribuição de despesas
+GET {{baseUrl}}/dashboard/financeiro
+Authorization: {{authToken}}
+
+### Dashboard Financeiro com Período
+GET {{baseUrl}}/dashboard/financeiro?dataInicio=2024-01-01&dataFim=2024-06-30
+Authorization: {{authToken}}
+
+### 3. Dashboard Obras
+### Retorna progresso, distribuição e tendências das obras
+GET {{baseUrl}}/dashboard/obras
+Authorization: {{authToken}}
+
+### 4. Dashboard Funcionários
+### Retorna produtividade, custos e top funcionários
+GET {{baseUrl}}/dashboard/funcionarios
+Authorization: {{authToken}}
+
+### Dashboard Funcionários com Período
+GET {{baseUrl}}/dashboard/funcionarios?dataInicio=2024-01-01&dataFim=2024-12-31
+Authorization: {{authToken}}
+
+### 5. Dashboard Fornecedores
+### Retorna distribuição por categoria, top fornecedores e gastos
+GET {{baseUrl}}/dashboard/fornecedores
+Authorization: {{authToken}}
+
+### Dashboard Fornecedores com Período
+GET {{baseUrl}}/dashboard/fornecedores?dataInicio=2024-01-01&dataFim=2024-12-31
+Authorization: {{authToken}}
+
+### ===== ENDPOINTS ESPECÍFICOS =====
+
+### 6. Fluxo de Caixa Detalhado
+### Retorna apenas dados de fluxo de caixa
+GET {{baseUrl}}/dashboard/fluxo-caixa
+Authorization: {{authToken}}
+
+### Fluxo de Caixa com Período Específico
+GET {{baseUrl}}/dashboard/fluxo-caixa?dataInicio=2024-01-01&dataFim=2024-03-31
+Authorization: {{authToken}}
+
+### ===== ENDPOINTS GENÉRICOS =====
+
+### 7. Dashboard por Seção (Endpoint Genérico)
+### Permite acessar qualquer seção via URL parametrizada
+
+### Seção Financeiro via URL
+GET {{baseUrl}}/dashboard/financeiro
+Authorization: {{authToken}}
+
+### Seção Obras via URL
+GET {{baseUrl}}/dashboard/obras
+Authorization: {{authToken}}
+
+### Seção Funcionários via URL
+GET {{baseUrl}}/dashboard/funcionarios
+Authorization: {{authToken}}
+
+### Seção Fornecedores via URL
+GET {{baseUrl}}/dashboard/fornecedores
+Authorization: {{authToken}}
+
+### Fluxo de Caixa via URL
+GET {{baseUrl}}/dashboard/fluxo-caixa
+Authorization: {{authToken}}
+
+### ===== UTILITÁRIOS =====
+
+### 8. Informações de Cache
+### Retorna parâmetros para controle de cache do frontend
+GET {{baseUrl}}/dashboard/cache-info
+Authorization: {{authToken}}
+
+### ===== TESTES DE ERRO =====
+
+### Seção Inválida
+GET {{baseUrl}}/dashboard/secao-inexistente
+Authorization: {{authToken}}
+
+### Dashboard sem Autenticação (deve retornar 401)
+GET {{baseUrl}}/dashboard
+
+### Dashboard com Data Inválida
+GET {{baseUrl}}/dashboard?dataInicio=data-invalida&dataFim=2024-12-31
+Authorization: {{authToken}}
+
+### ===== TESTES DE PERFORMANCE =====
+
+### Dashboard Completo com Período Longo (6 meses)
+GET {{baseUrl}}/dashboard?dataInicio=2024-01-01&dataFim=2024-06-30
+Authorization: {{authToken}}
+
+### Dashboard Completo com Período Muito Longo (1 ano)
+GET {{baseUrl}}/dashboard?dataInicio=2023-01-01&dataFim=2024-12-31
+Authorization: {{authToken}}
+
+### Múltiplas Seções
+GET {{baseUrl}}/dashboard?secoes=financeiro,obras,funcionarios,fornecedores
+Authorization: {{authToken}}
+
+### ===== CENÁRIOS DE USO =====
+
+### Cenário 1: Dashboard Executivo (Visão Geral)
+GET {{baseUrl}}/dashboard?secoes=obras,funcionarios&incluirInativos=false
+Authorization: {{authToken}}
+
+### Cenário 2: Dashboard Financeiro Mensal
+GET {{baseUrl}}/dashboard/financeiro?dataInicio=2024-08-01&dataFim=2024-08-31
+Authorization: {{authToken}}
+
+### Cenário 3: Dashboard Operacional de Obras
+GET {{baseUrl}}/dashboard/obras
+Authorization: {{authToken}}
+
+### Cenário 4: Dashboard RH (Funcionários)
+GET {{baseUrl}}/dashboard/funcionarios?dataInicio=2024-01-01&dataFim=2024-12-31
+Authorization: {{authToken}}
+
+### Cenário 5: Dashboard Suprimentos (Fornecedores)
+GET {{baseUrl}}/dashboard/fornecedores?dataInicio=2024-01-01&dataFim=2024-12-31
+Authorization: {{authToken}}

@@ -314,6 +314,7 @@ interface Orcamento {
   observacoes?: string;
   condicoesPagamento?: string;
   itens: ItemOrcamento[];
+  categorias?: string[]; // Array de categorias dos produtos
 }
 
 interface ItemOrcamento {
@@ -1113,4 +1114,97 @@ const apiRequest = async (url, options = {}) => {
   
   return response;
 };
+```
+
+## Funcionalidades Específicas
+
+### Usando Categorias nos Orçamentos
+
+A partir da versão atual, a listagem de orçamentos retorna um array `categorias` com todas as categorias dos produtos incluídos em cada orçamento:
+
+```typescript
+// Exemplo de como usar as categorias
+const OrcamentosList: React.FC = () => {
+  const [orcamentos, setOrcamentos] = useState<Orcamento[]>([]);
+  const [filtroCategoria, setFiltroCategoria] = useState<string>('');
+
+  // Buscar orçamentos
+  useEffect(() => {
+    SuprimentosService.listarOrcamentos().then(response => {
+      setOrcamentos(response.dados);
+    });
+  }, []);
+
+  // Obter todas as categorias únicas de todos os orçamentos
+  const todasCategorias = useMemo(() => {
+    const categorias = new Set<string>();
+    orcamentos.forEach(orc => {
+      orc.categorias?.forEach(cat => categorias.add(cat));
+    });
+    return Array.from(categorias).sort();
+  }, [orcamentos]);
+
+  // Filtrar orçamentos por categoria
+  const orcamentosFiltrados = useMemo(() => {
+    if (!filtroCategoria) return orcamentos;
+    return orcamentos.filter(orc => 
+      orc.categorias?.includes(filtroCategoria)
+    );
+  }, [orcamentos, filtroCategoria]);
+
+  return (
+    <div>
+      {/* Filtro por categoria */}
+      <select 
+        value={filtroCategoria} 
+        onChange={(e) => setFiltroCategoria(e.target.value)}
+      >
+        <option value="">Todas as categorias</option>
+        {todasCategorias.map(categoria => (
+          <option key={categoria} value={categoria}>
+            {categoria}
+          </option>
+        ))}
+      </select>
+
+      {/* Lista de orçamentos */}
+      {orcamentosFiltrados.map(orcamento => (
+        <div key={orcamento.id} className="orcamento-card">
+          <h3>{orcamento.numero}</h3>
+          <p>Valor: R$ {orcamento.valorTotal.toFixed(2)}</p>
+          <p>Status: {orcamento.status}</p>
+          
+          {/* Exibir categorias como chips/tags */}
+          <div className="categorias">
+            {orcamento.categorias?.map(categoria => (
+              <span key={categoria} className="categoria-chip">
+                {categoria}
+              </span>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+```
+
+### CSS para Categorias
+
+```css
+.categorias {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.categoria-chip {
+  background-color: #e3f2fd;
+  color: #1976d2;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
 ```

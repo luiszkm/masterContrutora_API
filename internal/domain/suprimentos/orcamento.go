@@ -26,6 +26,21 @@ type Orcamento struct {
 	DataAprovacao      *time.Time      `json:"dataAprovacao,omitempty" db:"data_aprovacao"`
 	CondicoesPagamento *string         `json:"condicoesPagamento,omitempty" db:"condicoes_pagamento"` // CORRIGIDO
 	Observacoes        *string         `json:"observacoes,omitempty" db:"observacoes"`
+	CreatedAt          time.Time       `json:"createdAt" db:"created_at"`
+	UpdatedAt          time.Time       `json:"updatedAt" db:"updated_at"`
+	DeletedAt          *time.Time      `json:"deletedAt,omitempty" db:"deleted_at"`
+}
+
+// SoftDelete marca o orçamento como deletado
+func (o *Orcamento) SoftDelete() {
+	now := time.Now()
+	o.DeletedAt = &now
+	o.UpdatedAt = now
+}
+
+// IsDeleted verifica se o orçamento foi soft deleted
+func (o *Orcamento) IsDeleted() bool {
+	return o.DeletedAt != nil
 }
 
 type ItemOrcamento struct {

@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/luiszkm/masterCostrutora/internal/domain/common"
 	"github.com/luiszkm/masterCostrutora/internal/domain/financeiro"
 	"github.com/luiszkm/masterCostrutora/internal/events"
 	"github.com/luiszkm/masterCostrutora/internal/handler/web"
@@ -20,6 +21,7 @@ import (
 type Service interface {
 	RegistrarPagamento(ctx context.Context, input dto.RegistrarPagamentoInput) (*financeiro.RegistroDePagamento, error)
 	RegistrarPagamentosEmLote(ctx context.Context, input dto.RegistrarPagamentoEmLoteInput) (*dto.ResultadoExecucaoLote, error)
+	ListarPagamentos(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*financeiro.RegistroDePagamento], error)
 }
 
 type Handler struct {
@@ -118,4 +120,17 @@ func (h *Handler) HandleRegistrarPagamentosEmLote(w http.ResponseWriter, r *http
 
 	// Conforme a V4, a resposta de sucesso parcial deve ser 207 Multi-Status
 	web.Respond(w, r, resultado, http.StatusMultiStatus)
+}
+
+func (h *Handler) HandleListarPagamentos(w http.ResponseWriter, r *http.Request) {
+	filtros := web.ParseFiltros(r)
+	
+	pagamentos, err := h.service.ListarPagamentos(r.Context(), filtros)
+	if err != nil {
+		h.logger.ErrorContext(r.Context(), "falha ao listar pagamentos", "erro", err)
+		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao listar pagamentos", http.StatusInternalServerError)
+		return
+	}
+	
+	web.Respond(w, r, pagamentos, http.StatusOK)
 }

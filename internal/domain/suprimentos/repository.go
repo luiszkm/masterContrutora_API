@@ -23,6 +23,8 @@ type ProdutoRepository interface {
 	ListarTodos(ctx context.Context) ([]*Produto, error)
 	BuscarPorID(ctx context.Context, id string) (*Produto, error)
 	BuscarPorNome(ctx context.Context, nome string) (*Produto, error) // NOVO
+	SoftDelete(ctx context.Context, id string) error                  // NOVO
+	Atualizar(ctx context.Context, produto *Produto) error           // NOVO
 
 }
 
@@ -36,6 +38,7 @@ type OrcamentoRepository interface {
 	Atualizar(ctx context.Context, orcamento *Orcamento) error                              // NOVO MÉTODO
 	ContarPorMesAno(ctx context.Context, ano int, mes time.Month) (int, error)              // NOVO
 	BuscarPorDetalhesID(ctx context.Context, id string) (*dto.OrcamentoDetalhadoDTO, error) // Assinatura atualizada
+	SoftDelete(ctx context.Context, id string) error                                        // NOVO
 
 }
 

@@ -103,10 +103,10 @@ func (r *OrcamentoRepositoryPostgres) Atualizar(ctx context.Context, o *suprimen
 	queryUpdateOrcamento := `
 		UPDATE orcamentos SET
 			etapa_id = $1, fornecedor_id = $2, valor_total = $3, observacoes = $4,
-			condicoes_pagamento = $5, status = $6, updated_at = NOW()
-		WHERE id = $7
+			condicoes_pagamento = $5, status = $6, updated_at = NOW(), data_aprovacao = $7
+		WHERE id = $8
 	`
-	cmd, err := tx.Exec(ctx, queryUpdateOrcamento, o.EtapaID, o.FornecedorID, o.ValorTotal, o.Observacoes, o.CondicoesPagamento, o.Status, o.ID)
+	cmd, err := tx.Exec(ctx, queryUpdateOrcamento, o.EtapaID, o.FornecedorID, o.ValorTotal, o.Observacoes, o.CondicoesPagamento, o.Status, o.DataAprovacao, o.ID)
 	if err != nil {
 		return fmt.Errorf("%s: falha ao atualizar orçamento: %w", op, err)
 	}
@@ -155,8 +155,9 @@ func (r *OrcamentoRepositoryPostgres) BuscarPorID(ctx context.Context, orcamento
 	// 1. Busca o registo principal do orçamento (query já estava correta).
 	queryOrcamento := `
 		SELECT id, numero, etapa_id, fornecedor_id, valor_total, status, 
-		       data_emissao, data_aprovacao, observacoes, condicoes_pagamento 
-		FROM orcamentos WHERE id = $1`
+		       data_emissao, data_aprovacao, observacoes, condicoes_pagamento,
+		       created_at, updated_at, deleted_at
+		FROM orcamentos WHERE id = $1 AND deleted_at IS NULL`
 
 	row := tx.QueryRow(ctx, queryOrcamento, orcamentoID)
 	var o suprimentos.Orcamento
@@ -164,6 +165,7 @@ func (r *OrcamentoRepositoryPostgres) BuscarPorID(ctx context.Context, orcamento
 	if err := row.Scan(
 		&o.ID, &o.Numero, &o.EtapaID, &o.FornecedorID, &o.ValorTotal, &o.Status,
 		&o.DataEmissao, &o.DataAprovacao, &o.Observacoes, &o.CondicoesPagamento,
+		&o.CreatedAt, &o.UpdatedAt, &o.DeletedAt,
 	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNaoEncontrado
@@ -232,14 +234,18 @@ func (r *OrcamentoRepositoryPostgres) ListarOrcamentos(ctx context.Context, filt
 		args["obraID"] = filtros.ObraID
 	}
 
-	// A cláusula FROM agora inclui todos os JOINs necessários
+	// A cláusula FROM agora inclui todos os JOINs necessários, incluindo produtos para categorias
 	fromClause := `
 		FROM orcamentos o
 		JOIN etapas e ON o.etapa_id = e.id
 		JOIN obras ob ON e.obra_id = ob.id
 		JOIN fornecedores f ON o.fornecedor_id = f.id
 		LEFT JOIN orcamento_itens oi ON o.id = oi.orcamento_id
+		LEFT JOIN produtos p ON oi.produto_id = p.id
 	`
+	// Adiciona filtro para soft delete
+	whereClauses = append(whereClauses, "o.deleted_at IS NULL")
+	
 	whereString := ""
 	if len(whereClauses) > 0 {
 		whereString = " WHERE " + strings.Join(whereClauses, " AND ")
@@ -257,7 +263,7 @@ func (r *OrcamentoRepositoryPostgres) ListarOrcamentos(ctx context.Context, filt
 		return []*dto.OrcamentoListItemDTO{}, paginacao, nil
 	}
 
-	// --- QUERY PRINCIPAL CORRIGIDA E MELHORADA ---
+	// --- QUERY PRINCIPAL CORRIGIDA E MELHORADA COM CATEGORIAS ---
 	query := `
 		SELECT
 			o.id,
@@ -269,7 +275,8 @@ func (r *OrcamentoRepositoryPostgres) ListarOrcamentos(ctx context.Context, filt
 			f.nome as fornecedor_nome,
 			ob.id as obra_id,
 			ob.nome as obra_nome,
-			COUNT(oi.id) as itens_count
+			COUNT(oi.id) as itens_count,
+			COALESCE(array_agg(DISTINCT p.categoria) FILTER (WHERE p.categoria IS NOT NULL), ARRAY[]::text[]) as categorias
 		` + fromClause + whereString + `
 		GROUP BY o.id, f.nome, ob.id, ob.nome
 		ORDER BY o.data_emissao DESC
@@ -305,10 +312,10 @@ func (r *OrcamentoRepositoryPostgres) Salvar(ctx context.Context, o *suprimentos
 
 	// 1. Insere o registro principal na tabela 'orcamentos'
 	queryOrcamento := `
-		INSERT INTO orcamentos (id, numero, etapa_id, fornecedor_id, valor_total, status, data_emissao)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO orcamentos (id, numero, etapa_id, fornecedor_id, valor_total, status, data_emissao, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`
-	_, err = tx.Exec(ctx, queryOrcamento, o.ID, o.Numero, o.EtapaID, o.FornecedorID, o.ValorTotal, o.Status, o.DataEmissao)
+	_, err = tx.Exec(ctx, queryOrcamento, o.ID, o.Numero, o.EtapaID, o.FornecedorID, o.ValorTotal, o.Status, o.DataEmissao, o.CreatedAt, o.UpdatedAt)
 	if err != nil {
 		return fmt.Errorf("%s: falha ao inserir orçamento: %w", op, err)
 	}
@@ -357,4 +364,17 @@ func (r *OrcamentoRepositoryPostgres) ContarPorMesAno(ctx context.Context, ano i
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 	return count, nil
+}
+
+func (r *OrcamentoRepositoryPostgres) SoftDelete(ctx context.Context, id string) error {
+	const op = "repository.postgres.orcamento.SoftDelete"
+	query := `UPDATE orcamentos SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL`
+	cmd, err := r.db.Exec(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	if cmd.RowsAffected() == 0 {
+		return ErrNaoEncontrado
+	}
+	return nil
 }

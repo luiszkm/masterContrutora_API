@@ -65,6 +65,8 @@ func (s *Service) CriarOrcamento(ctx context.Context, etapaID string, input dto.
 					Nome:            itemInput.NomeProduto,
 					UnidadeDeMedida: itemInput.UnidadeDeMedida,
 					Categoria:       itemInput.Categoria,
+					CreatedAt:       agora,
+					UpdatedAt:       agora,
 				}
 				if err := s.produtoRepo.Salvar(ctx, produto); err != nil {
 					return nil, fmt.Errorf("%s: falha ao criar novo produto '%s': %w", op, itemInput.NomeProduto, err)
@@ -94,7 +96,9 @@ func (s *Service) CriarOrcamento(ctx context.Context, etapaID string, input dto.
 		Itens:        itensOrcamento,
 		ValorTotal:   valorTotal,
 		Status:       "Em Aberto",
-		DataEmissao:  time.Now(),
+		DataEmissao:  agora,
+		CreatedAt:    agora,
+		UpdatedAt:    agora,
 	}
 
 	// 3. Persistência Atômica através do repositório
@@ -113,10 +117,12 @@ func (s *Service) AtualizarStatusOrcamento(ctx context.Context, orcamentoID stri
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
-
-	// TODO: Adicionar validações de transição de status.
-	// Ex: um orçamento 'Rejeitado' não pode ser 'Pago'.
 	orcamento.Status = input.Status
+
+	if orcamento.Status == "Aprovado" {
+		now := time.Now()
+		orcamento.DataAprovacao = &now
+	}
 
 	if err := s.orcamentoRepo.Atualizar(ctx, orcamento); err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)

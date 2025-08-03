@@ -135,6 +135,61 @@ func (s *Service) CriarNovaObra(ctx context.Context, input dto.CriarNovaObraInpu
 func (s *Service) ListarEtapasPadrao(ctx context.Context) ([]*obras.EtapaPadrao, error) {
 	return s.etapaPadraoRepo.ListarTodas(ctx)
 }
+
+func (s *Service) CriarEtapaPadrao(ctx context.Context, input dto.CriarEtapaPadraoInput) (*obras.EtapaPadrao, error) {
+	const op = "service.obras.CriarEtapaPadrao"
+
+	novaEtapa := &obras.EtapaPadrao{
+		ID:        uuid.NewString(),
+		Nome:      input.Nome,
+		Descricao: input.Descricao,
+		Ordem:     input.Ordem,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	if err := s.etapaPadraoRepo.Salvar(ctx, novaEtapa); err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	return novaEtapa, nil
+}
+
+func (s *Service) BuscarEtapaPadrao(ctx context.Context, id string) (*obras.EtapaPadrao, error) {
+	const op = "service.obras.BuscarEtapaPadrao"
+	etapa, err := s.etapaPadraoRepo.BuscarPorID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	return etapa, nil
+}
+
+func (s *Service) AtualizarEtapaPadrao(ctx context.Context, id string, input dto.AtualizarEtapaPadraoInput) (*obras.EtapaPadrao, error) {
+	const op = "service.obras.AtualizarEtapaPadrao"
+
+	etapa, err := s.etapaPadraoRepo.BuscarPorID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	etapa.Nome = input.Nome
+	etapa.Descricao = input.Descricao
+	etapa.Ordem = input.Ordem
+	etapa.UpdatedAt = time.Now()
+
+	if err := s.etapaPadraoRepo.Atualizar(ctx, etapa); err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	return etapa, nil
+}
+
+func (s *Service) DeletarEtapaPadrao(ctx context.Context, id string) error {
+	const op = "service.obras.DeletarEtapaPadrao"
+	// Primeiro, verifica se a etapa padrão existe.
+	if _, err := s.etapaPadraoRepo.BuscarPorID(ctx, id); err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	return s.etapaPadraoRepo.Deletar(ctx, id)
+}
 func (s *Service) BuscarDashboard(ctx context.Context, id string) (*dto.ObraDashboard, error) {
 	const op = "service.obras.BuscarDashboard"
 

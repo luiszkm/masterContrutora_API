@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/luiszkm/masterCostrutora/internal/domain/obras"
@@ -171,12 +172,15 @@ func (s *Service) BuscarPorID(ctx context.Context, id string) (*suprimentos.Forn
 }
 
 func (s *Service) CadastrarMaterial(ctx context.Context, input dto.CadastrarProdutoInput) (*suprimentos.Produto, error) {
+	now := time.Now()
 	novoMaterial := &suprimentos.Produto{
 		ID:              uuid.NewString(),
 		Nome:            input.Nome,
 		Descricao:       input.Descricao,
 		UnidadeDeMedida: input.UnidadeDeMedida,
 		Categoria:       input.Categoria,
+		CreatedAt:       now,
+		UpdatedAt:       now,
 	}
 	if err := s.produtoRepo.Salvar(ctx, novoMaterial); err != nil {
 		return nil, fmt.Errorf("falha ao salvar material: %w", err)
@@ -185,4 +189,70 @@ func (s *Service) CadastrarMaterial(ctx context.Context, input dto.CadastrarProd
 }
 func (s *Service) ListarMateriais(ctx context.Context) ([]*suprimentos.Produto, error) {
 	return s.produtoRepo.ListarTodos(ctx)
+}
+
+func (s *Service) AtualizarMaterial(ctx context.Context, id string, input dto.CadastrarProdutoInput) (*suprimentos.Produto, error) {
+	const op = "service.suprimentos.AtualizarMaterial"
+
+	produto, err := s.produtoRepo.BuscarPorID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	produto.Nome = input.Nome
+	produto.Descricao = input.Descricao
+	produto.UnidadeDeMedida = input.UnidadeDeMedida
+	produto.Categoria = input.Categoria
+	produto.UpdatedAt = time.Now()
+
+	if err := s.produtoRepo.Atualizar(ctx, produto); err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return produto, nil
+}
+
+func (s *Service) DeletarMaterial(ctx context.Context, id string) error {
+	const op = "service.suprimentos.DeletarMaterial"
+	
+	// Verifica se o produto existe
+	if _, err := s.produtoRepo.BuscarPorID(ctx, id); err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	// Realiza o soft delete
+	if err := s.produtoRepo.SoftDelete(ctx, id); err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	s.logger.InfoContext(ctx, "produto soft deleted", "produto_id", id)
+	return nil
+}
+
+func (s *Service) BuscarMaterialPorID(ctx context.Context, id string) (*suprimentos.Produto, error) {
+	const op = "service.suprimentos.BuscarMaterialPorID"
+	
+	produto, err := s.produtoRepo.BuscarPorID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return produto, nil
+}
+
+func (s *Service) DeletarOrcamento(ctx context.Context, id string) error {
+	const op = "service.suprimentos.DeletarOrcamento"
+	
+	// Verifica se o orçamento existe
+	if _, err := s.orcamentoRepo.BuscarPorID(ctx, id); err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	// Realiza o soft delete
+	if err := s.orcamentoRepo.SoftDelete(ctx, id); err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	s.logger.InfoContext(ctx, "orcamento soft deleted", "orcamento_id", id)
+	return nil
 }

@@ -1073,7 +1073,8 @@ Lista todos os orçamentos com filtros e paginação.
       "obraNome": "Casa Silva",
       "fornecedorId": "uuid-fornecedor",
       "fornecedorNome": "Fornecedor ABC Ltda",
-      "itensCount": 2
+      "itensCount": 2,
+      "categorias": ["Materiais Básicos", "Acabamento"]
     }
   ],
   "paginacao": {

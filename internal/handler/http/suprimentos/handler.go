@@ -22,6 +22,10 @@ type Service interface {
 	ListarFornecedores(ctx context.Context) ([]*suprimentos.Fornecedor, error)
 	CadastrarMaterial(ctx context.Context, input dto.CadastrarProdutoInput) (*suprimentos.Produto, error)
 	ListarMateriais(ctx context.Context) ([]*suprimentos.Produto, error)
+	BuscarMaterialPorID(ctx context.Context, id string) (*suprimentos.Produto, error)
+	AtualizarMaterial(ctx context.Context, id string, input dto.CadastrarProdutoInput) (*suprimentos.Produto, error)
+	DeletarMaterial(ctx context.Context, id string) error
+	DeletarOrcamento(ctx context.Context, id string) error
 	CriarOrcamento(ctx context.Context, etapaID string, input dto.CriarOrcamentoInput) (*suprimentos.Orcamento, error)
 	AtualizarStatusOrcamento(ctx context.Context, orcamentoID string, input dto.AtualizarStatusOrcamentoInput) (*suprimentos.Orcamento, error)
 	AtualizarFornecedor(ctx context.Context, id string, input dto.AtualizarFornecedorInput) (*suprimentos.Fornecedor, error)
@@ -29,6 +33,7 @@ type Service interface {
 	BuscarPorID(ctx context.Context, id string) (*suprimentos.Fornecedor, error)
 	CriarCategoria(ctx context.Context, input dto.CriarCategoriaInput) (*suprimentos.Categoria, error)
 	ListarCategorias(ctx context.Context) ([]*suprimentos.Categoria, error)
+	BuscarCategoria(ctx context.Context, id string) (*suprimentos.Categoria, error)
 	AtualizarCategoria(ctx context.Context, id string, input dto.AtualizarCategoriaInput) (*suprimentos.Categoria, error)
 	DeletarCategoria(ctx context.Context, id string) error
 	ListarOrcamentos(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*dto.OrcamentoListItemDTO], error)
@@ -221,4 +226,95 @@ func (h *Handler) HandleBuscarFornecedor(w http.ResponseWriter, r *http.Request)
 	}
 
 	web.Respond(w, r, fornecedor, http.StatusOK)
+}
+
+func (h *Handler) HandleBuscarMaterial(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "materialId")
+	material, err := h.service.BuscarMaterialPorID(r.Context(), id)
+	if err != nil {
+		h.logger.ErrorContext(r.Context(), "falha ao buscar material", "erro", err)
+		if errors.Is(err, postgres.ErrNaoEncontrado) {
+			web.RespondError(w, r, "NAO_ENCONTRADO", "Material não encontrado", http.StatusNotFound)
+			return
+		}
+		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao buscar material", http.StatusInternalServerError)
+		return
+	}
+	
+	// Converte para o DTO de resposta
+	resp := handler_dto.MaterialResponse{
+		ID:              material.ID,
+		Nome:            material.Nome,
+		Descricao:       material.Descricao,
+		UnidadeDeMedida: material.UnidadeDeMedida,
+		Categoria:       material.Categoria,
+	}
+	web.Respond(w, r, resp, http.StatusOK)
+}
+
+func (h *Handler) HandleAtualizarMaterial(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "materialId")
+	var req handler_dto.CadastrarMaterialRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		web.RespondError(w, r, "PAYLOAD_INVALIDO", "Payload inválido", http.StatusBadRequest)
+		return
+	}
+
+	input := dto.CadastrarProdutoInput{
+		Nome:            req.Nome,
+		Descricao:       req.Descricao,
+		UnidadeDeMedida: req.UnidadeDeMedida,
+		Categoria:       req.Categoria,
+	}
+
+	material, err := h.service.AtualizarMaterial(r.Context(), id, input)
+	if err != nil {
+		h.logger.ErrorContext(r.Context(), "falha ao atualizar material", "erro", err)
+		if errors.Is(err, postgres.ErrNaoEncontrado) {
+			web.RespondError(w, r, "NAO_ENCONTRADO", "Material não encontrado", http.StatusNotFound)
+			return
+		}
+		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao atualizar material", http.StatusInternalServerError)
+		return
+	}
+
+	// Converte para o DTO de resposta
+	resp := handler_dto.MaterialResponse{
+		ID:              material.ID,
+		Nome:            material.Nome,
+		Descricao:       material.Descricao,
+		UnidadeDeMedida: material.UnidadeDeMedida,
+		Categoria:       material.Categoria,
+	}
+	web.Respond(w, r, resp, http.StatusOK)
+}
+
+func (h *Handler) HandleDeletarMaterial(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "materialId")
+	err := h.service.DeletarMaterial(r.Context(), id)
+	if err != nil {
+		h.logger.ErrorContext(r.Context(), "falha ao deletar material (soft delete)", "erro", err)
+		if errors.Is(err, postgres.ErrNaoEncontrado) {
+			web.RespondError(w, r, "NAO_ENCONTRADO", "Material não encontrado", http.StatusNotFound)
+			return
+		}
+		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao deletar material", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) HandleDeletarOrcamento(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "orcamentoId")
+	err := h.service.DeletarOrcamento(r.Context(), id)
+	if err != nil {
+		h.logger.ErrorContext(r.Context(), "falha ao deletar orçamento (soft delete)", "erro", err)
+		if errors.Is(err, postgres.ErrNaoEncontrado) {
+			web.RespondError(w, r, "NAO_ENCONTRADO", "Orçamento não encontrado", http.StatusNotFound)
+			return
+		}
+		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao deletar orçamento", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

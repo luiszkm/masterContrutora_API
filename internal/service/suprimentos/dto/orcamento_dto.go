@@ -30,6 +30,7 @@ type OrcamentoListItemDTO struct {
 	FornecedorID   string    `json:"fornecedorId" db:"fornecedor_id"`
 	FornecedorNome string    `json:"fornecedorNome" db:"fornecedor_nome"` // CAMPO ADICIONADO
 	ItensCount     int       `json:"itensCount" db:"itens_count"`         // NOVO CAMPO
+	Categorias     []string  `json:"categorias" db:"categorias"`          // ARRAY DE CATEGORIAS
 }
 
 type OrcamentoDetalhadoDTO struct {

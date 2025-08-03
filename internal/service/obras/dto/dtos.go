@@ -19,3 +19,17 @@ type AtualizarObraInput struct {
 	Descricao  string `json:"descricao"`
 	Status     string `json:"status"`
 }
+
+// CriarEtapaPadraoInput representa os dados necessários para criar uma etapa padrão.
+type CriarEtapaPadraoInput struct {
+	Nome      string  `json:"nome"`
+	Descricao *string `json:"descricao,omitempty"`
+	Ordem     int     `json:"ordem"`
+}
+
+// AtualizarEtapaPadraoInput representa os dados necessários para atualizar uma etapa padrão.
+type AtualizarEtapaPadraoInput struct {
+	Nome      string  `json:"nome"`
+	Descricao *string `json:"descricao,omitempty"`
+	Ordem     int     `json:"ordem"`
+}

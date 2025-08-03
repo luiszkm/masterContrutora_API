@@ -30,8 +30,12 @@ type Service interface {
 	DeletarObra(ctx context.Context, obraID string) error
 	BuscarDetalhesPorID(ctx context.Context, obraID string) (*dto.ObraDetalhadaDTO, error)
 	AtualizarObra(ctx context.Context, obraID string, input dto.AtualizarObraInput) (*obras.Obra, error)
-	ListarEtapasPadrao(ctx context.Context) ([]*obras.EtapaPadrao, error)           // NOVO
-	ListarEtapasPorObra(ctx context.Context, obraID string) ([]*obras.Etapa, error) // NOVO
+	ListarEtapasPadrao(ctx context.Context) ([]*obras.EtapaPadrao, error)
+	CriarEtapaPadrao(ctx context.Context, input dto.CriarEtapaPadraoInput) (*obras.EtapaPadrao, error)
+	BuscarEtapaPadrao(ctx context.Context, id string) (*obras.EtapaPadrao, error)
+	AtualizarEtapaPadrao(ctx context.Context, id string, input dto.AtualizarEtapaPadraoInput) (*obras.EtapaPadrao, error)
+	DeletarEtapaPadrao(ctx context.Context, id string) error
+	ListarEtapasPorObra(ctx context.Context, obraID string) ([]*obras.Etapa, error)
 
 }
 
@@ -55,6 +59,73 @@ func (h *Handler) HandleListarEtapasPadrao(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	web.Respond(w, r, etapas, http.StatusOK)
+}
+
+func (h *Handler) HandleCriarEtapaPadrao(w http.ResponseWriter, r *http.Request) {
+	var input dto.CriarEtapaPadraoInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		web.RespondError(w, r, "PAYLOAD_INVALIDO", "Payload inválido", http.StatusBadRequest)
+		return
+	}
+
+	etapa, err := h.service.CriarEtapaPadrao(r.Context(), input)
+	if err != nil {
+		h.logger.ErrorContext(r.Context(), "falha ao criar etapa padrão", "erro", err)
+		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao criar etapa padrão", http.StatusInternalServerError)
+		return
+	}
+	web.Respond(w, r, etapa, http.StatusCreated)
+}
+
+func (h *Handler) HandleBuscarEtapaPadrao(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "etapaId")
+	etapa, err := h.service.BuscarEtapaPadrao(r.Context(), id)
+	if err != nil {
+		h.logger.ErrorContext(r.Context(), "falha ao buscar etapa padrão", "erro", err)
+		if errors.Is(err, postgres.ErrNaoEncontrado) {
+			web.RespondError(w, r, "NAO_ENCONTRADO", "Etapa padrão não encontrada", http.StatusNotFound)
+			return
+		}
+		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao buscar etapa padrão", http.StatusInternalServerError)
+		return
+	}
+	web.Respond(w, r, etapa, http.StatusOK)
+}
+
+func (h *Handler) HandleAtualizarEtapaPadrao(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "etapaId")
+	var input dto.AtualizarEtapaPadraoInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		web.RespondError(w, r, "PAYLOAD_INVALIDO", "Payload inválido", http.StatusBadRequest)
+		return
+	}
+
+	etapa, err := h.service.AtualizarEtapaPadrao(r.Context(), id, input)
+	if err != nil {
+		h.logger.ErrorContext(r.Context(), "falha ao atualizar etapa padrão", "erro", err)
+		if errors.Is(err, postgres.ErrNaoEncontrado) {
+			web.RespondError(w, r, "NAO_ENCONTRADO", "Etapa padrão não encontrada", http.StatusNotFound)
+			return
+		}
+		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao atualizar etapa padrão", http.StatusInternalServerError)
+		return
+	}
+	web.Respond(w, r, etapa, http.StatusOK)
+}
+
+func (h *Handler) HandleDeletarEtapaPadrao(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "etapaId")
+	err := h.service.DeletarEtapaPadrao(r.Context(), id)
+	if err != nil {
+		h.logger.ErrorContext(r.Context(), "falha ao deletar etapa padrão", "erro", err)
+		if errors.Is(err, postgres.ErrNaoEncontrado) {
+			web.RespondError(w, r, "NAO_ENCONTRADO", "Etapa padrão não encontrada", http.StatusNotFound)
+			return
+		}
+		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao deletar etapa padrão", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 func (h *Handler) HandleCriarObra(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {

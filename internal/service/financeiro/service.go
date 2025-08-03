@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/luiszkm/masterCostrutora/internal/domain/common"
 	"github.com/luiszkm/masterCostrutora/internal/domain/financeiro"
 	"github.com/luiszkm/masterCostrutora/internal/domain/obras"
 	"github.com/luiszkm/masterCostrutora/internal/domain/pessoal"
@@ -23,6 +24,7 @@ import (
 type PagamentoRepository interface {
 	// A interface agora espera um DBTX
 	Salvar(ctx context.Context, dbtx db.DBTX, pagamento *financeiro.RegistroDePagamento) error
+	ListarPagamentos(ctx context.Context, filtros common.ListarFiltros) ([]*financeiro.RegistroDePagamento, *common.PaginacaoInfo, error)
 }
 type FuncionarioFinder interface {
 	BuscarPorID(ctx context.Context, id string) (*pessoal.Funcionario, error)
@@ -190,4 +192,20 @@ func (s *Service) RegistrarPagamentosEmLote(ctx context.Context, input dto.Regis
 	}
 
 	return resultado, nil
+}
+
+func (s *Service) ListarPagamentos(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*financeiro.RegistroDePagamento], error) {
+	const op = "service.financeiro.ListarPagamentos"
+
+	pagamentos, paginacao, err := s.pagamentoRepo.ListarPagamentos(ctx, filtros)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	resposta := &common.RespostaPaginada[*financeiro.RegistroDePagamento]{
+		Dados:     pagamentos,
+		Paginacao: *paginacao,
+	}
+
+	return resposta, nil
 }

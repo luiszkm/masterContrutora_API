@@ -71,6 +71,10 @@ func main() {
 		logger.Error("as variáveis de ambiente DATABASE_URL e JWT_SECRET_KEY são obrigatórias")
 		os.Exit(1)
 	}
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080" // Valor padrão se não estiver definido
+	}
 
 	// 3. Inicialização de Plataforma (Correto)
 	dbpool, err := pgxpool.New(context.Background(), dbURL)
@@ -100,7 +104,7 @@ func main() {
 	apontamentoRepo := postgres.NovoApontamentoRepository(dbpool, logger)
 	categoriaRepo := postgres.NovoCategoriaRepository(dbpool, logger)
 	etapaPadraoRepo := postgres.NovoEtapaPadraoRepository(dbpool, logger) // NOVO
-	dashboardQuerier := postgres.NovoDashboardQuerier(dbpool, logger) // NOVO
+	dashboardQuerier := postgres.NovoDashboardQuerier(dbpool, logger)     // NOVO
 
 	// Serviços
 	identidadeSvc := identidade_service.NovoServico(usuarioRepo, passwordHasher, jwtService, logger)
@@ -176,11 +180,11 @@ func main() {
 	r := router.New(routerCfg)
 
 	server := &http.Server{
-		Addr:    ":8080",
+		Addr:    ":" + port,
 		Handler: r,
 	}
 
-	logger.Info("servidor escutando na porta :8080")
+	logger.Info("servidor escutando na porta", "port", port)
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("não foi possível iniciar o servidor: %v", err)
 	}

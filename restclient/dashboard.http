@@ -1,7 +1,7 @@
 ### Dashboard API - Testes HTTP
 ### Base URL: http://localhost:8080
 
-@baseUrl = http://localhost:8080
+@baseUrl = http://localhost:8081
 @authToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 @token = 
 ### Health Check

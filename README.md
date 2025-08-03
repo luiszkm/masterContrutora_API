@@ -26,7 +26,12 @@ Este projeto foi construído seguindo princípios modernos de arquitetura de sof
     * CRUD completo para Fornecedores e Materiais.
     * Criação e atualização de status de Orçamentos com múltiplos itens.
 * **Contexto Financeiro**:
-    * [cite_start]Registro de pagamentos a funcionários, associados a uma obra. 
+    * [cite_start]Registro de pagamentos a funcionários, associados a uma obra.
+* **Dashboard Executivo**:
+    * API completa de dashboard com dados agregados de todas as seções
+    * Métricas em tempo real de obras, funcionários, fornecedores e finanças
+    * Sistema de alertas para obras em atraso e pagamentos pendentes
+    * Logging estruturado para auditoria e monitoramento de performance 
 
 ## Tecnologias Utilizadas
 
@@ -99,6 +104,11 @@ Este projeto foi desenhado para ser executado com o banco de dados em um contêi
 A documentação prática e executável da API está no arquivo `requests.http`, que pode ser usado com a extensão **REST Client** do Visual Studio Code.
 
 Ele contém exemplos para todos os endpoints, incluindo o fluxo completo de autenticação e captura de variáveis para testes encadeados.
+
+### Documentação Específica
+
+- **[Dashboard API](docs/DASHBOARD_API.md)**: Documentação completa da API de dashboard com exemplos de payloads e casos de uso
+- **[Arquivo de Testes](restclient/dashboard.http)**: Testes HTTP executáveis para todos os endpoints do dashboard
 
 ## Registro de Decisões Arquiteturais (ADRs)
 

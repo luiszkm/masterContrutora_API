@@ -9,6 +9,8 @@ A API de Dashboard fornece uma visão abrangente dos dados da construtora, inclu
 http://localhost:8080/dashboard
 ```
 
+> **Nota**: Durante desenvolvimento, o servidor pode rodar em portas alternativas (ex: 8081). Verifique os logs de inicialização para a porta correta.
+
 ## Autenticação
 Todos os endpoints requerem autenticação via JWT:
 ```
@@ -764,3 +766,36 @@ Os logs podem ser utilizados para:
 - Análise de performance
 - Auditoria de acesso
 - Detecção de problemas
+
+### Logs de Exemplo
+```json
+{
+  "time": "2025-08-03T19:05:12.803780209-03:00",
+  "level": "INFO",
+  "msg": "Dashboard service call completed: geral.ObterDashboardCompleto",
+  "extra": {
+    "component": "dashboard",
+    "dashboardSection": "geral",
+    "duration": "77.395215ms",
+    "serviceMethod": "ObterDashboardCompleto",
+    "success": true
+  }
+}
+```
+
+---
+
+## Correções Aplicadas
+
+### Histórico de Fixes (Agosto 2025)
+
+1. **✅ Correção SQL Ambiguidade**: Resolvido erro `column reference "status" is ambiguous` em `ObterDistribuicaoObras`
+2. **✅ Correção NULL Scan**: Aplicado `COALESCE` para tratar valores NULL em campos de avaliação
+3. **✅ Correção Função EXTRACT**: Substituída sintaxe inválida por cast de data/intervalo
+4. **✅ Logging Estruturado**: Implementado sistema de logs detalhado para auditoria e debug
+
+### Status Atual
+- ✅ **Funcional**: Todos os endpoints funcionando corretamente
+- ✅ **Performance**: Queries otimizadas com tratamento de NULL
+- ✅ **Logging**: Sistema completo de auditoria e monitoramento
+- ✅ **Testes**: Validado com dados reais do sistema

@@ -789,7 +789,7 @@ func (q *DashboardQuerierPostgres) ObterTopFornecedores(ctx context.Context, lim
 			f.id as fornecedor_id,
 			f.nome as nome_fornecedor,
 			f.cnpj,
-			f.avaliacao,
+			COALESCE(f.avaliacao, 0.0) as avaliacao,
 			f.status,
 			COUNT(o.id) as total_orcamentos,
 			SUM(o.valor_total) as valor_total_gasto,
@@ -881,7 +881,7 @@ func (q *DashboardQuerierPostgres) ObterGastosFornecedores(ctx context.Context, 
 		SELECT 
 			f.id as fornecedor_id,
 			f.nome as nome_fornecedor,
-			f.avaliacao,
+			COALESCE(f.avaliacao, 0.0) as avaliacao,
 			COUNT(o.id) as quantidade_orcamentos,
 			SUM(o.valor_total) as valor_total_gasto,
 			MAX(o.data_emissao) as ultimo_orcamento

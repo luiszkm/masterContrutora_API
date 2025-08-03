@@ -8,25 +8,34 @@ import (
 
 	"github.com/luiszkm/masterCostrutora/internal/domain/dashboard"
 	"github.com/luiszkm/masterCostrutora/internal/service/dashboard/dto"
+	"github.com/luiszkm/masterCostrutora/pkg/logging"
 )
 
 // Service representa o serviço de dashboard
 type Service struct {
-	querier dashboard.Querier
-	logger  *slog.Logger
+	querier       dashboard.Querier
+	logger        *slog.Logger
+	dashLogger    *logging.DashboardLogger
 }
 
 // NovoServicoDashboard cria uma nova instância do serviço de dashboard
-func NovoServicoDashboard(querier dashboard.Querier, logger *slog.Logger) *Service {
+func NovoServicoDashboard(querier dashboard.Querier, logger *slog.Logger, dashLogger *logging.DashboardLogger) *Service {
 	return &Service{
-		querier: querier,
-		logger:  logger,
+		querier:    querier,
+		logger:     logger,
+		dashLogger: dashLogger,
 	}
 }
 
 // ObterDashboardCompleto retorna o dashboard completo com todas as seções
 func (s *Service) ObterDashboardCompleto(ctx context.Context, parametros dto.ParametrosDashboardDTO) (*dto.DashboardGeralDTO, error) {
 	const op = "service.dashboard.ObterDashboardCompleto"
+	startTime := time.Now()
+
+	// Log início da operação
+	s.dashLogger.LogDashboardServiceCall(ctx, "geral", "ObterDashboardCompleto", startTime, nil, map[string]interface{}{
+		"parametros": parametros,
+	})
 
 	// Define período padrão se não fornecido
 	dataInicio := parametros.DataInicio
@@ -40,25 +49,46 @@ func (s *Service) ObterDashboardCompleto(ctx context.Context, parametros dto.Par
 		dataFim = &fim
 	}
 
+	// Validar parâmetros
+	if dataFim.Before(*dataInicio) {
+		err := fmt.Errorf("data de fim não pode ser anterior à data de início")
+		s.dashLogger.LogDashboardValidation(ctx, "geral", "periodo", map[string]interface{}{
+			"dataInicio": dataInicio,
+			"dataFim": dataFim,
+		}, err.Error(), nil)
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
 	dashboard := &dto.DashboardGeralDTO{
 		UltimaAtualizacao: time.Now(),
 	}
 
 	var err error
+	var queryCount int
 
 	// Obter resumo geral sempre
+	queryStart := time.Now()
 	dashboard.ResumoGeral, err = s.querier.ObterResumoGeral(ctx)
 	if err != nil {
-		s.logger.ErrorContext(ctx, "falha ao obter resumo geral", "erro", err)
+		s.dashLogger.LogDashboardError(ctx, "geral", "ObterResumoGeral", err, map[string]interface{}{
+			"operation": op,
+		})
 		return nil, fmt.Errorf("%s: falha ao obter resumo geral: %w", op, err)
 	}
+	s.dashLogger.LogDashboardQuery(ctx, "geral", "ObterResumoGeral", time.Since(queryStart), 1, nil)
+	queryCount++
 
 	// Obter alertas sempre
+	queryStart = time.Now()
 	dashboard.Alertas, err = s.querier.ObterAlertas(ctx)
 	if err != nil {
-		s.logger.ErrorContext(ctx, "falha ao obter alertas", "erro", err)
+		s.dashLogger.LogDashboardError(ctx, "geral", "ObterAlertas", err, map[string]interface{}{
+			"operation": op,
+		})
 		return nil, fmt.Errorf("%s: falha ao obter alertas: %w", op, err)
 	}
+	s.dashLogger.LogDashboardQuery(ctx, "geral", "ObterAlertas", time.Since(queryStart), len(dashboard.Alertas.ObrasComAtraso), nil)
+	queryCount++
 
 	// Obter seções específicas ou todas se não especificado
 	secoes := parametros.Secoes
@@ -95,6 +125,23 @@ func (s *Service) ObterDashboardCompleto(ctx context.Context, parametros dto.Par
 		}
 	}
 
+	// Log performance final
+	totalDuration := time.Since(startTime)
+	s.dashLogger.LogDashboardPerformance(ctx, "geral", totalDuration, queryCount, map[string]interface{}{
+		"secoes": secoes,
+	})
+
+	// Log dados retornados
+	s.dashLogger.LogDashboardData(ctx, "geral", "dashboard_completo", 1, false, map[string]interface{}{
+		"secoesIncluidas": len(secoes),
+		"totalQueries": queryCount,
+	})
+
+	s.dashLogger.LogDashboardServiceCall(ctx, "geral", "ObterDashboardCompleto", startTime, nil, map[string]interface{}{
+		"success": true,
+		"duration": totalDuration.String(),
+	})
+	
 	s.logger.InfoContext(ctx, "dashboard completo obtido com sucesso", "secoes", secoes)
 	return dashboard, nil
 }

@@ -2,7 +2,15 @@
   "permissions": {
     "allow": [
       "Bash(mkdir:*)",
-      "Bash(go build:*)"
+      "Bash(go build:*)",
+      "Bash(go mod:*)",
+      "Bash(go test:*)",
+      "Bash(go install:*)",
+      "Bash(go run:*)",
+      "Bash(curl:*)",
+      "Bash(taskkill:*)",
+      "Bash(cmd.exe /c \"taskkill /f /pid 11936\")",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

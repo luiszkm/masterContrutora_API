@@ -9,17 +9,17 @@ type ProdutividadeFuncionarioItemDTO struct {
 	Cargo               string  `json:"cargo" db:"cargo"`
 	DiasTrabalhados     int     `json:"diasTrabalhados" db:"dias_trabalhados"`
 	MediaDiasPorPeriodo float64 `json:"mediaDiasPorPeriodo" db:"media_dias_por_periodo"`
-	IndiceProdutividade float64 `json:"indiceProdutividade"` // Calculado baseado na média
+	IndiceProdutividade float64 `json:"indiceProdutividade" db:"-"` // Calculado baseado na média
 	ObrasAlocadas       int     `json:"obrasAlocadas" db:"obras_alocadas"`
 }
 
 // ProdutividadeFuncionariosDTO representa dados gerais de produtividade
 type ProdutividadeFuncionariosDTO struct {
-	MediaGeralProdutividade float64                            `json:"mediaGeralProdutividade"`
-	TotalFuncionarios       int                                `json:"totalFuncionarios"`
-	FuncionariosAtivos      int                                `json:"funcionariosAtivos"`
-	ProdutividadePorFuncionario []*ProdutividadeFuncionarioItemDTO `json:"produtividadePorFuncionario"`
-	Top5Produtivos          []*ProdutividadeFuncionarioItemDTO `json:"top5Produtivos"`
+	MediaGeralProdutividade float64                            `json:"mediaGeralProdutividade" db:"-"`
+	TotalFuncionarios       int                                `json:"totalFuncionarios" db:"-"`
+	FuncionariosAtivos      int                                `json:"funcionariosAtivos" db:"-"`
+	ProdutividadePorFuncionario []*ProdutividadeFuncionarioItemDTO `json:"produtividadePorFuncionario" db:"-"`
+	Top5Produtivos          []*ProdutividadeFuncionarioItemDTO `json:"top5Produtivos" db:"-"`
 }
 
 // CustoMaoObraFuncionarioDTO representa custos por funcionário
@@ -44,11 +44,11 @@ type CustoMaoObraPorObraDTO struct {
 
 // CustosMaoObraDTO representa dados gerais de custos de mão de obra
 type CustosMaoObraDTO struct {
-	CustoTotalMaoObra     float64                       `json:"custoTotalMaoObra"`
-	CustoMedioFuncionario float64                       `json:"custoMedioFuncionario"`
-	CustoMedioObra        float64                       `json:"custoMedioObra"`
-	CustosPorFuncionario  []*CustoMaoObraFuncionarioDTO `json:"custosPorFuncionario"`
-	CustosPorObra         []*CustoMaoObraPorObraDTO     `json:"custosPorObra"`
+	CustoTotalMaoObra     float64                       `json:"custoTotalMaoObra" db:"-"`
+	CustoMedioFuncionario float64                       `json:"custoMedioFuncionario" db:"-"`
+	CustoMedioObra        float64                       `json:"custoMedioObra" db:"-"`
+	CustosPorFuncionario  []*CustoMaoObraFuncionarioDTO `json:"custosPorFuncionario" db:"-"`
+	CustosPorObra         []*CustoMaoObraPorObraDTO     `json:"custosPorObra" db:"-"`
 }
 
 // TopFuncionarioDTO representa um funcionário no ranking de avaliações
@@ -57,7 +57,7 @@ type TopFuncionarioDTO struct {
 	NomeFuncionario     string  `json:"nomeFuncionario" db:"nome_funcionario"`
 	Cargo               string  `json:"cargo" db:"cargo"`
 	AvaliacaoDesempenho string  `json:"avaliacaoDesempenho" db:"avaliacao_desempenho"`
-	NotaAvaliacao       float64 `json:"notaAvaliacao"` // Calculada a partir da avaliação textual
+	NotaAvaliacao       float64 `json:"notaAvaliacao" db:"-"` // Calculada a partir da avaliação textual
 	DiasTrabalhadosTotal int    `json:"diasTrabalhadosTotal" db:"dias_trabalhados_total"`
 	ObrasParticipadas   int     `json:"obrasParticipadas" db:"obras_participadas"`
 	DataContratacao     time.Time `json:"dataContratacao" db:"data_contratacao"`
@@ -65,14 +65,14 @@ type TopFuncionarioDTO struct {
 
 // TopFuncionariosDTO representa o ranking dos melhores funcionários
 type TopFuncionariosDTO struct {
-	Top5Funcionarios []*TopFuncionarioDTO `json:"top5Funcionarios"`
-	CriterioAvaliacao string              `json:"criterioAvaliacao"`
+	Top5Funcionarios []*TopFuncionarioDTO `json:"top5Funcionarios" db:"-"`
+	CriterioAvaliacao string              `json:"criterioAvaliacao" db:"-"`
 }
 
 // DashboardFuncionariosDTO agrega todas as informações de funcionários do dashboard
 type DashboardFuncionariosDTO struct {
-	Produtividade     *ProdutividadeFuncionariosDTO `json:"produtividade"`
-	CustosMaoObra     *CustosMaoObraDTO            `json:"custosMaoObra"`
-	TopFuncionarios   *TopFuncionariosDTO          `json:"topFuncionarios"`
-	UltimaAtualizacao time.Time                    `json:"ultimaAtualizacao"`
+	Produtividade     *ProdutividadeFuncionariosDTO `json:"produtividade" db:"-"`
+	CustosMaoObra     *CustosMaoObraDTO            `json:"custosMaoObra" db:"-"`
+	TopFuncionarios   *TopFuncionariosDTO          `json:"topFuncionarios" db:"-"`
+	UltimaAtualizacao time.Time                    `json:"ultimaAtualizacao" db:"-"`
 }

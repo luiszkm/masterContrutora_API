@@ -46,32 +46,24 @@ func NovoDashboardHandler(s Service, l *slog.Logger, dashLogger *logging.Dashboa
 // HandleObterDashboardCompleto retorna o dashboard completo
 func (h *Handler) HandleObterDashboardCompleto(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
-	userID := h.extractUserID(r)
-	
-	// Log acesso
-	h.dashLogger.LogDashboardAuth(r.Context(), "geral", userID, "dashboard_read", true, map[string]interface{}{
-		"endpoint": r.URL.Path,
-		"method": r.Method,
-	})
-	
+
 	parametros := h.parseParametrosDashboard(r)
-	
+
 	// Log parâmetros recebidos
 	h.dashLogger.LogDashboardData(r.Context(), "geral", "parametros_request", 1, false, map[string]interface{}{
 		"parametros": parametros,
-		"userAgent": r.UserAgent(),
+		"userAgent":  r.UserAgent(),
 		"remoteAddr": r.RemoteAddr,
 	})
-	
+
 	dashboard, err := h.service.ObterDashboardCompleto(r.Context(), parametros)
 	if err != nil {
 		// Log erro detalhado
 		h.dashLogger.LogDashboardError(r.Context(), "geral", "HandleObterDashboardCompleto", err, map[string]interface{}{
 			"parametros": parametros,
-			"userID": userID,
-			"duration": time.Since(startTime).String(),
+			"duration":   time.Since(startTime).String(),
 		})
-		
+
 		h.logger.ErrorContext(r.Context(), "falha ao obter dashboard completo", "erro", err, "parametros", parametros)
 		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao obter dashboard", http.StatusInternalServerError)
 		return
@@ -79,7 +71,7 @@ func (h *Handler) HandleObterDashboardCompleto(w http.ResponseWriter, r *http.Re
 
 	// Log sucesso
 	h.dashLogger.LogDashboardData(r.Context(), "geral", "dashboard_response", 1, dashboard == nil, map[string]interface{}{
-		"duration": time.Since(startTime).String(),
+		"duration":     time.Since(startTime).String(),
 		"responseSize": "large", // Poderia calcular tamanho real
 	})
 
@@ -90,24 +82,24 @@ func (h *Handler) HandleObterDashboardCompleto(w http.ResponseWriter, r *http.Re
 func (h *Handler) HandleObterDashboardFinanceiro(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
 	userID := h.extractUserID(r)
-	
+
 	// Log acesso
 	h.dashLogger.LogDashboardAuth(r.Context(), "financeiro", userID, "dashboard_read", true, map[string]interface{}{
 		"endpoint": r.URL.Path,
-		"method": r.Method,
+		"method":   r.Method,
 	})
-	
+
 	dataInicio, dataFim := h.parsePeriodo(r)
-	
+
 	financeiro, err := h.service.ObterDashboardFinanceiro(r.Context(), dataInicio, dataFim)
 	if err != nil {
 		h.dashLogger.LogDashboardError(r.Context(), "financeiro", "HandleObterDashboardFinanceiro", err, map[string]interface{}{
 			"dataInicio": dataInicio,
-			"dataFim": dataFim,
-			"userID": userID,
-			"duration": time.Since(startTime).String(),
+			"dataFim":    dataFim,
+			"userID":     userID,
+			"duration":   time.Since(startTime).String(),
 		})
-		
+
 		h.logger.ErrorContext(r.Context(), "falha ao obter dashboard financeiro", "erro", err)
 		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao obter dados financeiros", http.StatusInternalServerError)
 		return
@@ -125,20 +117,20 @@ func (h *Handler) HandleObterDashboardFinanceiro(w http.ResponseWriter, r *http.
 func (h *Handler) HandleObterDashboardObras(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
 	userID := h.extractUserID(r)
-	
+
 	// Log acesso
 	h.dashLogger.LogDashboardAuth(r.Context(), "obras", userID, "dashboard_read", true, map[string]interface{}{
 		"endpoint": r.URL.Path,
-		"method": r.Method,
+		"method":   r.Method,
 	})
-	
+
 	obras, err := h.service.ObterDashboardObras(r.Context())
 	if err != nil {
 		h.dashLogger.LogDashboardError(r.Context(), "obras", "HandleObterDashboardObras", err, map[string]interface{}{
-			"userID": userID,
+			"userID":   userID,
 			"duration": time.Since(startTime).String(),
 		})
-		
+
 		h.logger.ErrorContext(r.Context(), "falha ao obter dashboard obras", "erro", err)
 		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao obter dados de obras", http.StatusInternalServerError)
 		return
@@ -156,24 +148,24 @@ func (h *Handler) HandleObterDashboardObras(w http.ResponseWriter, r *http.Reque
 func (h *Handler) HandleObterDashboardFuncionarios(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
 	userID := h.extractUserID(r)
-	
+
 	// Log acesso
 	h.dashLogger.LogDashboardAuth(r.Context(), "funcionarios", userID, "dashboard_read", true, map[string]interface{}{
 		"endpoint": r.URL.Path,
-		"method": r.Method,
+		"method":   r.Method,
 	})
-	
+
 	dataInicio, dataFim := h.parsePeriodo(r)
-	
+
 	funcionarios, err := h.service.ObterDashboardFuncionarios(r.Context(), dataInicio, dataFim)
 	if err != nil {
 		h.dashLogger.LogDashboardError(r.Context(), "funcionarios", "HandleObterDashboardFuncionarios", err, map[string]interface{}{
 			"dataInicio": dataInicio,
-			"dataFim": dataFim,
-			"userID": userID,
-			"duration": time.Since(startTime).String(),
+			"dataFim":    dataFim,
+			"userID":     userID,
+			"duration":   time.Since(startTime).String(),
 		})
-		
+
 		h.logger.ErrorContext(r.Context(), "falha ao obter dashboard funcionários", "erro", err)
 		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao obter dados de funcionários", http.StatusInternalServerError)
 		return
@@ -191,24 +183,24 @@ func (h *Handler) HandleObterDashboardFuncionarios(w http.ResponseWriter, r *htt
 func (h *Handler) HandleObterDashboardFornecedores(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
 	userID := h.extractUserID(r)
-	
+
 	// Log acesso
 	h.dashLogger.LogDashboardAuth(r.Context(), "fornecedores", userID, "dashboard_read", true, map[string]interface{}{
 		"endpoint": r.URL.Path,
-		"method": r.Method,
+		"method":   r.Method,
 	})
-	
+
 	dataInicio, dataFim := h.parsePeriodo(r)
-	
+
 	fornecedores, err := h.service.ObterDashboardFornecedores(r.Context(), dataInicio, dataFim)
 	if err != nil {
 		h.dashLogger.LogDashboardError(r.Context(), "fornecedores", "HandleObterDashboardFornecedores", err, map[string]interface{}{
 			"dataInicio": dataInicio,
-			"dataFim": dataFim,
-			"userID": userID,
-			"duration": time.Since(startTime).String(),
+			"dataFim":    dataFim,
+			"userID":     userID,
+			"duration":   time.Since(startTime).String(),
 		})
-		
+
 		h.logger.ErrorContext(r.Context(), "falha ao obter dashboard fornecedores", "erro", err)
 		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao obter dados de fornecedores", http.StatusInternalServerError)
 		return
@@ -226,24 +218,24 @@ func (h *Handler) HandleObterDashboardFornecedores(w http.ResponseWriter, r *htt
 func (h *Handler) HandleObterFluxoCaixa(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
 	userID := h.extractUserID(r)
-	
+
 	// Log acesso
 	h.dashLogger.LogDashboardAuth(r.Context(), "fluxo-caixa", userID, "dashboard_read", true, map[string]interface{}{
 		"endpoint": r.URL.Path,
-		"method": r.Method,
+		"method":   r.Method,
 	})
-	
+
 	dataInicio, dataFim := h.parsePeriodo(r)
-	
+
 	fluxo, err := h.service.ObterFluxoCaixa(r.Context(), dataInicio, dataFim)
 	if err != nil {
 		h.dashLogger.LogDashboardError(r.Context(), "fluxo-caixa", "HandleObterFluxoCaixa", err, map[string]interface{}{
 			"dataInicio": dataInicio,
-			"dataFim": dataFim,
-			"userID": userID,
-			"duration": time.Since(startTime).String(),
+			"dataFim":    dataFim,
+			"userID":     userID,
+			"duration":   time.Since(startTime).String(),
 		})
-		
+
 		h.logger.ErrorContext(r.Context(), "falha ao obter fluxo de caixa", "erro", err)
 		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao obter fluxo de caixa", http.StatusInternalServerError)
 		return
@@ -260,34 +252,34 @@ func (h *Handler) HandleObterFluxoCaixa(w http.ResponseWriter, r *http.Request) 
 // parseParametrosDashboard extrai os parâmetros da query string
 func (h *Handler) parseParametrosDashboard(r *http.Request) dto.ParametrosDashboardDTO {
 	parametros := dto.ParametrosDashboardDTO{}
-	
+
 	// Parse período
 	dataInicio, dataFim := h.parsePeriodo(r)
 	parametros.DataInicio = &dataInicio
 	parametros.DataFim = &dataFim
-	
+
 	// Parse seções específicas
 	if secoes := r.URL.Query()["secoes"]; len(secoes) > 0 {
 		parametros.Secoes = secoes
 	}
-	
+
 	// Parse obras específicas
 	if obraIDs := r.URL.Query()["obraIds"]; len(obraIDs) > 0 {
 		parametros.ObraIDs = obraIDs
 	}
-	
+
 	// Parse fornecedores específicos
 	if fornecedorIDs := r.URL.Query()["fornecedorIds"]; len(fornecedorIDs) > 0 {
 		parametros.FornecedorIDs = fornecedorIDs
 	}
-	
+
 	// Parse incluir inativos
 	if incluirInativosStr := r.URL.Query().Get("incluirInativos"); incluirInativosStr != "" {
 		if incluirInativos, err := strconv.ParseBool(incluirInativosStr); err == nil {
 			parametros.IncluirInativos = incluirInativos
 		}
 	}
-	
+
 	return parametros
 }
 
@@ -296,28 +288,28 @@ func (h *Handler) parsePeriodo(r *http.Request) (time.Time, time.Time) {
 	// Período padrão: últimos 6 meses
 	dataFim := time.Now()
 	dataInicio := dataFim.AddDate(0, -6, 0)
-	
+
 	// Parse data de início
 	if dataInicioStr := r.URL.Query().Get("dataInicio"); dataInicioStr != "" {
 		if parsed, err := time.Parse("2006-01-02", dataInicioStr); err == nil {
 			dataInicio = parsed
 		}
 	}
-	
+
 	// Parse data de fim
 	if dataFimStr := r.URL.Query().Get("dataFim"); dataFimStr != "" {
 		if parsed, err := time.Parse("2006-01-02", dataFimStr); err == nil {
 			dataFim = parsed
 		}
 	}
-	
+
 	return dataInicio, dataFim
 }
 
 // HandleObterDashboardPorSecao permite obter dados de uma seção específica via URL
 func (h *Handler) HandleObterDashboardPorSecao(w http.ResponseWriter, r *http.Request) {
 	secao := chi.URLParam(r, "secao")
-	
+
 	switch secao {
 	case "financeiro":
 		h.HandleObterDashboardFinanceiro(w, r)
@@ -342,9 +334,9 @@ func (h *Handler) HandleObterParametrosCache(w http.ResponseWriter, r *http.Requ
 		"ultimaAtualizacao": time.Now(),
 		"ttlRecomendado":    300, // 5 minutos em segundos
 		"secoesDisponiveis": []string{"financeiro", "obras", "funcionarios", "fornecedores"},
-		"versao":           "1.0",
+		"versao":            "1.0",
 	}
-	
+
 	web.Respond(w, r, cacheInfo, http.StatusOK)
 }
 
@@ -356,12 +348,12 @@ func (h *Handler) extractUserID(r *http.Request) string {
 			return id
 		}
 	}
-	
+
 	// Se não encontrou no contexto, tentar extrair do JWT diretamente
 	if h.jwtService != nil {
 		return h.extractUserIDFromJWT(r)
 	}
-	
+
 	return ""
 }
 
@@ -377,23 +369,23 @@ func (h *Handler) extractUserIDFromJWT(r *http.Request) string {
 		}
 		authHeader = "Bearer " + cookie.Value
 	}
-	
+
 	// Formato: "Bearer <token>"
 	parts := strings.Split(authHeader, " ")
 	if len(parts) != 2 || parts[0] != "Bearer" {
 		return ""
 	}
-	
+
 	token := parts[1]
 	claims, err := h.jwtService.ValidateToken(token)
 	if err != nil {
 		return ""
 	}
-	
+
 	// Extrair user ID do claims
 	if sub, ok := claims["sub"].(string); ok {
 		return sub
 	}
-	
+
 	return ""
 }

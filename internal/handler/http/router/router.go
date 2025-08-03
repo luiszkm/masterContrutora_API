@@ -43,6 +43,21 @@ func New(c Config) *chi.Mux {
 		r.Post("/login", c.IdentidadeHandler.HandleLogin)
 	})
 
+	// --- DASHBOARD PÚBLICO PARA DEBUG ---
+	r.Route("/dashboard", func(r chi.Router) {
+		// Dashboard completo - sem autenticação para debug
+		r.Get("/", c.DashboardHandler.HandleObterDashboardCompleto)
+		
+		// Seções específicas do dashboard - sem autenticação para debug
+		r.Get("/financeiro", c.DashboardHandler.HandleObterDashboardFinanceiro)
+		r.Get("/obras", c.DashboardHandler.HandleObterDashboardObras)
+		r.Get("/funcionarios", c.DashboardHandler.HandleObterDashboardFuncionarios)
+		r.Get("/fornecedores", c.DashboardHandler.HandleObterDashboardFornecedores)
+		r.Get("/fluxo-caixa", c.DashboardHandler.HandleObterFluxoCaixa)
+		r.Get("/{secao}", c.DashboardHandler.HandleObterDashboardPorSecao)
+		r.Get("/cache-info", c.DashboardHandler.HandleObterParametrosCache)
+	})
+
 	// --- GRUPO ÚNICO PARA TODAS AS ROTAS PROTEGIDAS ---
 	r.Group(func(r chi.Router) {
 		// Aplicamos o middleware de autenticação UMA VEZ para todo o grupo.
@@ -180,36 +195,36 @@ func New(c Config) *chi.Mux {
 			r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Delete("/{etapaId}", c.ObrasHandler.HandleDeletarEtapaPadrao)
 		})
 
-		// --- Recursos de Dashboard ---
-		r.Route("/dashboard", func(r chi.Router) {
-			// Dashboard completo - requer permissão de leitura geral
-			r.With(auth.Authorize(authz.PermissaoObrasLer)).
-				Get("/", c.DashboardHandler.HandleObterDashboardCompleto)
+		// --- Recursos de Dashboard (COMENTADO PARA DEBUG) ---
+		// r.Route("/dashboard", func(r chi.Router) {
+		// 	// Dashboard completo - requer permissão de leitura geral
+		// 	r.With(auth.Authorize(authz.PermissaoObrasLer)).
+		// 		Get("/", c.DashboardHandler.HandleObterDashboardCompleto)
 
-			// Seções específicas do dashboard
-			r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).
-				Get("/financeiro", c.DashboardHandler.HandleObterDashboardFinanceiro)
+		// 	// Seções específicas do dashboard
+		// 	r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).
+		// 		Get("/financeiro", c.DashboardHandler.HandleObterDashboardFinanceiro)
 			
-			r.With(auth.Authorize(authz.PermissaoObrasLer)).
-				Get("/obras", c.DashboardHandler.HandleObterDashboardObras)
+		// 	r.With(auth.Authorize(authz.PermissaoObrasLer)).
+		// 		Get("/obras", c.DashboardHandler.HandleObterDashboardObras)
 			
-			r.With(auth.Authorize(authz.PermissaoPessoalLer)).
-				Get("/funcionarios", c.DashboardHandler.HandleObterDashboardFuncionarios)
+		// 	r.With(auth.Authorize(authz.PermissaoPessoalLer)).
+		// 		Get("/funcionarios", c.DashboardHandler.HandleObterDashboardFuncionarios)
 			
-			r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).
-				Get("/fornecedores", c.DashboardHandler.HandleObterDashboardFornecedores)
+		// 	r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).
+		// 		Get("/fornecedores", c.DashboardHandler.HandleObterDashboardFornecedores)
 
-			// Endpoints específicos
-			r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).
-				Get("/fluxo-caixa", c.DashboardHandler.HandleObterFluxoCaixa)
+		// 	// Endpoints específicos
+		// 	r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).
+		// 		Get("/fluxo-caixa", c.DashboardHandler.HandleObterFluxoCaixa)
 
-			// Endpoint genérico para seções por URL
-			r.With(auth.Authorize(authz.PermissaoObrasLer)).
-				Get("/{secao}", c.DashboardHandler.HandleObterDashboardPorSecao)
+		// 	// Endpoint genérico para seções por URL
+		// 	r.With(auth.Authorize(authz.PermissaoObrasLer)).
+		// 		Get("/{secao}", c.DashboardHandler.HandleObterDashboardPorSecao)
 
-			// Parâmetros de cache
-			r.Get("/cache-info", c.DashboardHandler.HandleObterParametrosCache)
-		})
+		// 	// Parâmetros de cache
+		// 	r.Get("/cache-info", c.DashboardHandler.HandleObterParametrosCache)
+		// })
 	})
 
 	return r

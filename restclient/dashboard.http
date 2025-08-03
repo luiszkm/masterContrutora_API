@@ -3,7 +3,7 @@
 
 @baseUrl = http://localhost:8080
 @authToken = Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-
+@token = 
 ### Health Check
 GET {{baseUrl}}/health
 
@@ -12,7 +12,8 @@ GET {{baseUrl}}/health
 ### 1. Dashboard Completo
 ### Retorna todas as seções do dashboard com dados agregados
 GET {{baseUrl}}/dashboard
-Authorization: {{authToken}}
+Content-Type: application/json
+Cookie: jwt-token={{token}}
 
 ### Dashboard Completo com Filtros
 GET {{baseUrl}}/dashboard?dataInicio=2024-01-01&dataFim=2024-12-31&secoes=financeiro,obras&incluirInativos=false

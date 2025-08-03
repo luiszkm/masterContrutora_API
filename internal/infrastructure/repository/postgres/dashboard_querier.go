@@ -193,9 +193,18 @@ func (q *DashboardQuerierPostgres) ObterDistribuicaoDespesas(ctx context.Context
 	}
 	defer rows.Close()
 
-	itens, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[dto.DistribuicaoDespesasItemDTO])
-	if err != nil {
-		return nil, fmt.Errorf("%s: falha ao escanear distribuição de despesas: %w", op, err)
+	var itens []*dto.DistribuicaoDespesasItemDTO
+	for rows.Next() {
+		var item dto.DistribuicaoDespesasItemDTO
+		err := rows.Scan(&item.Categoria, &item.Valor, &item.QuantidadeItens)
+		if err != nil {
+			return nil, fmt.Errorf("%s: falha ao escanear distribuição de despesas: %w", op, err)
+		}
+		itens = append(itens, &item)
+	}
+	
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: erro ao iterar sobre os resultados: %w", op, err)
 	}
 
 	distribuicao := &dto.DistribuicaoDespesasDTO{
@@ -301,7 +310,7 @@ func (q *DashboardQuerierPostgres) ObterDistribuicaoObras(ctx context.Context) (
 	query := `
 		WITH distribuicao AS (
 			SELECT 
-				status,
+				o.status,
 				COUNT(*) as quantidade,
 				-- Estimativa de valor total baseada em orçamentos aprovados
 				COALESCE(SUM(orcamentos.valor_total), 0) as valor_total
@@ -326,9 +335,18 @@ func (q *DashboardQuerierPostgres) ObterDistribuicaoObras(ctx context.Context) (
 	}
 	defer rows.Close()
 
-	itens, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[dto.DistribuicaoObraItemDTO])
-	if err != nil {
-		return nil, fmt.Errorf("%s: falha ao escanear distribuição de obras: %w", op, err)
+	var itens []*dto.DistribuicaoObraItemDTO
+	for rows.Next() {
+		var item dto.DistribuicaoObraItemDTO
+		err := rows.Scan(&item.Status, &item.Quantidade, &item.ValorTotal)
+		if err != nil {
+			return nil, fmt.Errorf("%s: falha ao escanear distribuição de obras: %w", op, err)
+		}
+		itens = append(itens, &item)
+	}
+	
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: erro ao iterar sobre os resultados: %w", op, err)
 	}
 
 	distribuicao := &dto.DistribuicaoObrasDTO{
@@ -485,9 +503,19 @@ func (q *DashboardQuerierPostgres) ObterProdutividadeFuncionarios(ctx context.Co
 	}
 	defer rows.Close()
 
-	funcionarios, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[dto.ProdutividadeFuncionarioItemDTO])
-	if err != nil {
-		return nil, fmt.Errorf("%s: falha ao escanear produtividade dos funcionários: %w", op, err)
+	var funcionarios []*dto.ProdutividadeFuncionarioItemDTO
+	for rows.Next() {
+		var funcionario dto.ProdutividadeFuncionarioItemDTO
+		err := rows.Scan(&funcionario.FuncionarioID, &funcionario.NomeFuncionario, &funcionario.Cargo,
+			&funcionario.DiasTrabalhados, &funcionario.MediaDiasPorPeriodo, &funcionario.ObrasAlocadas)
+		if err != nil {
+			return nil, fmt.Errorf("%s: falha ao escanear produtividade dos funcionários: %w", op, err)
+		}
+		funcionarios = append(funcionarios, &funcionario)
+	}
+	
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: erro ao iterar sobre os resultados: %w", op, err)
 	}
 
 	produtividade := &dto.ProdutividadeFuncionariosDTO{
@@ -634,7 +662,7 @@ func (q *DashboardQuerierPostgres) ObterTopFuncionarios(ctx context.Context, lim
 		GROUP BY f.id, f.nome, f.cargo, f.avaliacao_desempenho, f.data_contratacao
 		ORDER BY 
 			-- Critério de avaliação: tempo de empresa + produtividade
-			(EXTRACT(days FROM CURRENT_DATE - f.data_contratacao) / 365.0) * 0.3 +
+			((CURRENT_DATE - f.data_contratacao)::integer / 365.0) * 0.3 +
 			COUNT(DISTINCT aq.id) * 0.7 DESC
 		LIMIT $1`
 
@@ -644,9 +672,20 @@ func (q *DashboardQuerierPostgres) ObterTopFuncionarios(ctx context.Context, lim
 	}
 	defer rows.Close()
 
-	funcionarios, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[dto.TopFuncionarioDTO])
-	if err != nil {
-		return nil, fmt.Errorf("%s: falha ao escanear top funcionários: %w", op, err)
+	var funcionarios []*dto.TopFuncionarioDTO
+	for rows.Next() {
+		var funcionario dto.TopFuncionarioDTO
+		err := rows.Scan(&funcionario.FuncionarioID, &funcionario.NomeFuncionario, &funcionario.Cargo,
+			&funcionario.AvaliacaoDesempenho, &funcionario.DataContratacao, 
+			&funcionario.DiasTrabalhadosTotal, &funcionario.ObrasParticipadas)
+		if err != nil {
+			return nil, fmt.Errorf("%s: falha ao escanear top funcionários: %w", op, err)
+		}
+		funcionarios = append(funcionarios, &funcionario)
+	}
+	
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: erro ao iterar sobre os resultados: %w", op, err)
 	}
 
 	// Calcular nota de avaliação baseada no texto (simulação)
@@ -682,7 +721,7 @@ func (q *DashboardQuerierPostgres) ObterFornecedoresPorCategoria(ctx context.Con
 			c.id as categoria_id,
 			c.nome as categoria_nome,
 			COUNT(DISTINCT f.id) as quantidade_fornecedores,
-			AVG(f.avaliacao) as avaliacao_media
+			COALESCE(AVG(f.avaliacao), 0.0) as avaliacao_media
 		FROM categorias c
 		LEFT JOIN fornecedor_categorias fc ON c.id = fc.categoria_id
 		LEFT JOIN fornecedores f ON fc.fornecedor_id = f.id 
@@ -698,9 +737,18 @@ func (q *DashboardQuerierPostgres) ObterFornecedoresPorCategoria(ctx context.Con
 	}
 	defer rows.Close()
 
-	categorias, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[dto.FornecedorPorCategoriaItemDTO])
-	if err != nil {
-		return nil, fmt.Errorf("%s: falha ao escanear fornecedores por categoria: %w", op, err)
+	var categorias []*dto.FornecedorPorCategoriaItemDTO
+	for rows.Next() {
+		var categoria dto.FornecedorPorCategoriaItemDTO
+		err := rows.Scan(&categoria.CategoriaID, &categoria.CategoriaNome, &categoria.QuantidadeFornecedores, &categoria.AvaliacaoMedia)
+		if err != nil {
+			return nil, fmt.Errorf("%s: falha ao escanear fornecedores por categoria: %w", op, err)
+		}
+		categorias = append(categorias, &categoria)
+	}
+	
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: erro ao iterar sobre os resultados: %w", op, err)
 	}
 
 	distribuicao := &dto.FornecedoresPorCategoriaDTO{
@@ -762,9 +810,20 @@ func (q *DashboardQuerierPostgres) ObterTopFornecedores(ctx context.Context, lim
 	}
 	defer rows.Close()
 
-	fornecedores, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[dto.TopFornecedorDTO])
-	if err != nil {
-		return nil, fmt.Errorf("%s: falha ao escanear top fornecedores: %w", op, err)
+	var fornecedores []*dto.TopFornecedorDTO
+	for rows.Next() {
+		var fornecedor dto.TopFornecedorDTO
+		err := rows.Scan(&fornecedor.FornecedorID, &fornecedor.NomeFornecedor, &fornecedor.CNPJ,
+			&fornecedor.Avaliacao, &fornecedor.Status, &fornecedor.TotalOrcamentos,
+			&fornecedor.ValorTotalGasto, &fornecedor.UltimoOrcamento)
+		if err != nil {
+			return nil, fmt.Errorf("%s: falha ao escanear top fornecedores: %w", op, err)
+		}
+		fornecedores = append(fornecedores, &fornecedor)
+	}
+	
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: erro ao iterar sobre os resultados: %w", op, err)
 	}
 
 	// Buscar categorias para cada fornecedor
@@ -843,9 +902,19 @@ func (q *DashboardQuerierPostgres) ObterGastosFornecedores(ctx context.Context, 
 	}
 	defer rows.Close()
 
-	fornecedores, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[dto.GastoFornecedorItemDTO])
-	if err != nil {
-		return nil, fmt.Errorf("%s: falha ao escanear gastos com fornecedores: %w", op, err)
+	var fornecedores []*dto.GastoFornecedorItemDTO
+	for rows.Next() {
+		var fornecedor dto.GastoFornecedorItemDTO
+		err := rows.Scan(&fornecedor.FornecedorID, &fornecedor.NomeFornecedor, &fornecedor.Avaliacao, 
+			&fornecedor.QuantidadeOrcamentos, &fornecedor.ValorTotalGasto, &fornecedor.UltimoOrcamento)
+		if err != nil {
+			return nil, fmt.Errorf("%s: falha ao escanear gastos com fornecedores: %w", op, err)
+		}
+		fornecedores = append(fornecedores, &fornecedor)
+	}
+	
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: erro ao iterar sobre os resultados: %w", op, err)
 	}
 
 	gastos := &dto.GastosFornecedoresDTO{

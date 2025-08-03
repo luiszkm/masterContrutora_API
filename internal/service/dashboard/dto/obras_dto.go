@@ -16,26 +16,26 @@ type ProgressoObraItemDTO struct {
 
 // ProgressoObrasDTO representa o progresso geral das obras
 type ProgressoObrasDTO struct {
-	ProgressoMedio      float64                  `json:"progressoMedio"`
-	ObrasEmAndamento    int                      `json:"obrasEmAndamento"`
-	ObrasConcluidas     int                      `json:"obrasConcluidas"`
-	TotalObras          int                      `json:"totalObras"`
-	ProgressoPorObra    []*ProgressoObraItemDTO  `json:"progressoPorObra"`
+	ProgressoMedio      float64                  `json:"progressoMedio" db:"-"`
+	ObrasEmAndamento    int                      `json:"obrasEmAndamento" db:"-"`
+	ObrasConcluidas     int                      `json:"obrasConcluidas" db:"-"`
+	TotalObras          int                      `json:"totalObras" db:"-"`
+	ProgressoPorObra    []*ProgressoObraItemDTO  `json:"progressoPorObra" db:"-"`
 }
 
 // DistribuicaoObraItemDTO representa um item da distribuição por status
 type DistribuicaoObraItemDTO struct {
 	Status      string  `json:"status" db:"status"`
 	Quantidade  int     `json:"quantidade" db:"quantidade"`
-	Percentual  float64 `json:"percentual"`
+	Percentual  float64 `json:"percentual" db:"-"`
 	ValorTotal  float64 `json:"valorTotal" db:"valor_total"`
 }
 
 // DistribuicaoObrasDTO representa a distribuição de obras por status/tipo
 type DistribuicaoObrasDTO struct {
-	TotalObras         int                        `json:"totalObras"`
-	DistribuicaoPorStatus []*DistribuicaoObraItemDTO `json:"distribuicaoPorStatus"`
-	StatusMaisComum    string                     `json:"statusMaisComum"`
+	TotalObras         int                        `json:"totalObras" db:"-"`
+	DistribuicaoPorStatus []*DistribuicaoObraItemDTO `json:"distribuicaoPorStatus" db:"-"`
+	StatusMaisComum    string                     `json:"statusMaisComum" db:"-"`
 }
 
 // TendenciaObraItemDTO representa dados de tendência por período
@@ -48,18 +48,18 @@ type TendenciaObraItemDTO struct {
 
 // TendenciasObrasDTO representa as tendências e análises de prazos
 type TendenciasObrasDTO struct {
-	ObrasEmAtraso         int                     `json:"obrasEmAtraso"`
-	ObrasNoPrazo          int                     `json:"obrasNoPrazo"`
-	PercentualAtraso      float64                 `json:"percentualAtraso"`
-	TendenciaMensal       []*TendenciaObraItemDTO `json:"tendenciaMensal"`
-	PrevisaoConclusaoMes  int                     `json:"previsaoConclusaoMes"`
-	TendenciaGeral        string                  `json:"tendenciaGeral"` // "melhorando", "piorando", "estavel"
+	ObrasEmAtraso         int                     `json:"obrasEmAtraso" db:"-"`
+	ObrasNoPrazo          int                     `json:"obrasNoPrazo" db:"-"`
+	PercentualAtraso      float64                 `json:"percentualAtraso" db:"-"`
+	TendenciaMensal       []*TendenciaObraItemDTO `json:"tendenciaMensal" db:"-"`
+	PrevisaoConclusaoMes  int                     `json:"previsaoConclusaoMes" db:"-"`
+	TendenciaGeral        string                  `json:"tendenciaGeral" db:"-"` // "melhorando", "piorando", "estavel"
 }
 
 // DashboardObrasDTO agrega todas as informações de obras do dashboard
 type DashboardObrasDTO struct {
-	Progresso         *ProgressoObrasDTO     `json:"progresso"`
-	Distribuicao      *DistribuicaoObrasDTO  `json:"distribuicao"`
-	Tendencias        *TendenciasObrasDTO    `json:"tendencias"`
-	UltimaAtualizacao time.Time              `json:"ultimaAtualizacao"`
+	Progresso         *ProgressoObrasDTO     `json:"progresso" db:"-"`
+	Distribuicao      *DistribuicaoObrasDTO  `json:"distribuicao" db:"-"`
+	Tendencias        *TendenciasObrasDTO    `json:"tendencias" db:"-"`
+	UltimaAtualizacao time.Time              `json:"ultimaAtualizacao" db:"-"`
 }

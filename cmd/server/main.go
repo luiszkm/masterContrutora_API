@@ -18,16 +18,19 @@ import (
 	"github.com/luiszkm/masterCostrutora/internal/infrastructure/repository/postgres"
 	"github.com/luiszkm/masterCostrutora/internal/platform/bus"
 	"github.com/luiszkm/masterCostrutora/pkg/auth"
+	"github.com/luiszkm/masterCostrutora/pkg/logging"
 	"github.com/luiszkm/masterCostrutora/pkg/security"
 
 	// Usaremos um único nome 'postgres' para o pacote de repositório para clareza
 
+	dashboard_handler "github.com/luiszkm/masterCostrutora/internal/handler/http/dashboard"
 	financeiro_handler "github.com/luiszkm/masterCostrutora/internal/handler/http/financeiro"
 	identidade_handler "github.com/luiszkm/masterCostrutora/internal/handler/http/identidade"
 	obras_handler "github.com/luiszkm/masterCostrutora/internal/handler/http/obras"
 	pessoal_handler "github.com/luiszkm/masterCostrutora/internal/handler/http/pessoal"
 	suprimentos_handler "github.com/luiszkm/masterCostrutora/internal/handler/http/suprimentos"
 
+	dashboard_service "github.com/luiszkm/masterCostrutora/internal/service/dashboard"
 	financeiro_service "github.com/luiszkm/masterCostrutora/internal/service/financeiro"
 	identidade_service "github.com/luiszkm/masterCostrutora/internal/service/identidade"
 	obras_service "github.com/luiszkm/masterCostrutora/internal/service/obras"
@@ -42,6 +45,21 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 	logger.Info("iniciando o sistema Master Construtora")
+
+	// 1.1. Configuração do Logger da Aplicação
+	appLogger, err := logging.NewAppLogger(logging.Config{
+		Service:      "master-construtora",
+		LogDirectory: "./logs",
+		LogLevel:     slog.LevelInfo,
+	})
+	if err != nil {
+		logger.Error("não foi possível inicializar o logger da aplicação", "erro", err)
+		os.Exit(1)
+	}
+	defer appLogger.Close()
+
+	// 1.2. Criar logger específico do dashboard
+	dashLogger := logging.NewDashboardLogger(appLogger)
 
 	// 2. Carregamento de Configurações (Correto)
 	if err := godotenv.Load(); err != nil {
@@ -82,6 +100,7 @@ func main() {
 	apontamentoRepo := postgres.NovoApontamentoRepository(dbpool, logger)
 	categoriaRepo := postgres.NovoCategoriaRepository(dbpool, logger)
 	etapaPadraoRepo := postgres.NovoEtapaPadraoRepository(dbpool, logger) // NOVO
+	dashboardQuerier := postgres.NovoDashboardQuerier(dbpool, logger) // NOVO
 
 	// Serviços
 	identidadeSvc := identidade_service.NovoServico(usuarioRepo, passwordHasher, jwtService, logger)
@@ -128,6 +147,9 @@ func main() {
 		logger,
 	)
 
+	// Serviço do Dashboard
+	dashboardSvc := dashboard_service.NovoServicoDashboard(dashboardQuerier, logger, dashLogger)
+
 	// Handlers HTTP (Correto)
 	identidadeHandler := identidade_handler.NovoIdentidadeHandler(identidadeSvc, logger)
 	pessoalHandler := pessoal_handler.NovoPessoalHandler(pessoalSvc, logger)
@@ -135,6 +157,7 @@ func main() {
 	finaceiroHandler := financeiro_handler.NovoFinanceiroHandler(financeiroSvc, logger)
 	// CORREÇÃO: Usando a variável com nome correto 'suprimentosSvc'.
 	suprimentosHandler := suprimentos_handler.NovoSuprimentosHandler(suprimentosSvc, logger)
+	dashboardHandler := dashboard_handler.NovoDashboardHandler(dashboardSvc, logger, dashLogger, jwtService)
 
 	// 4. Configuração do Event Bus e Manipuladores de Eventos (Correto)
 	obrasEventHandler := obras_events.NovoObrasEventHandler(logger)
@@ -148,6 +171,7 @@ func main() {
 		PessoalHandler:     pessoalHandler,
 		SuprimentosHandler: suprimentosHandler,
 		FinanceiroHandler:  finaceiroHandler,
+		DashboardHandler:   dashboardHandler,
 	}
 	r := router.New(routerCfg)
 

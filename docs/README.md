@@ -39,12 +39,49 @@ Esta pasta contém toda a documentação técnica do projeto Master Construtora,
 - Implementação de handlers
 - Padrões event-driven
 
+### 📊 [DASHBOARD_API.md](./DASHBOARD_API.md)
+**Dashboard e Métricas**
+- APIs de dashboard e relatórios
+- Métricas financeiras e operacionais
+- Gráficos e indicadores
+- Performance e análises
+
 ### 💻 [FRONTEND.md](./FRONTEND.md)
 **Guia de Integração Frontend**
 - Configuração e consumo da API
 - Modelos de dados TypeScript
 - Componentes React de exemplo
 - Tratamento de autenticação e erros
+
+## 📋 Documentação por Módulo
+
+### 🏗️ [MODULO_OBRAS.md](./MODULO_OBRAS.md)
+**Módulo de Obras**
+- Gestão de projetos de construção
+- Controle financeiro de contratos
+- Cronogramas de recebimento
+- Alocação de recursos e etapas
+
+### 👥 [MODULO_PESSOAL.md](./MODULO_PESSOAL.md)
+**Módulo de Pessoal**
+- Gestão de funcionários
+- Apontamentos quinzenais
+- Aprovação e processamento de pagamentos
+- Integração com sistema financeiro
+
+### 📦 [MODULO_SUPRIMENTOS.md](./MODULO_SUPRIMENTOS.md)
+**Módulo de Suprimentos**
+- Gestão de fornecedores e produtos
+- Sistema de orçamentos e cotações
+- Controle de categorias
+- Aprovação de compras
+
+### 💰 [MODULO_FINANCEIRO.md](./MODULO_FINANCEIRO.md)
+**Módulo Financeiro**
+- Contas a receber e a pagar
+- Fluxo de caixa consolidado
+- Cronogramas de pagamento
+- Integração automática por eventos
 
 ### 🛠️ [DEVELOPMENT.md](./DEVELOPMENT.md)
 **Guia de Desenvolvimento**
@@ -71,32 +108,35 @@ Para começar rapidamente:
 ## 📋 Funcionalidades Principais
 
 ### 🏗️ **Obras**
-- CRUD completo de obras e etapas
-- Dashboard com métricas em tempo real
-- Alocação de funcionários
-- Acompanhamento de progresso
+- CRUD completo de obras com controle financeiro
+- Cronogramas de recebimento por etapas
+- Alocação de funcionários e recursos
+- Dashboard com métricas financeiras e operacionais
 
 ### 👥 **Pessoal**
-- Gestão de funcionários
-- Apontamentos quinzenais
-- Aprovação e pagamento
-- Controle de horas trabalhadas
+- Gestão completa de funcionários
+- Apontamentos quinzenais com aprovação
+- Processamento de pagamentos integrado
+- Controle de horas e produtividade
 
 ### 📦 **Suprimentos**
-- Cadastro de fornecedores e produtos
-- Criação e gestão de orçamentos
-- Controle de categorias
-- Aprovação de compras
+- Gestão de fornecedores com avaliação
+- Sistema de orçamentos com aprovação workflow
+- Catálogo de produtos por categoria
+- Integração automática com contas a pagar
 
 ### 💰 **Financeiro**
-- Registro de pagamentos
-- Controle de custos por obra
-- Integração com outros módulos
+- Contas a receber de projetos
+- Contas a pagar para fornecedores
+- Fluxo de caixa consolidado em tempo real
+- Cronogramas de pagamento automatizados
+- Integração por eventos com outros módulos
 
 ### 🔐 **Identidade**
-- Autenticação JWT
-- Controle de permissões granular
-- Gestão de usuários
+- Autenticação JWT com cookies httpOnly
+- Sistema RBAC com permissões granulares
+- Gestão de usuários e papéis
+- Middleware de autorização por endpoint
 
 ## 🏗️ Arquitetura Overview
 

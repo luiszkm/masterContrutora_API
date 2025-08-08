@@ -37,8 +37,8 @@ import (
 	pessoal_service "github.com/luiszkm/masterCostrutora/internal/service/pessoal"
 	suprimentos_service "github.com/luiszkm/masterCostrutora/internal/service/suprimentos"
 
-	obras_events "github.com/luiszkm/masterCostrutora/internal/service/obras/events"
 	financeiro_events "github.com/luiszkm/masterCostrutora/internal/service/financeiro/events"
+	obras_events "github.com/luiszkm/masterCostrutora/internal/service/obras/events"
 )
 
 func main() {
@@ -90,8 +90,6 @@ func main() {
 	passwordHasher := security.NewBcryptHasher()
 	eventBus := bus.NovoEventBus(logger.With("component", "EventBus"))
 
-	// --- 4. Injeção de Dependências (Wiring) - SEÇÃO CORRIGIDA ---
-
 	// Repositórios Concretos
 	usuarioRepo := postgres.NewUsuarioRepository(dbpool, logger)
 	obraRepo := postgres.NovaObraRepository(dbpool, logger)
@@ -131,11 +129,11 @@ func main() {
 		dbpool,   // Nova dependência para controle de transação
 		logger,
 	)
-	
+
 	// Services financeiros específicos
 	contaReceberSvc := financeiro_service.NovoContaReceberService(contaReceberRepo, eventBus, logger)
 	contaPagarSvc := financeiro_service.NovoContaPagarService(contaPagarRepo, eventBus, logger)
-	
+
 	obraSvc := obras_service.NovoServico(
 		obraRepo,
 		etapaRepo,
@@ -177,22 +175,22 @@ func main() {
 	// 4. Configuração do Event Bus e Manipuladores de Eventos (Correto)
 	obrasEventHandler := obras_events.NovoObrasEventHandler(logger)
 	eventBus.Subscrever(events.OrcamentoStatusAtualizado, obrasEventHandler.HandleOrcamentoStatusAtualizado)
-	
+
 	// Event Handlers Financeiros
 	financeiroEventHandler := financeiro_events.NovoFinanceiroEventHandler(contaReceberSvc, contaPagarSvc, logger)
 	financeiro_events.ConfigurarEventHandlers(*eventBus, financeiroEventHandler)
 
 	// 5. Configuração do Servidor HTTP e Roteamento (Correto)
 	routerCfg := router.Config{
-		JwtService:         jwtService,
-		IdentidadeHandler:  identidadeHandler,
-		ObrasHandler:       obraHandler,
-		PessoalHandler:     pessoalHandler,
-		SuprimentosHandler: suprimentosHandler,
-		FinanceiroHandler:  finaceiroHandler,
+		JwtService:          jwtService,
+		IdentidadeHandler:   identidadeHandler,
+		ObrasHandler:        obraHandler,
+		PessoalHandler:      pessoalHandler,
+		SuprimentosHandler:  suprimentosHandler,
+		FinanceiroHandler:   finaceiroHandler,
 		ContaReceberHandler: contaReceberHandler,
-		ContaPagarHandler:  contaPagarHandler,
-		DashboardHandler:   dashboardHandler,
+		ContaPagarHandler:   contaPagarHandler,
+		DashboardHandler:    dashboardHandler,
 	}
 	r := router.New(routerCfg)
 

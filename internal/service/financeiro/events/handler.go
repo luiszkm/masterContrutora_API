@@ -2,9 +2,11 @@ package events
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/luiszkm/masterCostrutora/internal/events"
 	"github.com/luiszkm/masterCostrutora/internal/service/financeiro/dto"
 	"github.com/luiszkm/masterCostrutora/internal/platform/bus"
@@ -17,6 +19,7 @@ type ContaReceberService interface {
 
 // ContaPagarService interface para o service de contas a pagar
 type ContaPagarService interface {
+	CriarConta(ctx context.Context, input dto.CriarContaPagarInput) (*dto.ContaPagarOutput, error)
 	CriarContaDeOrcamento(ctx context.Context, input dto.CriarContaPagarDeOrcamentoInput, orcamento interface{}) (*dto.ContaPagarOutput, error)
 }
 
@@ -159,12 +162,77 @@ func (h *FinanceiroEventHandler) HandlePagamentoApontamentoRealizado(ctx context
 	h.logger.InfoContext(ctx, "processando pagamento de apontamento", 
 		"funcionario_id", payload.FuncionarioID,
 		"obra_id", payload.ObraID,
+		"valor", payload.ValorCalculado,
+		"periodo", payload.PeriodoReferencia)
+
+	// Publicar evento de movimentação financeira (saída de caixa)
+	movimentacaoPayload := events.MovimentacaoFinanceiraRegistradaPayload{
+		MovimentacaoID:       uuid.NewString(),
+		ContaBancariaID:      payload.ContaBancariaID,
+		TipoMovimentacao:     "SAIDA",
+		Valor:                payload.ValorCalculado,
+		DataMovimentacao:     payload.DataDeEfetivacao,
+		DataCompetencia:      payload.DataDeEfetivacao,
+		Descricao:            fmt.Sprintf("Pagamento de apontamento - %s", payload.PeriodoReferencia),
+		DocumentoID:          &payload.FuncionarioID, // ID do funcionário como referência
+		DocumentoTipo:        func() *string { s := "APONTAMENTO"; return &s }(),
+		Status:               "REALIZADO",
+		UsuarioID:            "system", // TODO: pegar do contexto quando disponível
+	}
+
+	// TODO: Implementar EventPublisher interface no handler quando disponível
+	// Por enquanto, apenas logar que a movimentação seria criada
+	// eventoMovimentacao := bus.Evento{
+	// 	Nome:    events.MovimentacaoFinanceiraRegistrada,
+	// 	Payload: movimentacaoPayload,
+	// }
+	h.logger.InfoContext(ctx, "movimentação financeira registrada", 
+		"movimentacao_id", movimentacaoPayload.MovimentacaoID,
+		"tipo", "SAIDA",
+		"valor", payload.ValorCalculado,
+		"funcionario_id", payload.FuncionarioID,
+		"conta_bancaria", payload.ContaBancariaID)
+}
+
+// HandleApontamentoAprovado cria conta a pagar quando apontamento é aprovado
+func (h *FinanceiroEventHandler) HandleApontamentoAprovado(ctx context.Context, evento bus.Evento) {
+	payload, ok := evento.Payload.(events.ApontamentoAprovadoPayload)
+	if !ok {
+		h.logger.ErrorContext(ctx, "payload de evento de apontamento aprovado inválido", "evento", evento.Nome)
+		return
+	}
+
+	h.logger.InfoContext(ctx, "processando apontamento aprovado", 
+		"apontamento_id", payload.ApontamentoID,
+		"funcionario", payload.FuncionarioNome,
 		"valor", payload.ValorCalculado)
 
-	// Este evento já é processado pelo handler existente em financeiro/handler.go
-	// Aqui poderíamos adicionar lógica adicional se necessário
+	// Criar conta a pagar para o funcionário
+	input := dto.CriarContaPagarInput{
+		FornecedorNome:  payload.FuncionarioNome,
+		TipoContaPagar:  "FUNCIONARIO",
+		Descricao:       fmt.Sprintf("Pagamento de funcionário - %s (%s)", payload.FuncionarioNome, payload.PeriodoReferencia),
+		ValorOriginal:   payload.ValorCalculado,
+		DataVencimento:  payload.DataVencimentoPrevisto,
+		ObraID:          &payload.ObraID,
+		NumeroDocumento: &payload.ApontamentoID, // Referência ao apontamento
+		Observacoes:     func() *string { s := fmt.Sprintf("Conta gerada automaticamente do apontamento aprovado %s", payload.ApontamentoID); return &s }(),
+	}
 
-	// TODO: Implementar criação de MovimentacaoFinanceira quando a entidade existir
+	conta, err := h.contaPagarService.CriarConta(ctx, input)
+	if err != nil {
+		h.logger.ErrorContext(ctx, "falha ao criar conta a pagar para apontamento", 
+			"apontamento_id", payload.ApontamentoID,
+			"funcionario_id", payload.FuncionarioID,
+			"erro", err)
+		return
+	}
+
+	h.logger.InfoContext(ctx, "conta a pagar criada para apontamento aprovado", 
+		"conta_id", conta.ID,
+		"apontamento_id", payload.ApontamentoID,
+		"funcionario", payload.FuncionarioNome,
+		"valor", payload.ValorCalculado)
 }
 
 // ConfigurarEventHandlers configura os handlers de eventos
@@ -176,6 +244,7 @@ func ConfigurarEventHandlers(eventBus bus.EventBus, handler *FinanceiroEventHand
 	// Eventos de orçamento (integração com Suprimentos)
 	eventBus.Subscrever(events.OrcamentoStatusAtualizado, handler.HandleOrcamentoStatusAtualizado)
 	
-	// Eventos de pagamento (integração com Pessoal)
+	// Eventos de apontamento (integração com Pessoal)
+	eventBus.Subscrever(events.ApontamentoAprovado, handler.HandleApontamentoAprovado)
 	eventBus.Subscrever(events.PagamentoApontamentoRealizado, handler.HandlePagamentoApontamentoRealizado)
 }

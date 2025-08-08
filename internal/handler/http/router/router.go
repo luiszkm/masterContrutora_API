@@ -24,6 +24,8 @@ type Config struct {
 	PessoalHandler     *pessoal.Handler
 	SuprimentosHandler *suprimentos.Handler
 	FinanceiroHandler  *financeiro.Handler
+	ContaReceberHandler *financeiro.ContaReceberHandler
+	ContaPagarHandler  *financeiro.ContaPagarHandler
 	DashboardHandler   *dashboard.Handler
 }
 
@@ -186,6 +188,58 @@ func New(c Config) *chi.Mux {
 		r.With(auth.Authorize(authz.PermissaoFinanceiroEscrever)).
 			Post("/pagamentos/lote", c.FinanceiroHandler.HandleRegistrarPagamentosEmLote)
 		r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).Get("/pagamentos", c.FinanceiroHandler.HandleListarPagamentos)
+
+		// --- Contas a Receber ---
+		r.Route("/contas-receber", func(r chi.Router) {
+			// CRUD básico
+			r.With(auth.Authorize(authz.PermissaoFinanceiroEscrever)).
+				Post("/", c.ContaReceberHandler.HandleCriarConta)
+			r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).
+				Get("/", c.ContaReceberHandler.HandleListarContas)
+			r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).
+				Get("/{contaId}", c.ContaReceberHandler.HandleBuscarConta)
+			
+			// Ações específicas
+			r.With(auth.Authorize(authz.PermissaoFinanceiroEscrever)).
+				Post("/{contaId}/recebimentos", c.ContaReceberHandler.HandleRegistrarRecebimento)
+			
+			// Relatórios e consultas
+			r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).
+				Get("/vencidas", c.ContaReceberHandler.HandleListarContasVencidas)
+			r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).
+				Get("/resumo", c.ContaReceberHandler.HandleObterResumo)
+		})
+
+		// --- Contas a Pagar ---
+		r.Route("/contas-pagar", func(r chi.Router) {
+			// CRUD básico
+			r.With(auth.Authorize(authz.PermissaoFinanceiroEscrever)).
+				Post("/", c.ContaPagarHandler.HandleCriarConta)
+			r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).
+				Get("/", c.ContaPagarHandler.HandleListarContas)
+			r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).
+				Get("/{contaId}", c.ContaPagarHandler.HandleBuscarConta)
+			
+			// Ações específicas
+			r.With(auth.Authorize(authz.PermissaoFinanceiroEscrever)).
+				Post("/{contaId}/pagamentos", c.ContaPagarHandler.HandleRegistrarPagamento)
+			r.With(auth.Authorize(authz.PermissaoFinanceiroEscrever)).
+				Post("/orcamentos", c.ContaPagarHandler.HandleCriarContaDeOrcamento)
+			
+			// Relatórios e consultas
+			r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).
+				Get("/vencidas", c.ContaPagarHandler.HandleListarContasVencidas)
+			r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).
+				Get("/resumo", c.ContaPagarHandler.HandleObterResumo)
+		})
+
+		// Rotas específicas por entidade relacionada
+		r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).
+			Get("/obras/{obraId}/contas-receber", c.ContaReceberHandler.HandleListarContasPorObra)
+		r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).
+			Get("/obras/{obraId}/contas-pagar", c.ContaPagarHandler.HandleListarContasPorObra)
+		r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).
+			Get("/fornecedores/{fornecedorId}/contas-pagar", c.ContaPagarHandler.HandleListarContasPorFornecedor)
 
 		r.Route("/etapas-padroes", func(r chi.Router) {
 			r.With(auth.Authorize(authz.PermissaoObrasLer)).Get("/", c.ObrasHandler.HandleListarEtapasPadrao)

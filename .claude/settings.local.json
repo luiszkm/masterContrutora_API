@@ -12,7 +12,9 @@
       "Bash(cmd.exe /c \"taskkill /f /pid 11936\")",
       "Bash(grep:*)",
       "Bash(docker-compose up:*)",
-      "Bash(docker exec:*)"
+      "Bash(docker exec:*)",
+      "Bash(pkill:*)",
+      "Bash(timeout 10 go run ./cmd/server/main.go)"
     ],
     "deny": []
   }

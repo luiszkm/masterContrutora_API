@@ -1,0 +1,187 @@
+### ===============================================
+### TESTE ESPECÍFICO DAS ROTAS FINANCEIRAS
+### Arquivo para testar as rotas implementadas
+### ===============================================
+
+@baseUrl = http://localhost:8081
+@contentType = application/json
+
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTQ3MjUzNTAsImlhdCI6MTc1NDY5NjU1MCwicGVybWlzc29lcyI6WyJvYnJhczplc2NyZXZlciIsInN1cHJpbWVudG9zOmxlciIsInBlc3NvYWw6YXBvbnRhbWVudG86YXByb3ZhciIsInBlc3NvYWw6YXBvbnRhbWVudG86bGVyIiwib2JyYXM6bGVyIiwicGVzc29hbDplc2NyZXZlciIsInBlc3NvYWw6bGVyIiwic3VwcmltZW50b3M6ZXNjcmV2ZXIiLCJmaW5hbmNlaXJvOmxlciIsImZpbmFuY2Vpcm86ZXNjcmV2ZXIiLCJwZXNzb2FsOmFwb250YW1lbnRvOmVzY3JldmVyIiwicGVzc29hbDphcG9udGFtZW50bzpwYWdhciJdLCJzdWIiOiI4NjEzOTcyMC02YTc4LTQxMjMtYjIwYS05NTU0MTFkMzAyMmYifQ.XAYwi0KPRi-LTR0zRYAqrJGaNO712LCEgkqhPa6XqKM
+
+### 1. LOGIN PARA OBTER TOKEN
+POST {{baseUrl}}/usuarios/login
+Content-Type: {{contentType}}
+
+{
+  "email": "admin@example.com",
+  "senha": "123456"
+}
+
+### 2. HEALTH CHECK
+GET {{baseUrl}}/health
+
+### ===============================================
+### CONTAS A RECEBER - TESTES DAS ROTAS
+### ===============================================
+
+### Criar conta a receber
+POST {{baseUrl}}/contas-receber
+Content-Type: {{contentType}}
+Authorization: Bearer {{token}}
+
+{
+  "cliente": "Cliente Teste",
+  "tipoContaReceber": "OBRA",
+  "descricao": "Conta de teste para validar rotas",
+  "valorOriginal": 1000.00,
+  "dataVencimento": "2025-02-28T00:00:00Z"
+}
+
+### Listar contas a receber com paginação
+GET {{baseUrl}}/contas-receber?page=1&pageSize=10
+Authorization: Bearer {{token}}
+
+### Listar contas a receber com filtros
+GET {{baseUrl}}/contas-receber?status=PENDENTE&cliente=Cliente
+Authorization: Bearer {{token}}
+
+### Buscar conta específica (substituir por ID real)
+GET {{baseUrl}}/contas-receber/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{token}}
+
+### Listar contas vencidas
+GET {{baseUrl}}/contas-receber/vencidas
+Authorization: Bearer {{token}}
+
+### Obter resumo de contas a receber
+GET {{baseUrl}}/contas-receber/resumo
+Authorization: Bearer {{token}}
+
+### Registrar recebimento (substituir por ID real)
+POST {{baseUrl}}/contas-receber/00000000-0000-0000-0000-000000000000/recebimentos
+Content-Type: {{contentType}}
+Authorization: Bearer {{token}}
+
+{
+  "valor": 500.00,
+  "formaPagamento": "PIX",
+  "observacoes": "Recebimento parcial teste"
+}
+
+### ===============================================
+### CONTAS A PAGAR - TESTES DAS ROTAS
+### ===============================================
+
+### Criar conta a pagar
+POST {{baseUrl}}/contas-pagar
+Content-Type: {{contentType}}
+Authorization: Bearer {{token}}
+
+{
+  "fornecedorNome": "Fornecedor Teste",
+  "tipoContaPagar": "FORNECEDOR",
+  "descricao": "Conta de teste para validar rotas",
+  "valorOriginal": 2000.00,
+  "dataVencimento": "2025-03-15T00:00:00Z"
+}
+
+### Listar contas a pagar com paginação
+GET {{baseUrl}}/contas-pagar?page=1&pageSize=10
+Authorization: Bearer {{token}}
+
+### Listar contas a pagar com filtros
+GET {{baseUrl}}/contas-pagar?status=PENDENTE&fornecedorNome=Teste
+Authorization: Bearer {{token}}
+
+### Buscar conta específica (substituir por ID real)
+GET {{baseUrl}}/contas-pagar/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{token}}
+
+### Listar contas vencidas
+GET {{baseUrl}}/contas-pagar/vencidas
+Authorization: Bearer {{token}}
+
+### Obter resumo de contas a pagar
+GET {{baseUrl}}/contas-pagar/resumo
+Authorization: Bearer {{token}}
+
+### Criar conta a pagar de orçamento
+POST {{baseUrl}}/contas-pagar/orcamentos
+Content-Type: {{contentType}}
+Authorization: Bearer {{token}}
+
+{
+  "orcamentoId": "00000000-0000-0000-0000-000000000000",
+  "dataVencimento": "2025-04-01T00:00:00Z",
+  "observacoes": "Conta de orçamento teste"
+}
+
+### Registrar pagamento (substituir por ID real)
+POST {{baseUrl}}/contas-pagar/00000000-0000-0000-0000-000000000000/pagamentos
+Content-Type: {{contentType}}
+Authorization: Bearer {{token}}
+
+{
+  "valor": 1000.00,
+  "formaPagamento": "Transferência",
+  "observacoes": "Pagamento parcial teste"
+}
+
+### ===============================================
+### ROTAS POR ENTIDADE RELACIONADA
+### ===============================================
+
+### Listar contas a receber de uma obra (substituir por ID real de obra)
+GET {{baseUrl}}/obras/00000000-0000-0000-0000-000000000000/contas-receber
+Authorization: Bearer {{token}}
+
+### Listar contas a pagar de uma obra (substituir por ID real de obra)
+GET {{baseUrl}}/obras/00000000-0000-0000-0000-000000000000/contas-pagar
+Authorization: Bearer {{token}}
+
+### Listar contas a pagar de um fornecedor (substituir por ID real de fornecedor)
+GET {{baseUrl}}/fornecedores/00000000-0000-0000-0000-000000000000/contas-pagar
+Authorization: Bearer {{token}}
+
+### ===============================================
+### PAGAMENTOS (ROTAS EXISTENTES)
+### ===============================================
+
+### Listar pagamentos
+GET {{baseUrl}}/pagamentos
+Authorization: Bearer {{token}}
+
+### Registrar pagamento individual
+POST {{baseUrl}}/pagamentos
+Content-Type: {{contentType}}
+Authorization: Bearer {{token}}
+
+{
+  "funcionarioId": "00000000-0000-0000-0000-000000000000",
+  "obraId": "00000000-0000-0000-0000-000000000000",
+  "periodoReferencia": "01/2025",
+  "valorCalculado": 3000.00,
+  "contaBancariaId": "conta-bancaria-id"
+}
+
+### ===============================================
+### TESTE DE VALIDAÇÃO DE ROTAS 404/403
+### ===============================================
+
+### Rota inexistente - deve retornar 404
+GET {{baseUrl}}/contas-inexistente
+
+### Rota sem autenticação - deve retornar 401
+GET {{baseUrl}}/contas-receber
+
+### ===============================================
+### STATUS CODES ESPERADOS:
+### 
+### 200 - GET requests (sucesso)
+### 201 - POST requests (criação)
+### 401 - Requests sem token válido
+### 403 - Requests sem permissão adequada
+### 404 - Rotas inexistentes ou recursos não encontrados
+### 422 - Dados de input inválidos
+### 500 - Erros internos do servidor
+### ===============================================

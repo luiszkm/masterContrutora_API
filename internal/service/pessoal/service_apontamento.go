@@ -96,7 +96,47 @@ func (s *Service) AprovarApontamento(ctx context.Context, apontamentoID string) 
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	s.logger.InfoContext(ctx, "apontamento aprovado com sucesso", "apontamento_id", apontamento.ID)
+	// 4. Buscar dados complementares para o evento
+	funcionario, err := s.repo.BuscarPorID(ctx, apontamento.FuncionarioID)
+	if err != nil {
+		s.logger.WarnContext(ctx, "não foi possível buscar funcionário para evento", "funcionario_id", apontamento.FuncionarioID)
+	}
+
+	obra, err := s.obraFinder.BuscarPorID(ctx, apontamento.ObraID)
+	if err != nil {
+		s.logger.WarnContext(ctx, "não foi possível buscar obra para evento", "obra_id", apontamento.ObraID)
+	}
+
+	// 5. Publicar evento para criar conta a pagar
+	funcionarioNome := "Funcionário"
+	if funcionario != nil {
+		funcionarioNome = funcionario.Nome
+	}
+	
+	obraNome := "Obra"
+	if obra != nil {
+		obraNome = obra.Nome
+	}
+
+	payload := events.ApontamentoAprovadoPayload{
+		ApontamentoID:          apontamento.ID,
+		FuncionarioID:          apontamento.FuncionarioID,
+		FuncionarioNome:        funcionarioNome,
+		ObraID:                 apontamento.ObraID,
+		ObraNome:               obraNome,
+		PeriodoReferencia:      fmt.Sprintf("%s a %s", apontamento.PeriodoInicio.Format("02/01"), apontamento.PeriodoFim.Format("02/01/2006")),
+		ValorCalculado:         apontamento.ValorTotalCalculado,
+		DataAprovacao:          time.Now(),
+		DataVencimentoPrevisto: time.Now().AddDate(0, 0, 7), // 7 dias para pagamento
+		UsuarioID:              "system", // TODO: pegar do contexto quando disponível
+	}
+
+	s.eventBus.Publicar(ctx, bus.Evento{
+		Nome:    events.ApontamentoAprovado,
+		Payload: payload,
+	})
+
+	s.logger.InfoContext(ctx, "apontamento aprovado e evento publicado", "apontamento_id", apontamento.ID)
 	return apontamento, nil
 }
 func (s *Service) RegistrarPagamentoApontamento(ctx context.Context, apontamentoID string, contaPagamentoID string) (*pessoal.ApontamentoQuinzenal, error) {

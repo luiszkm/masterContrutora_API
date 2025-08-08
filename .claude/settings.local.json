@@ -10,7 +10,9 @@
       "Bash(curl:*)",
       "Bash(taskkill:*)",
       "Bash(cmd.exe /c \"taskkill /f /pid 11936\")",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker exec:*)"
     ],
     "deny": []
   }

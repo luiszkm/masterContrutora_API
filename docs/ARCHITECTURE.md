@@ -40,9 +40,15 @@ O Master Construtora é um sistema de gestão para empresas de construção civi
 ### 2. Obras (Construction Projects)
 **Responsabilidade**: Gestão de projetos de construção
 
-- **Entidades**: Obra, Etapa, EtapaPadrao, Alocacao
-- **Casos de Uso**: CRUD de obras, Gestão de etapas, Alocação de funcionários
-- **Funcionalidades Especiais**: Dashboard com métricas calculadas
+- **Entidades**: Obra, Etapa, EtapaPadrao, Alocacao, CronogramaRecebimento
+- **Casos de Uso**: 
+  - CRUD de obras com controle financeiro
+  - Gestão de etapas de construção
+  - Alocação de funcionários
+  - Cronogramas de recebimento por etapas
+  - Controle de valores contratuais
+- **Funcionalidades Especiais**: Dashboard com métricas calculadas e financeiras
+- **Integração**: Publica eventos de cronogramas criados para o módulo Financeiro
 
 ### 3. Pessoal (Personnel)
 **Responsabilidade**: Gestão de recursos humanos
@@ -59,11 +65,19 @@ O Master Construtora é um sistema de gestão para empresas de construção civi
 - **Integração**: Envia eventos para atualização de custos
 
 ### 5. Financeiro (Financial)
-**Responsabilidade**: Controle financeiro e pagamentos
+**Responsabilidade**: Controle financeiro completo da construtora
 
-- **Entidades**: RegistroPagamento
-- **Casos de Uso**: Processamento de pagamentos, Controle financeiro
-- **Integração**: Recebe eventos de outros módulos
+- **Entidades**: ContaReceber, ContaPagar, ParcelaContaPagar, CronogramaRecebimento, RegistroPagamento
+- **Casos de Uso**: 
+  - Gestão de contas a receber (receitas de obras)
+  - Gestão de contas a pagar (fornecedores e serviços)
+  - Cronogramas de recebimento por etapas
+  - Fluxo de caixa consolidado
+  - Processamento de pagamentos
+- **Integração**: 
+  - Recebe eventos de orçamentos aprovados (Suprimentos) → cria contas a pagar
+  - Recebe eventos de pagamentos (Pessoal) → registra saídas
+  - Publica eventos de movimentações financeiras
 
 ## Estrutura de Diretórios
 

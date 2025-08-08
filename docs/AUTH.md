@@ -145,8 +145,14 @@ const (
     PermissaoSuprimentosEscrever = "suprimentos:escrever"
     
     // Financeiro
-    PermissaoFinanceiroLer      = "financeiro:ler"
-    PermissaoFinanceiroEscrever = "financeiro:escrever"
+    PermissaoFinanceiroLer                = "financeiro:ler"
+    PermissaoFinanceiroEscrever           = "financeiro:escrever"
+    PermissaoFinanceiroContasReceberLer   = "financeiro:contas_receber:ler"
+    PermissaoFinanceiroContasReceberEscrever = "financeiro:contas_receber:escrever"
+    PermissaoFinanceiroContasPagarLer     = "financeiro:contas_pagar:ler"
+    PermissaoFinanceiroContasPagarEscrever   = "financeiro:contas_pagar:escrever"
+    PermissaoFinanceiroCronogramaLer      = "financeiro:cronograma:ler"
+    PermissaoFinanceiroCronogramaEscrever = "financeiro:cronograma:escrever"
 )
 ```
 

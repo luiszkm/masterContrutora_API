@@ -36,40 +36,36 @@ func (q *DashboardQuerierPostgres) ObterFluxoCaixa(ctx context.Context, dataInic
 			SELECT date_trunc('month', generate_series($1::date, $2::date, '1 month'::interval)) as periodo
 		),
 		entradas AS (
-			-- Aqui consideramos como entradas valores aprovados de orçamentos (receitas)
-			-- Pode ser ajustado conforme a lógica de negócio específica
+			-- ENTRADAS REAIS: Recebimentos de obras (receitas efetivas)
 			SELECT 
-				date_trunc('month', data_aprovacao) as periodo,
-				COALESCE(SUM(valor_total), 0) as valor
-			FROM orcamentos 
-			WHERE data_aprovacao BETWEEN $1 AND $2 
-				AND status = 'Aprovado'
-				AND deleted_at IS NULL
-			GROUP BY date_trunc('month', data_aprovacao)
+				date_trunc('month', cr.data_recebimento) as periodo,
+				COALESCE(SUM(cr.valor_recebido), 0) as valor
+			FROM contas_receber cr
+			WHERE cr.data_recebimento BETWEEN $1 AND $2 
+				AND cr.status = 'RECEBIDO'
+			GROUP BY date_trunc('month', cr.data_recebimento)
 		),
 		saidas AS (
-			-- Saídas: pagamentos realizados + custos de mão de obra
+			-- SAÍDAS REAIS: Pagamentos efetivamente realizados
 			SELECT periodo, SUM(valor) as valor FROM (
-				-- Pagamentos de funcionários
+				-- Pagamentos de funcionários (registros_pagamento)
 				SELECT 
-					date_trunc('month', aq.created_at) as periodo,
-					COALESCE(SUM(aq.valor_total_calculado), 0) as valor
-				FROM apontamentos_quinzenais aq
-				WHERE aq.created_at BETWEEN $1 AND $2
-					AND aq.status = 'Aprovado'
-				GROUP BY date_trunc('month', aq.created_at)
+					date_trunc('month', rp.data_de_efetivacao) as periodo,
+					COALESCE(SUM(rp.valor_calculado), 0) as valor
+				FROM registros_pagamento rp
+				WHERE rp.data_de_efetivacao BETWEEN $1 AND $2
+				GROUP BY date_trunc('month', rp.data_de_efetivacao)
 				
+				-- Pagamentos de fornecedores (contas a pagar)
 				UNION ALL
-				
-				-- Gastos com fornecedores (orçamentos aprovados como saídas)
 				SELECT 
-					date_trunc('month', o.data_aprovacao) as periodo,
-					COALESCE(SUM(o.valor_total), 0) as valor
-				FROM orcamentos o
-				WHERE o.data_aprovacao BETWEEN $1 AND $2
-					AND o.status = 'Aprovado'
-					AND o.deleted_at IS NULL
-				GROUP BY date_trunc('month', o.data_aprovacao)
+				    date_trunc('month', cp.data_pagamento) as periodo,
+				    COALESCE(SUM(cp.valor_pago), 0) as valor
+				FROM contas_pagar cp
+				WHERE cp.data_pagamento BETWEEN $1 AND $2
+				    AND cp.status IN ('PAGO', 'PARCIAL')
+				    AND cp.data_pagamento IS NOT NULL
+				GROUP BY date_trunc('month', cp.data_pagamento)
 			) todas_saidas
 			GROUP BY periodo
 		)

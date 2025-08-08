@@ -1,0 +1,244 @@
+### ===========================================
+### TESTES FASE 2 - CONTAS A PAGAR E RECEITAS
+### ===========================================
+
+@baseUrl = http://localhost:8080
+@contentType = application/json
+
+### ===========================================
+### 1. CRONOGRAMA DE RECEBIMENTO (RECEITAS)
+### ===========================================
+
+### Criar cronograma de recebimento individual
+POST {{baseUrl}}/cronograma-recebimentos
+Content-Type: {{contentType}}
+
+{
+  "obraId": "uuid-obra-exemplo",
+  "numeroEtapa": 1,
+  "descricaoEtapa": "Primeira parcela - Fundação",
+  "valorPrevisto": 50000.00,
+  "dataVencimento": "2025-02-15T00:00:00Z"
+}
+
+### Criar cronograma de recebimento em lote
+POST {{baseUrl}}/cronograma-recebimentos/lote
+Content-Type: {{contentType}}
+
+{
+  "obraId": "uuid-obra-exemplo",
+  "substituirExistente": true,
+  "cronogramas": [
+    {
+      "numeroEtapa": 1,
+      "descricaoEtapa": "Fundação",
+      "valorPrevisto": 50000.00,
+      "dataVencimento": "2025-02-15T00:00:00Z"
+    },
+    {
+      "numeroEtapa": 2,
+      "descricaoEtapa": "Estrutura",
+      "valorPrevisto": 80000.00,
+      "dataVencimento": "2025-04-15T00:00:00Z"
+    },
+    {
+      "numeroEtapa": 3,
+      "descricaoEtapa": "Acabamento",
+      "valorPrevisto": 70000.00,
+      "dataVencimento": "2025-06-15T00:00:00Z"
+    }
+  ]
+}
+
+### Listar cronogramas por obra
+GET {{baseUrl}}/obras/uuid-obra-exemplo/cronograma-recebimentos
+
+### Registrar recebimento
+POST {{baseUrl}}/cronograma-recebimentos/uuid-cronograma/recebimentos
+Content-Type: {{contentType}}
+
+{
+  "valor": 25000.00,
+  "observacoes": "Recebimento parcial da primeira etapa"
+}
+
+### ===========================================
+### 2. CONTAS A RECEBER
+### ===========================================
+
+### Criar conta a receber manual
+POST {{baseUrl}}/contas-receber
+Content-Type: {{contentType}}
+
+{
+  "obraId": "uuid-obra-exemplo",
+  "cliente": "Cliente ABC Ltda",
+  "tipoContaReceber": "OBRA",
+  "descricao": "Serviços de consultoria",
+  "valorOriginal": 15000.00,
+  "dataVencimento": "2025-03-01T00:00:00Z",
+  "numeroDocumento": "NF-001/2025"
+}
+
+### Listar contas a receber com paginação
+GET {{baseUrl}}/contas-receber?limite=10&pagina=1
+
+### Listar contas vencidas
+GET {{baseUrl}}/contas-receber/vencidas
+
+### Resumo de contas a receber
+GET {{baseUrl}}/contas-receber/resumo
+
+### Registrar recebimento de conta
+POST {{baseUrl}}/contas-receber/uuid-conta/recebimentos
+Content-Type: {{contentType}}
+
+{
+  "valor": 15000.00,
+  "formaPagamento": "PIX",
+  "contaBancariaId": "uuid-conta-bancaria",
+  "observacoes": "Pagamento à vista"
+}
+
+### ===========================================
+### 3. CONTAS A PAGAR
+### ===========================================
+
+### Criar conta a pagar manual
+POST {{baseUrl}}/contas-pagar
+Content-Type: {{contentType}}
+
+{
+  "fornecedorId": "uuid-fornecedor-exemplo",
+  "obraId": "uuid-obra-exemplo",
+  "fornecedorNome": "Fornecedor XYZ Ltda",
+  "tipoContaPagar": "MATERIAL",
+  "descricao": "Materiais de construção - Cimento e areia",
+  "valorOriginal": 8500.00,
+  "dataVencimento": "2025-02-28T00:00:00Z",
+  "numeroDocumento": "NF-789/2025",
+  "numeroCompraNf": "COMP-123",
+  "observacoes": "Entrega realizada em 15/01/2025"
+}
+
+### Criar conta a pagar de orçamento (automática)
+POST {{baseUrl}}/contas-pagar/orcamentos
+Content-Type: {{contentType}}
+
+{
+  "orcamentoId": "uuid-orcamento-aprovado",
+  "dataVencimento": "2025-03-15T00:00:00Z",
+  "numeroCompraNf": "COMP-456",
+  "observacoes": "Conta gerada automaticamente do orçamento aprovado",
+  "dividirParcelas": true,
+  "quantidadeParcelas": 3
+}
+
+### Listar contas a pagar
+GET {{baseUrl}}/contas-pagar?limite=10&pagina=1
+
+### Listar contas vencidas
+GET {{baseUrl}}/contas-pagar/vencidas
+
+### Listar contas por obra
+GET {{baseUrl}}/obras/uuid-obra-exemplo/contas-pagar
+
+### Listar contas por fornecedor
+GET {{baseUrl}}/fornecedores/uuid-fornecedor/contas-pagar
+
+### Resumo de contas a pagar
+GET {{baseUrl}}/contas-pagar/resumo
+
+### Registrar pagamento
+POST {{baseUrl}}/contas-pagar/uuid-conta/pagamentos
+Content-Type: {{contentType}}
+
+{
+  "valor": 8500.00,
+  "formaPagamento": "Transferência Bancária",
+  "contaBancariaId": "uuid-conta-bancaria",
+  "observacoes": "Pagamento integral da nota fiscal"
+}
+
+### ===========================================
+### 4. FLUXO DE CAIXA ATUALIZADO
+### ===========================================
+
+### Fluxo de caixa geral (agora com receitas e despesas reais)
+GET {{baseUrl}}/dashboard/fluxo-caixa
+
+### Fluxo de caixa por período
+GET {{baseUrl}}/dashboard/fluxo-caixa?dataInicio=2025-01-01&dataFim=2025-06-30
+
+### Dashboard financeiro completo
+GET {{baseUrl}}/dashboard/financeiro
+
+### ===========================================
+### 5. TESTES DE INTEGRAÇÃO (Simulação de Fluxo)
+### ===========================================
+
+### 1. Criar obra com valores financeiros
+POST {{baseUrl}}/obras
+Content-Type: {{contentType}}
+
+{
+  "nome": "Casa Residencial - Teste Financeiro",
+  "cliente": "João Silva",
+  "endereco": "Rua das Flores, 123",
+  "dataInicio": "2025-01-01",
+  "descricao": "Casa de 200m² com 3 quartos",
+  "valorContratoTotal": 200000.00,
+  "tipoCobranca": "ETAPAS",
+  "dataAssinaturaContrato": "2024-12-15T00:00:00Z"
+}
+
+### 2. Criar cronograma de recebimento para a obra
+# (Usar obraId retornado da criação acima)
+
+### 3. Aprovar orçamento (deve criar conta a pagar automaticamente)
+PUT {{baseUrl}}/orcamentos/uuid-orcamento/status
+Content-Type: {{contentType}}
+
+{
+  "status": "Aprovado"
+}
+
+### 4. Registrar recebimento de cliente
+# (Usar cronogramaId criado)
+
+### 5. Registrar pagamento de fornecedor  
+# (Usar contaId gerada automaticamente)
+
+### 6. Verificar fluxo de caixa atualizado
+GET {{baseUrl}}/dashboard/fluxo-caixa
+
+### ===========================================
+### RESUMO DOS ENDPOINTS IMPLEMENTADOS
+### ===========================================
+
+# CRONOGRAMA DE RECEBIMENTO:
+# POST /cronograma-recebimentos (criar individual)
+# POST /cronograma-recebimentos/lote (criar em lote)
+# GET /cronograma-recebimentos/{id} (buscar por ID)
+# POST /cronograma-recebimentos/{id}/recebimentos (registrar recebimento)
+# GET /obras/{id}/cronograma-recebimentos (listar por obra)
+
+# CONTAS A RECEBER:
+# POST /contas-receber (criar)
+# GET /contas-receber (listar com paginação)
+# GET /contas-receber/{id} (buscar por ID) 
+# POST /contas-receber/{id}/recebimentos (registrar recebimento)
+# GET /contas-receber/vencidas (listar vencidas)
+# GET /contas-receber/resumo (resumo geral)
+# GET /obras/{id}/contas-receber (listar por obra)
+
+# CONTAS A PAGAR:
+# POST /contas-pagar (criar)
+# POST /contas-pagar/orcamentos (criar de orçamento)
+# GET /contas-pagar (listar com paginação)
+# GET /contas-pagar/{id} (buscar por ID)
+# POST /contas-pagar/{id}/pagamentos (registrar pagamento)
+# GET /contas-pagar/vencidas (listar vencidas)
+# GET /contas-pagar/resumo (resumo geral)
+# GET /obras/{id}/contas-pagar (listar por obra)
+# GET /fornecedores/{id}/contas-pagar (listar por fornecedor)

@@ -230,11 +230,13 @@ func (r *ObraRepositoryPostgres) BuscarDashboardPorID(ctx context.Context, id st
 // Salvar agora insere a obra no banco de dados.
 func (r *ObraRepositoryPostgres) Salvar(ctx context.Context, dbtx db.DBTX, obra *obras.Obra) error {
 	const op = "repository.postgres.Salvar"
-	query := `INSERT INTO obras (id, nome, cliente, endereco, data_inicio, data_fim, descricao, status)
-	          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+	query := `INSERT INTO obras (id, nome, cliente, endereco, data_inicio, data_fim, descricao, status,
+	                           valor_contrato_total, valor_recebido, tipo_cobranca, data_assinatura_contrato)
+	          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
 	_, err := dbtx.Exec(ctx, query,
 		obra.ID, obra.Nome, obra.Cliente, obra.Endereco,
 		obra.DataInicio, obra.DataFim, obra.Descricao, obra.Status,
+		obra.ValorContratoTotal, obra.ValorRecebido, obra.TipoCobranca, obra.DataAssinaturaContrato,
 	)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
@@ -246,12 +248,21 @@ func (r *ObraRepositoryPostgres) Salvar(ctx context.Context, dbtx db.DBTX, obra 
 func (r *ObraRepositoryPostgres) BuscarPorID(ctx context.Context, id string) (*obras.Obra, error) {
 	const op = "repository.postgres.BuscarPorID"
 
-	query := `SELECT id, nome, cliente, endereco, data_inicio, data_fim, status FROM obras WHERE id = $1`
+	query := `SELECT id, nome, cliente, endereco, data_inicio, data_fim, status, descricao,
+	                 valor_contrato_total, valor_recebido, tipo_cobranca, data_assinatura_contrato 
+	          FROM obras WHERE id = $1 AND deleted_at IS NULL`
 
 	var obra obras.Obra
-	err := r.db.QueryRow(ctx, query, id).Scan(&obra.ID, &obra.Nome, &obra.Cliente, &obra.Endereco, &obra.DataInicio, &obra.DataFim, &obra.Status)
+	err := r.db.QueryRow(ctx, query, id).Scan(
+		&obra.ID, &obra.Nome, &obra.Cliente, &obra.Endereco, 
+		&obra.DataInicio, &obra.DataFim, &obra.Status, &obra.Descricao,
+		&obra.ValorContratoTotal, &obra.ValorRecebido, &obra.TipoCobranca, &obra.DataAssinaturaContrato,
+	)
 
 	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, ErrNaoEncontrado
+		}
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -277,8 +288,9 @@ func (r *ObraRepositoryPostgres) Atualizar(ctx context.Context, obra *obras.Obra
 
 	query := `
 		UPDATE obras
-		SET nome = $1, cliente = $2, endereco = $3, data_inicio = $4, data_fim = $5, status = $6, descricao = $7
-		WHERE id = $8 AND deleted_at IS NULL
+		SET nome = $1, cliente = $2, endereco = $3, data_inicio = $4, data_fim = $5, status = $6, descricao = $7,
+		    valor_contrato_total = $8, valor_recebido = $9, tipo_cobranca = $10, data_assinatura_contrato = $11
+		WHERE id = $12 AND deleted_at IS NULL
 	`
 
 	cmd, err := r.db.Exec(ctx, query,
@@ -289,6 +301,10 @@ func (r *ObraRepositoryPostgres) Atualizar(ctx context.Context, obra *obras.Obra
 		obra.DataFim,
 		obra.Status,
 		obra.Descricao,
+		obra.ValorContratoTotal,
+		obra.ValorRecebido,
+		obra.TipoCobranca,
+		obra.DataAssinaturaContrato,
 		obra.ID,
 	)
 

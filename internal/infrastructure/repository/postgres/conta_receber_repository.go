@@ -32,6 +32,11 @@ func (r *ContaReceberRepositoryPostgres) Salvar(ctx context.Context, dbtx db.DBT
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 	`
 
+	// Se não há transação, usar o pool
+	if dbtx == nil {
+		dbtx = r.dbpool
+	}
+
 	_, err := dbtx.Exec(ctx, query,
 		conta.ID,
 		conta.ObraID,

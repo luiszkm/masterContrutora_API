@@ -117,6 +117,9 @@ func (s *Service) AtualizarStatusOrcamento(ctx context.Context, orcamentoID stri
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
+	
+	// Capturar status anterior antes da mudança
+	statusAnterior := orcamento.Status
 	orcamento.Status = input.Status
 
 	if orcamento.Status == "Aprovado" {
@@ -128,10 +131,11 @@ func (s *Service) AtualizarStatusOrcamento(ctx context.Context, orcamentoID stri
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 	payload := events.OrcamentoStatusAtualizadoPayload{
-		OrcamentoID: orcamento.ID,
-		EtapaID:     orcamento.EtapaID,
-		NovoStatus:  orcamento.Status,
-		Valor:       orcamento.ValorTotal,
+		OrcamentoID:    orcamento.ID,
+		EtapaID:        orcamento.EtapaID,
+		StatusAnterior: statusAnterior,
+		NovoStatus:     orcamento.Status,
+		Valor:          orcamento.ValorTotal,
 	}
 	evento := bus.Evento{
 		Nome:    events.OrcamentoStatusAtualizado,

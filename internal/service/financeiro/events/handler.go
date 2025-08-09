@@ -21,6 +21,7 @@ type ContaReceberService interface {
 type ContaPagarService interface {
 	CriarConta(ctx context.Context, input dto.CriarContaPagarInput) (*dto.ContaPagarOutput, error)
 	CriarContaDeOrcamento(ctx context.Context, input dto.CriarContaPagarDeOrcamentoInput, orcamento interface{}) (*dto.ContaPagarOutput, error)
+	CancelarContaDeOrcamento(ctx context.Context, orcamentoID string) error
 }
 
 // FinanceiroEventHandler processa eventos relacionados ao módulo financeiro
@@ -118,6 +119,7 @@ func (h *FinanceiroEventHandler) HandleOrcamentoStatusAtualizado(ctx context.Con
 
 	h.logger.InfoContext(ctx, "processando atualização de status de orçamento", 
 		"orcamento_id", payload.OrcamentoID,
+		"status_anterior", payload.StatusAnterior,
 		"novo_status", payload.NovoStatus,
 		"valor", payload.Valor)
 
@@ -148,6 +150,22 @@ func (h *FinanceiroEventHandler) HandleOrcamentoStatusAtualizado(ctx context.Con
 			"conta_id", conta.ID,
 			"orcamento_id", payload.OrcamentoID,
 			"valor", conta.ValorOriginal)
+	}
+
+	// Quando orçamento muda de "Aprovado" para "Cancelado", cancelar conta a pagar
+	if payload.StatusAnterior == "Aprovado" && payload.NovoStatus == "Cancelado" {
+		h.logger.InfoContext(ctx, "orçamento cancelado após aprovação - cancelando conta a pagar", 
+			"orcamento_id", payload.OrcamentoID)
+		
+		if err := h.contaPagarService.CancelarContaDeOrcamento(ctx, payload.OrcamentoID); err != nil {
+			h.logger.ErrorContext(ctx, "falha ao cancelar conta a pagar do orçamento cancelado", 
+				"orcamento_id", payload.OrcamentoID,
+				"erro", err)
+			return
+		}
+
+		h.logger.InfoContext(ctx, "conta a pagar cancelada automaticamente devido ao cancelamento do orçamento", 
+			"orcamento_id", payload.OrcamentoID)
 	}
 }
 
@@ -235,6 +253,33 @@ func (h *FinanceiroEventHandler) HandleApontamentoAprovado(ctx context.Context, 
 		"valor", payload.ValorCalculado)
 }
 
+// HandleOrcamentoExcluido cancela conta a pagar quando orçamento é excluído
+func (h *FinanceiroEventHandler) HandleOrcamentoExcluido(ctx context.Context, evento bus.Evento) {
+	payload, ok := evento.Payload.(events.OrcamentoExcluidoPayload)
+	if !ok {
+		h.logger.ErrorContext(ctx, "payload de evento de orçamento excluído inválido", "evento", evento.Nome)
+		return
+	}
+
+	h.logger.InfoContext(ctx, "processando orçamento excluído", 
+		"orcamento_id", payload.OrcamentoID,
+		"status_anterior", payload.Status,
+		"valor", payload.Valor,
+		"motivo", payload.MotivoCancelamento)
+
+	// Cancelar conta a pagar associada ao orçamento
+	if err := h.contaPagarService.CancelarContaDeOrcamento(ctx, payload.OrcamentoID); err != nil {
+		h.logger.ErrorContext(ctx, "falha ao cancelar conta a pagar do orçamento excluído", 
+			"orcamento_id", payload.OrcamentoID,
+			"erro", err)
+		return
+	}
+
+	h.logger.InfoContext(ctx, "conta a pagar cancelada automaticamente devido à exclusão do orçamento", 
+		"orcamento_id", payload.OrcamentoID,
+		"valor", payload.Valor)
+}
+
 // ConfigurarEventHandlers configura os handlers de eventos
 func ConfigurarEventHandlers(eventBus bus.EventBus, handler *FinanceiroEventHandler) {
 	// Eventos de cronograma de recebimento
@@ -243,6 +288,7 @@ func ConfigurarEventHandlers(eventBus bus.EventBus, handler *FinanceiroEventHand
 	
 	// Eventos de orçamento (integração com Suprimentos)
 	eventBus.Subscrever(events.OrcamentoStatusAtualizado, handler.HandleOrcamentoStatusAtualizado)
+	eventBus.Subscrever(events.OrcamentoExcluido, handler.HandleOrcamentoExcluido)
 	
 	// Eventos de apontamento (integração com Pessoal)
 	eventBus.Subscrever(events.ApontamentoAprovado, handler.HandleApontamentoAprovado)

@@ -3,7 +3,7 @@
 ### Arquivo para testar as rotas implementadas
 ### ===============================================
 
-@baseUrl = http://localhost:8081
+@baseUrl = http://localhost:8084
 @contentType = application/json
 
 @token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTQ3MjUzNTAsImlhdCI6MTc1NDY5NjU1MCwicGVybWlzc29lcyI6WyJvYnJhczplc2NyZXZlciIsInN1cHJpbWVudG9zOmxlciIsInBlc3NvYWw6YXBvbnRhbWVudG86YXByb3ZhciIsInBlc3NvYWw6YXBvbnRhbWVudG86bGVyIiwib2JyYXM6bGVyIiwicGVzc29hbDplc2NyZXZlciIsInBlc3NvYWw6bGVyIiwic3VwcmltZW50b3M6ZXNjcmV2ZXIiLCJmaW5hbmNlaXJvOmxlciIsImZpbmFuY2Vpcm86ZXNjcmV2ZXIiLCJwZXNzb2FsOmFwb250YW1lbnRvOmVzY3JldmVyIiwicGVzc29hbDphcG9udGFtZW50bzpwYWdhciJdLCJzdWIiOiI4NjEzOTcyMC02YTc4LTQxMjMtYjIwYS05NTU0MTFkMzAyMmYifQ.XAYwi0KPRi-LTR0zRYAqrJGaNO712LCEgkqhPa6XqKM

@@ -199,6 +199,30 @@ func (s *Service) AtualizarApontamento(ctx context.Context, id string, input dto
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
+	// Validações de entrada
+	if input.PeriodoInicio == "" {
+		return nil, fmt.Errorf("%s: periodoInicio é obrigatório", op)
+	}
+	if input.PeriodoFim == "" {
+		return nil, fmt.Errorf("%s: periodoFim é obrigatório", op)
+	}
+	if input.Diaria <= 0 {
+		return nil, fmt.Errorf("%s: diaria deve ser maior que zero", op)
+	}
+	if input.DiasTrabalhados < 0 {
+		return nil, fmt.Errorf("%s: diasTrabalhados não pode ser negativo", op)
+	}
+	
+	if input.ObraID != "" {
+		if _, err := uuid.Parse(input.ObraID); err != nil {
+			return nil, fmt.Errorf("%s: ObraID inválido: %w", op, err)
+		}
+		// Verificar se a obra existe
+		if _, err := s.obraFinder.BuscarPorID(ctx, input.ObraID); err != nil {
+			return nil, fmt.Errorf("%s: obra com id [%s] não encontrada: %w", op, input.ObraID, err)
+		}
+	}
+
 	// Parse PeriodoInicio and PeriodoFim from string to time.Time
 	periodoInicio, err := time.Parse("2006-01-02", input.PeriodoInicio)
 	if err != nil {
@@ -207,6 +231,12 @@ func (s *Service) AtualizarApontamento(ctx context.Context, id string, input dto
 	periodoFim, err := time.Parse("2006-01-02", input.PeriodoFim)
 	if err != nil {
 		return nil, fmt.Errorf("%s: formato de data de fim inválido: %w", op, err)
+	}
+
+	// Se ObraID não foi fornecido, manter o atual
+	obraID := input.ObraID
+	if obraID == "" {
+		obraID = apontamento.ObraID
 	}
 
 	// 2. Executa o método de negócio do agregado. A diária não é mais necessária aqui.
@@ -218,7 +248,7 @@ func (s *Service) AtualizarApontamento(ctx context.Context, id string, input dto
 		input.ValorAdicional,
 		periodoInicio,
 		periodoFim,
-		input.ObraID,
+		obraID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%s: regra de negócio violada: %w", op, err)

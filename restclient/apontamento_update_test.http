@@ -1,0 +1,75 @@
+### Test Apontamento Update with UUID Validation Fix
+### This file tests the fixed apontamento update endpoint
+
+### Variables for testing
+@baseUrl = http://localhost:8084
+@apontamentoId = aaa42c95-99ec-4a24-bfd5-ef5538c6df09
+
+### 1. Valid update with all fields
+PUT {{baseUrl}}/funcionarios/apontamentos/{{apontamentoId}}
+Content-Type: application/json
+
+{
+  "obraId": "123e4567-e89b-12d3-a456-426614174000",
+  "periodoInicio": "2025-01-01",
+  "periodoFim": "2025-01-15",
+  "diaria": 150.0,
+  "diasTrabalhados": 12,
+  "valorAdicional": 50.0,
+  "descontos": 25.0,
+  "adiantamento": 100.0
+}
+
+### 2. Update without obraId (should use existing)
+PUT {{baseUrl}}/funcionarios/apontamentos/{{apontamentoId}}
+Content-Type: application/json
+
+{
+  "periodoInicio": "2025-01-16",
+  "periodoFim": "2025-01-31",
+  "diaria": 160.0,
+  "diasTrabalhados": 14,
+  "valorAdicional": 75.0,
+  "descontos": 0.0,
+  "adiantamento": 0.0
+}
+
+### 3. Update with empty obraId (should use existing)
+PUT {{baseUrl}}/funcionarios/apontamentos/{{apontamentoId}}
+Content-Type: application/json
+
+{
+  "obraId": "",
+  "periodoInicio": "2025-02-01",
+  "periodoFim": "2025-02-15",
+  "diaria": 155.0,
+  "diasTrabalhados": 13,
+  "valorAdicional": 60.0,
+  "descontos": 30.0,
+  "adiantamento": 50.0
+}
+
+### 4. Update with invalid UUID (should return validation error)
+PUT {{baseUrl}}/funcionarios/apontamentos/{{apontamentoId}}
+Content-Type: application/json
+
+{
+  "obraId": "invalid-uuid-format",
+  "periodoInicio": "2025-02-01",
+  "periodoFim": "2025-02-15",
+  "diaria": 155.0,
+  "diasTrabalhados": 13,
+  "valorAdicional": 60.0,
+  "descontos": 30.0,
+  "adiantamento": 50.0
+}
+
+### 5. Get updated apontamento to verify changes
+GET {{baseUrl}}/funcionarios/apontamentos/{{apontamentoId}}
+
+### Expected Results:
+### - Test 1: Should succeed with all fields updated
+### - Test 2: Should succeed using existing obraId 
+### - Test 3: Should succeed using existing obraId (empty string handled)
+### - Test 4: Should return 400/500 with UUID validation error
+### - Test 5: Should return the updated apontamento data

@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/luiszkm/masterCostrutora/internal/domain/obras"
 	"github.com/luiszkm/masterCostrutora/internal/domain/suprimentos"
+	"github.com/luiszkm/masterCostrutora/internal/events"
 	"github.com/luiszkm/masterCostrutora/internal/platform/bus"
 	"github.com/luiszkm/masterCostrutora/internal/service/suprimentos/dto"
 )
@@ -243,9 +244,15 @@ func (s *Service) BuscarMaterialPorID(ctx context.Context, id string) (*suprimen
 func (s *Service) DeletarOrcamento(ctx context.Context, id string) error {
 	const op = "service.suprimentos.DeletarOrcamento"
 	
-	// Verifica se o orçamento existe
-	if _, err := s.orcamentoRepo.BuscarPorID(ctx, id); err != nil {
+	// Verifica se o orçamento existe e carrega os dados
+	orcamento, err := s.orcamentoRepo.BuscarPorID(ctx, id)
+	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	// REGRA DE NEGÓCIO: Não permite exclusão de orçamentos aprovados
+	if orcamento.Status == "Aprovado" {
+		return fmt.Errorf("%s: não é possível excluir orçamento com status 'Aprovado'. Cancele o orçamento antes de excluí-lo", op)
 	}
 
 	// Realiza o soft delete
@@ -253,6 +260,23 @@ func (s *Service) DeletarOrcamento(ctx context.Context, id string) error {
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
-	s.logger.InfoContext(ctx, "orcamento soft deleted", "orcamento_id", id)
+	// Publicar evento de orçamento excluído
+	payload := events.OrcamentoExcluidoPayload{
+		OrcamentoID:    orcamento.ID,
+		EtapaID:        orcamento.EtapaID,
+		Status:         orcamento.Status,
+		Valor:          orcamento.ValorTotal,
+		MotivoCancelamento: "Orçamento excluído pelo usuário",
+	}
+	
+	evento := bus.Evento{
+		Nome:    events.OrcamentoExcluido,
+		Payload: payload,
+	}
+	s.eventBus.Publicar(ctx, evento)
+
+	s.logger.InfoContext(ctx, "orçamento soft deleted e evento publicado", 
+		"orcamento_id", id, 
+		"status_anterior", orcamento.Status)
 	return nil
 }

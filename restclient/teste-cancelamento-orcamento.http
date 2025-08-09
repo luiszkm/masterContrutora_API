@@ -1,0 +1,92 @@
+### ===============================================
+### TESTE: FLUXO DE CANCELAMENTO DE ORÇAMENTO
+### Demonstra o cancelamento automático de contas a pagar
+### ===============================================
+
+@baseUrl = http://localhost:8081
+@contentType = application/json
+
+### 1. LOGIN
+POST {{baseUrl}}/usuarios/login
+Content-Type: {{contentType}}
+
+{
+  "email": "admin@construtora.com",
+  "senha": "senha_forte_123"
+}
+
+### 2. CRIAR UM ORÇAMENTO (substituir etapaId por um real)
+POST {{baseUrl}}/etapas/ETAPA_ID_AQUI/orcamentos
+Content-Type: {{contentType}}
+
+{
+  "descricao": "Material para teste de cancelamento",
+  "itens": [
+    {
+      "materialId": "MATERIAL_ID_AQUI",
+      "quantidade": 10,
+      "valorUnitario": 50.00,
+      "valorTotal": 500.00
+    }
+  ]
+}
+
+### 3. APROVAR O ORÇAMENTO (substituir orcamentoId pelo retornado acima)
+### ✅ Isso deve CRIAR uma conta a pagar automaticamente
+PATCH {{baseUrl}}/orcamentos/ORCAMENTO_ID_AQUI/status
+Content-Type: {{contentType}}
+
+{
+  "status": "Aprovado"
+}
+
+### 4. VERIFICAR CONTAS A PAGAR - deve aparecer a conta criada
+GET {{baseUrl}}/contas-pagar
+
+### 5. CANCELAR O ORÇAMENTO (mesmo ID usado acima)  
+### ❌ Isso deve CANCELAR a conta a pagar automaticamente
+PATCH {{baseUrl}}/orcamentos/ORCAMENTO_ID_AQUI/status
+Content-Type: {{contentType}}
+
+{
+  "status": "Cancelado"
+}
+
+### 6. VERIFICAR CONTAS A PAGAR NOVAMENTE - a conta deve ter status CANCELADO
+GET {{baseUrl}}/contas-pagar
+
+### 7. VERIFICAR LOGS DO SERVIDOR
+### Deve mostrar:
+### - "orçamento aprovado - criando conta a pagar"
+### - "conta a pagar criada automaticamente" 
+### - "orçamento cancelado após aprovação - cancelando conta a pagar"
+### - "conta a pagar cancelada automaticamente devido ao cancelamento do orçamento"
+
+### ===============================================
+### CENÁRIOS DE TESTE ADICIONAIS
+### ===============================================
+
+### TESTE 1: Tentar cancelar orçamento que nunca foi aprovado
+### (deve não fazer nada no financeiro)
+
+### TESTE 2: Tentar cancelar orçamento aprovado com conta já paga
+### (deve falhar com erro explicando que não pode cancelar conta paga)
+
+### TESTE 3: Cancelar e depois aprovar novamente
+### (deve criar nova conta a pagar)
+
+### ===============================================
+### ESTRUTURA ESPERADA DOS LOGS:
+### ===============================================
+
+/*
+APROVAÇÃO:
+{"level":"INFO","msg":"processando atualização de status de orçamento","status_anterior":"Pendente","novo_status":"Aprovado"}
+{"level":"INFO","msg":"orçamento aprovado - criando conta a pagar"}
+{"level":"INFO","msg":"conta a pagar criada automaticamente"}
+
+CANCELAMENTO:  
+{"level":"INFO","msg":"processando atualização de status de orçamento","status_anterior":"Aprovado","novo_status":"Cancelado"}
+{"level":"INFO","msg":"orçamento cancelado após aprovação - cancelando conta a pagar"}
+{"level":"INFO","msg":"conta a pagar cancelada"}
+*/

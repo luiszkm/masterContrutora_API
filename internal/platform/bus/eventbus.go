@@ -5,6 +5,7 @@ import (
 	"context"
 	"log/slog"
 	"sync"
+	"time"
 )
 
 // Evento define a estrutura básica de um evento no nosso sistema.
@@ -46,9 +47,14 @@ func (b *EventBus) Publicar(ctx context.Context, evento Evento) {
 		for _, handler := range handlers {
 			// Executa cada handler de forma assíncrona.
 			go func(h HandlerFunc) {
-				b.logger.InfoContext(ctx, "processando evento", "evento", evento.Nome)
+				// Criar contexto com timeout para handlers de eventos
+				// Isso evita que o contexto seja cancelado quando a requisição HTTP termina
+				handlerCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer cancel()
+				
+				b.logger.InfoContext(handlerCtx, "processando evento", "evento", evento.Nome)
 				// Em um sistema real, adicionaríamos retentativas e DLQ aqui (ADR-007)
-				h(ctx, evento)
+				h(handlerCtx, evento)
 			}(handler)
 		}
 	}

@@ -1,0 +1,80 @@
+### Test Budget Deletion Flow with Account Management
+### This file tests the complete flow of budget deletion and account cancellation
+
+### 1. Create a new budget first
+POST http://localhost:8084/api/v1/suprimentos/orcamentos
+Content-Type: application/json
+
+{
+    "etapa_id": "123e4567-e89b-12d3-a456-426614174000",
+    "fornecedor_id": "456e7890-e89b-12d3-a456-426614174001",
+    "descricao": "Orçamento para teste de exclusão",
+    "observacoes": "Orçamento criado especificamente para testar o fluxo de exclusão",
+    "itens": [
+        {
+            "produto_id": "789e0123-e89b-12d3-a456-426614174002",
+            "quantidade": 10,
+            "preco_unitario": 50.0
+        }
+    ]
+}
+
+### 2. Approve the budget to create a payable account
+PUT http://localhost:8084/api/v1/suprimentos/orcamentos/{{budgetId}}/status
+Content-Type: application/json
+
+{
+    "status": "Aprovado"
+}
+
+### 3. Verify that a payable account was created
+GET http://localhost:8084/api/v1/financeiro/contas-pagar?orcamento_id={{budgetId}}
+
+### 4. Try to delete approved budget (should fail)
+DELETE http://localhost:8084/api/v1/suprimentos/orcamentos/{{budgetId}}
+
+### 5. Cancel the budget first
+PUT http://localhost:8084/api/v1/suprimentos/orcamentos/{{budgetId}}/status
+Content-Type: application/json
+
+{
+    "status": "Cancelado"
+}
+
+### 6. Verify that the payable account was automatically canceled
+GET http://localhost:8084/api/v1/financeiro/contas-pagar?orcamento_id={{budgetId}}
+
+### 7. Now delete the canceled budget (should succeed)
+DELETE http://localhost:8084/api/v1/suprimentos/orcamentos/{{budgetId}}
+
+### 8. Verify that the payable account remains canceled after deletion
+GET http://localhost:8084/api/v1/financeiro/contas-pagar?orcamento_id={{budgetId}}
+
+### Alternative flow - Direct deletion of non-approved budget
+
+### 9. Create another budget
+POST http://localhost:8084/api/v1/suprimentos/orcamentos
+Content-Type: application/json
+
+{
+    "etapa_id": "123e4567-e89b-12d3-a456-426614174000",
+    "fornecedor_id": "456e7890-e89b-12d3-a456-426614174001",
+    "descricao": "Orçamento para exclusão direta",
+    "observacoes": "Orçamento em status pendente para testar exclusão direta",
+    "itens": [
+        {
+            "produto_id": "789e0123-e89b-12d3-a456-426614174002",
+            "quantidade": 5,
+            "preco_unitario": 100.0
+        }
+    ]
+}
+
+### 10. Delete the pending budget directly (should succeed, no account to cancel)
+DELETE http://localhost:8084/api/v1/suprimentos/orcamentos/{{budgetId2}}
+
+### Expected Behavior Summary:
+### - Approved budgets cannot be deleted directly
+### - When budget status changes from "Approved" to "Canceled", associated account is automatically canceled
+### - When a canceled budget is deleted, the account remains canceled
+### - Pending/Draft budgets can be deleted directly without account implications

@@ -283,6 +283,58 @@ func (s *ContaPagarService) ObterResumo(ctx context.Context, filtros dto.Filtros
 	return resumo, nil
 }
 
+// CancelarContaDeOrcamento cancela uma conta a pagar baseada no orçamento
+func (s *ContaPagarService) CancelarContaDeOrcamento(ctx context.Context, orcamentoID string) error {
+	const op = "service.financeiro.conta_pagar.CancelarContaDeOrcamento"
+
+	// Buscar conta pelo orçamento ID de forma eficiente
+	contas, err := s.contaPagarRepo.ListarPorOrcamentoID(ctx, orcamentoID)
+	if err != nil {
+		return fmt.Errorf("%s: falha ao buscar contas por orçamento: %w", op, err)
+	}
+
+	if len(contas) == 0 {
+		s.logger.WarnContext(ctx, "nenhuma conta a pagar encontrada para o orçamento", 
+			"orcamento_id", orcamentoID)
+		return nil // Não é erro se não existe conta
+	}
+
+	// Pegar a primeira conta (deve ser única por orçamento)
+	contaEncontrada := contas[0]
+
+	// Verificar se a conta pode ser cancelada (não pode ter pagamentos)
+	if contaEncontrada.ValorPago > 0 {
+		return fmt.Errorf("%s: conta não pode ser cancelada pois já possui pagamentos (valor pago: %.2f)", 
+			op, contaEncontrada.ValorPago)
+	}
+
+	// Marcar como cancelada
+	contaEncontrada.Status = financeiro.StatusContaPagarCancelado
+	contaEncontrada.Observacoes = func() *string { 
+		obs := "Cancelada automaticamente devido ao cancelamento do orçamento"
+		if contaEncontrada.Observacoes != nil {
+			obs = *contaEncontrada.Observacoes + " | " + obs
+		}
+		return &obs 
+	}()
+	contaEncontrada.UpdatedAt = time.Now()
+
+	// Salvar alteração
+	if err := s.contaPagarRepo.Atualizar(ctx, contaEncontrada); err != nil {
+		return fmt.Errorf("%s: falha ao cancelar conta: %w", op, err)
+	}
+
+	// Publicar evento de cancelamento
+	s.publicarEventoContaCancelada(ctx, contaEncontrada, orcamentoID)
+
+	s.logger.InfoContext(ctx, "conta a pagar cancelada devido ao cancelamento do orçamento", 
+		"conta_id", contaEncontrada.ID,
+		"orcamento_id", orcamentoID,
+		"valor_original", contaEncontrada.ValorOriginal)
+
+	return nil
+}
+
 // toOutput converte entidade para DTO de output
 func (s *ContaPagarService) toOutput(conta *financeiro.ContaPagar) *dto.ContaPagarOutput {
 	return &dto.ContaPagarOutput{
@@ -345,4 +397,13 @@ func (s *ContaPagarService) publicarEventoContaVencida(ctx context.Context, cont
 		"conta_id", conta.ID, 
 		"fornecedor", conta.FornecedorNome,
 		"dias_vencidos", conta.DiasVencimento())
+}
+
+func (s *ContaPagarService) publicarEventoContaCancelada(ctx context.Context, conta *financeiro.ContaPagar, orcamentoID string) {
+	// TODO: Definir evento específico para conta cancelada se necessário
+	s.logger.InfoContext(ctx, "conta a pagar cancelada", 
+		"conta_id", conta.ID,
+		"orcamento_id", orcamentoID,
+		"fornecedor", conta.FornecedorNome,
+		"valor_original", conta.ValorOriginal)
 }

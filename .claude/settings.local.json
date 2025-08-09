@@ -14,7 +14,9 @@
       "Bash(docker-compose up:*)",
       "Bash(docker exec:*)",
       "Bash(pkill:*)",
-      "Bash(timeout 10 go run ./cmd/server/main.go)"
+      "Bash(timeout 10 go run ./cmd/server/main.go)",
+      "Bash(cmd.exe:*)",
+      "Bash(timeout 5 go run ./cmd/server/main.go)"
     ],
     "deny": []
   }

@@ -112,7 +112,10 @@ func (q *ObraRepositoryPostgres) BuscarDetalhesPorID(ctx context.Context, obraID
 }
 
 func (q *ObraRepositoryPostgres) fetchObraBase(ctx context.Context, obraID string) (*obras.Obra, error) {
-	query := `SELECT id, nome, cliente, endereco,descricao, data_inicio, data_fim, status, deleted_at FROM obras WHERE id = $1`
+	query := `SELECT 
+		id, nome, cliente, endereco, descricao, data_inicio, data_fim, status, deleted_at,
+		valor_contrato_total, valor_recebido, tipo_cobranca, data_assinatura_contrato
+	FROM obras WHERE id = $1`
 	row, err := q.db.Query(ctx, query, obraID)
 	if err != nil {
 		return nil, err

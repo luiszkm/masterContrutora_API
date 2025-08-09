@@ -1,7 +1,7 @@
 ###
 # @name Variáveis Globais
 # Estas variáveis serão preenchidas dinamicamente ao executar as requisições em ordem.
-@hostname = http://localhost:8081
+@hostname = http://localhost:8084
 @token =
 @obraId =b5f2644a-bf92-4f16-8a6d-5a6e8a7b7322
 @etapaId =

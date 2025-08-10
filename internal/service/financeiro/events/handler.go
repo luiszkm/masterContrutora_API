@@ -229,6 +229,7 @@ func (h *FinanceiroEventHandler) HandleApontamentoAprovado(ctx context.Context, 
 	input := dto.CriarContaPagarInput{
 		FornecedorNome:  payload.FuncionarioNome,
 		TipoContaPagar:  "FUNCIONARIO",
+		Categoria:       "APONTAMENTO", // Nova categoria para apontamentos
 		Descricao:       fmt.Sprintf("Pagamento de funcionário - %s (%s)", payload.FuncionarioNome, payload.PeriodoReferencia),
 		ValorOriginal:   payload.ValorCalculado,
 		DataVencimento:  payload.DataVencimentoPrevisto,

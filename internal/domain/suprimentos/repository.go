@@ -39,6 +39,7 @@ type OrcamentoRepository interface {
 	ContarPorMesAno(ctx context.Context, ano int, mes time.Month) (int, error)              // NOVO
 	BuscarPorDetalhesID(ctx context.Context, id string) (*dto.OrcamentoDetalhadoDTO, error) // Assinatura atualizada
 	SoftDelete(ctx context.Context, id string) error                                        // NOVO
+	CompararPorCategoria(ctx context.Context, categoria string, limite int) ([]*dto.OrcamentoComparacao, error) // NOVO: Comparar orçamentos por categoria
 
 }
 

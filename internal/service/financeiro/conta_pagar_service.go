@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/luiszkm/masterCostrutora/internal/domain/common"
 	"github.com/luiszkm/masterCostrutora/internal/domain/financeiro"
+	"github.com/luiszkm/masterCostrutora/internal/domain/suprimentos"
 	"github.com/luiszkm/masterCostrutora/internal/events"
 	"github.com/luiszkm/masterCostrutora/internal/platform/bus"
 	"github.com/luiszkm/masterCostrutora/internal/service/financeiro/dto"
@@ -17,17 +18,23 @@ import (
 // ContaPagarService encapsula a lógica de negócio para contas a pagar
 type ContaPagarService struct {
 	contaPagarRepo financeiro.ContaPagarRepository
+	orcamentoRepo  suprimentos.OrcamentoRepository
+	fornecedorRepo suprimentos.FornecedorRepository
 	eventBus       EventPublisher
 	logger         *slog.Logger
 }
 
 func NovoContaPagarService(
 	contaPagarRepo financeiro.ContaPagarRepository,
+	orcamentoRepo suprimentos.OrcamentoRepository,
+	fornecedorRepo suprimentos.FornecedorRepository,
 	eventBus EventPublisher,
 	logger *slog.Logger,
 ) *ContaPagarService {
 	return &ContaPagarService{
 		contaPagarRepo: contaPagarRepo,
+		orcamentoRepo:  orcamentoRepo,
+		fornecedorRepo: fornecedorRepo,
 		eventBus:       eventBus,
 		logger:         logger.With("service", "ContaPagar"),
 	}
@@ -44,6 +51,7 @@ func (s *ContaPagarService) CriarConta(ctx context.Context, input dto.CriarConta
 		OrcamentoID:     input.OrcamentoID,
 		FornecedorNome:  input.FornecedorNome,
 		TipoContaPagar:  input.TipoContaPagar,
+		Categoria:       input.Categoria,
 		Descricao:       input.Descricao,
 		ValorOriginal:   input.ValorOriginal,
 		ValorPago:       0,
@@ -78,15 +86,36 @@ func (s *ContaPagarService) CriarConta(ctx context.Context, input dto.CriarConta
 func (s *ContaPagarService) CriarContaDeOrcamento(ctx context.Context, input dto.CriarContaPagarDeOrcamentoInput, orcamento interface{}) (*dto.ContaPagarOutput, error) {
 	const op = "service.financeiro.conta_pagar.CriarContaDeOrcamento"
 
-	// TODO: Implementar quando tivermos interface para buscar orçamento
-	// Por enquanto, criamos uma conta genérica
-	
+	// Buscar dados reais do orçamento
+	orcamentoData, err := s.orcamentoRepo.BuscarPorID(ctx, input.OrcamentoID)
+	if err != nil {
+		return nil, fmt.Errorf("%s: falha ao buscar orçamento: %w", op, err)
+	}
+
+	// Usar valor total do orçamento (já calculado)
+	valorTotal := orcamentoData.ValorTotal
+
+	// Buscar nome do fornecedor se disponível
+	fornecedorNome := "Fornecedor do Orçamento"
+	if orcamentoData.FornecedorID != "" {
+		fornecedor, err := s.fornecedorRepo.BuscarPorID(ctx, orcamentoData.FornecedorID)
+		if err != nil {
+			s.logger.WarnContext(ctx, "falha ao buscar fornecedor, usando nome genérico",
+				"fornecedor_id", orcamentoData.FornecedorID,
+				"orcamento_id", input.OrcamentoID,
+				"erro", err)
+		} else {
+			fornecedorNome = fornecedor.Nome
+		}
+	}
+
 	contaInput := dto.CriarContaPagarInput{
 		OrcamentoID:     &input.OrcamentoID,
-		FornecedorNome:  "Fornecedor do Orçamento", // TODO: buscar do orçamento
+		FornecedorNome:  fornecedorNome,
 		TipoContaPagar:  "MATERIAL",
-		Descricao:       "Conta gerada automaticamente do orçamento " + input.OrcamentoID,
-		ValorOriginal:   1000.00, // TODO: buscar valor do orçamento
+		Categoria:       financeiro.CategoriaContaPagarOrcamento, // Nova categoria
+		Descricao:       fmt.Sprintf("Conta gerada automaticamente do orçamento %s - Valor: R$ %.2f", input.OrcamentoID, valorTotal),
+		ValorOriginal:   valorTotal, // Valor real do orçamento
 		DataVencimento:  input.DataVencimento,
 		NumeroDocumento: input.NumeroDocumento,
 		NumeroCompraNF:  input.NumeroCompraNF,
@@ -119,9 +148,9 @@ func (s *ContaPagarService) RegistrarPagamento(ctx context.Context, contaID stri
 	// Publicar evento de pagamento
 	s.publicarEventoPagamentoRealizado(ctx, conta, input.Valor, input.ContaBancariaID)
 
-	s.logger.InfoContext(ctx, "pagamento registrado", 
-		"conta_id", conta.ID, 
-		"valor", input.Valor, 
+	s.logger.InfoContext(ctx, "pagamento registrado",
+		"conta_id", conta.ID,
+		"valor", input.Valor,
 		"status", conta.Status)
 
 	return s.toOutput(conta), nil
@@ -225,9 +254,9 @@ func (s *ContaPagarService) VerificarContasVencidas(ctx context.Context) error {
 	for _, conta := range contas {
 		if conta.EstaVencido() && conta.Status == financeiro.StatusContaPagarPendente {
 			conta.MarcarComoVencido()
-			
+
 			if err := s.contaPagarRepo.Atualizar(ctx, conta); err != nil {
-				s.logger.ErrorContext(ctx, "falha ao marcar conta como vencida", 
+				s.logger.ErrorContext(ctx, "falha ao marcar conta como vencida",
 					"conta_id", conta.ID, "erro", err)
 				continue
 			}
@@ -237,7 +266,7 @@ func (s *ContaPagarService) VerificarContasVencidas(ctx context.Context) error {
 		}
 	}
 
-	s.logger.InfoContext(ctx, "verificação de contas vencidas concluída", 
+	s.logger.InfoContext(ctx, "verificação de contas vencidas concluída",
 		"contas_processadas", len(contas))
 
 	return nil
@@ -294,7 +323,7 @@ func (s *ContaPagarService) CancelarContaDeOrcamento(ctx context.Context, orcame
 	}
 
 	if len(contas) == 0 {
-		s.logger.WarnContext(ctx, "nenhuma conta a pagar encontrada para o orçamento", 
+		s.logger.WarnContext(ctx, "nenhuma conta a pagar encontrada para o orçamento",
 			"orcamento_id", orcamentoID)
 		return nil // Não é erro se não existe conta
 	}
@@ -304,18 +333,18 @@ func (s *ContaPagarService) CancelarContaDeOrcamento(ctx context.Context, orcame
 
 	// Verificar se a conta pode ser cancelada (não pode ter pagamentos)
 	if contaEncontrada.ValorPago > 0 {
-		return fmt.Errorf("%s: conta não pode ser cancelada pois já possui pagamentos (valor pago: %.2f)", 
+		return fmt.Errorf("%s: conta não pode ser cancelada pois já possui pagamentos (valor pago: %.2f)",
 			op, contaEncontrada.ValorPago)
 	}
 
 	// Marcar como cancelada
 	contaEncontrada.Status = financeiro.StatusContaPagarCancelado
-	contaEncontrada.Observacoes = func() *string { 
+	contaEncontrada.Observacoes = func() *string {
 		obs := "Cancelada automaticamente devido ao cancelamento do orçamento"
 		if contaEncontrada.Observacoes != nil {
 			obs = *contaEncontrada.Observacoes + " | " + obs
 		}
-		return &obs 
+		return &obs
 	}()
 	contaEncontrada.UpdatedAt = time.Now()
 
@@ -327,7 +356,7 @@ func (s *ContaPagarService) CancelarContaDeOrcamento(ctx context.Context, orcame
 	// Publicar evento de cancelamento
 	s.publicarEventoContaCancelada(ctx, contaEncontrada, orcamentoID)
 
-	s.logger.InfoContext(ctx, "conta a pagar cancelada devido ao cancelamento do orçamento", 
+	s.logger.InfoContext(ctx, "conta a pagar cancelada devido ao cancelamento do orçamento",
 		"conta_id", contaEncontrada.ID,
 		"orcamento_id", orcamentoID,
 		"valor_original", contaEncontrada.ValorOriginal)
@@ -344,6 +373,7 @@ func (s *ContaPagarService) toOutput(conta *financeiro.ContaPagar) *dto.ContaPag
 		OrcamentoID:     conta.OrcamentoID,
 		FornecedorNome:  conta.FornecedorNome,
 		TipoContaPagar:  conta.TipoContaPagar,
+		Categoria:       conta.Categoria,
 		Descricao:       conta.Descricao,
 		ValorOriginal:   conta.ValorOriginal,
 		ValorPago:       conta.ValorPago,
@@ -393,15 +423,15 @@ func (s *ContaPagarService) publicarEventoPagamentoRealizado(ctx context.Context
 
 func (s *ContaPagarService) publicarEventoContaVencida(ctx context.Context, conta *financeiro.ContaPagar) {
 	// TODO: Definir evento para conta a pagar vencida se necessário
-	s.logger.WarnContext(ctx, "conta a pagar vencida", 
-		"conta_id", conta.ID, 
+	s.logger.WarnContext(ctx, "conta a pagar vencida",
+		"conta_id", conta.ID,
 		"fornecedor", conta.FornecedorNome,
 		"dias_vencidos", conta.DiasVencimento())
 }
 
 func (s *ContaPagarService) publicarEventoContaCancelada(ctx context.Context, conta *financeiro.ContaPagar, orcamentoID string) {
 	// TODO: Definir evento específico para conta cancelada se necessário
-	s.logger.InfoContext(ctx, "conta a pagar cancelada", 
+	s.logger.InfoContext(ctx, "conta a pagar cancelada",
 		"conta_id", conta.ID,
 		"orcamento_id", orcamentoID,
 		"fornecedor", conta.FornecedorNome,

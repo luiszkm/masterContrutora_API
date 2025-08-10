@@ -18,15 +18,16 @@ import (
 )
 
 type Config struct {
-	JwtService         *auth.JWTService
-	IdentidadeHandler  *identidade.Handler
-	ObrasHandler       *obras.Handler
-	PessoalHandler     *pessoal.Handler
-	SuprimentosHandler *suprimentos.Handler
-	FinanceiroHandler  *financeiro.Handler
+	JwtService          *auth.JWTService
+	IdentidadeHandler   *identidade.Handler
+	ObrasHandler        *obras.Handler
+	PessoalHandler      *pessoal.Handler
+	SuprimentosHandler  *suprimentos.Handler
+	FinanceiroHandler   *financeiro.Handler
 	ContaReceberHandler *financeiro.ContaReceberHandler
-	ContaPagarHandler  *financeiro.ContaPagarHandler
-	DashboardHandler   *dashboard.Handler
+	ContaPagarHandler   *financeiro.ContaPagarHandler
+	CronogramaHandler   *obras.CronogramaHandler
+	DashboardHandler    *dashboard.Handler
 }
 
 func New(c Config) *chi.Mux {
@@ -153,7 +154,21 @@ func New(c Config) *chi.Mux {
 				r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Post("/alocacoes", c.ObrasHandler.HandleAlocarFuncionario)
 				r.With(auth.Authorize(authz.PermissaoObrasLer)).
 					Get("/etapas", c.ObrasHandler.HandleListarEtapasPorObra)
+				
+				// Cronograma de recebimento
+				r.With(auth.Authorize(authz.PermissaoObrasLer)).Get("/cronograma-recebimentos", c.CronogramaHandler.HandleListarCronogramasPorObra)
 
+			})
+		})
+
+		// --- Recursos de Cronograma de Recebimento ---
+		r.Route("/cronograma-recebimentos", func(r chi.Router) {
+			r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Post("/", c.CronogramaHandler.HandleCriarCronograma)
+			r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Post("/lote", c.CronogramaHandler.HandleCriarCronogramaEmLote)
+			
+			r.Route("/{cronogramaId}", func(r chi.Router) {
+				r.With(auth.Authorize(authz.PermissaoObrasLer)).Get("/", c.CronogramaHandler.HandleBuscarCronograma)
+				r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Post("/recebimentos", c.CronogramaHandler.HandleRegistrarRecebimento)
 			})
 		})
 
@@ -168,6 +183,9 @@ func New(c Config) *chi.Mux {
 		r.Route("/orcamentos", func(r chi.Router) {
 			r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).
 				Get("/", c.SuprimentosHandler.HandleListarOrcamentos)
+
+			r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).
+				Get("/comparar", c.SuprimentosHandler.HandleCompararOrcamentos)
 
 			r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).
 				Put("/{orcamentoId}", c.SuprimentosHandler.HandleAtualizarOrcamento)

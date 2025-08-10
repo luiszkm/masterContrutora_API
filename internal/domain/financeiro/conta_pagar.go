@@ -22,6 +22,14 @@ const (
 	TipoContaPagarOutros     = "OUTROS"
 )
 
+// CategoriaContaPagar representa as categorias de conta a pagar
+const (
+	CategoriaContaPagarOrcamento    = "ORCAMENTO"
+	CategoriaContaPagarApontamento  = "APONTAMENTO"
+	CategoriaContaPagarManual       = "MANUAL"
+	CategoriaContaPagarOutros       = "OUTROS"
+)
+
 // ContaPagar representa uma conta a pagar no sistema
 type ContaPagar struct {
 	ID                string     `json:"id"`
@@ -30,6 +38,7 @@ type ContaPagar struct {
 	OrcamentoID       *string    `json:"orcamentoId,omitempty"`         // Referência ao orçamento que originou
 	FornecedorNome    string     `json:"fornecedorNome"`                // Nome do fornecedor
 	TipoContaPagar    string     `json:"tipoContaPagar"`                // FORNECEDOR, SERVICO, MATERIAL, OUTROS
+	Categoria         string     `json:"categoria"`                     // ORCAMENTO, APONTAMENTO, MANUAL, OUTROS
 	Descricao         string     `json:"descricao"`                     // Descrição da conta
 	ValorOriginal     float64    `json:"valorOriginal"`                 // Valor original
 	ValorPago         float64    `json:"valorPago"`                     // Valor já pago

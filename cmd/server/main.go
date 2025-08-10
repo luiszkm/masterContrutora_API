@@ -106,6 +106,7 @@ func main() {
 	dashboardQuerier := postgres.NovoDashboardQuerier(dbpool, logger)     // NOVO
 	contaReceberRepo := postgres.NovoContaReceberRepositoryPostgres(dbpool)
 	contaPagarRepo := postgres.NovoContaPagarRepositoryPostgres(dbpool)
+	cronogramaRepo := postgres.NovoCronogramaRecebimentoRepositoryPostgres(dbpool)
 
 	// Serviços
 	identidadeSvc := identidade_service.NovoServico(usuarioRepo, passwordHasher, jwtService, logger)
@@ -132,7 +133,10 @@ func main() {
 
 	// Services financeiros específicos
 	contaReceberSvc := financeiro_service.NovoContaReceberService(contaReceberRepo, eventBus, logger)
-	contaPagarSvc := financeiro_service.NovoContaPagarService(contaPagarRepo, eventBus, logger)
+	contaPagarSvc := financeiro_service.NovoContaPagarService(contaPagarRepo, orcamentoRepo, fornecedorRepo, eventBus, logger)
+	
+	// Serviço do cronograma
+	cronogramaSvc := obras_service.NovoCronogramaService(cronogramaRepo, obraRepo, eventBus, logger, dbpool)
 
 	obraSvc := obras_service.NovoServico(
 		obraRepo,
@@ -164,10 +168,12 @@ func main() {
 	identidadeHandler := identidade_handler.NovoIdentidadeHandler(identidadeSvc, logger)
 	pessoalHandler := pessoal_handler.NovoPessoalHandler(pessoalSvc, logger)
 	obraHandler := obras_handler.NovoObrasHandler(obraSvc, logger)
-	finaceiroHandler := financeiro_handler.NovoFinanceiroHandler(financeiroSvc, logger)
+	financeiroHandler := financeiro_handler.NovoFinanceiroHandler(financeiroSvc, logger)
 	// Handlers financeiros específicos
 	contaReceberHandler := financeiro_handler.NovoContaReceberHandler(contaReceberSvc, logger)
 	contaPagarHandler := financeiro_handler.NovoContaPagarHandler(contaPagarSvc, logger)
+	// Handler do cronograma
+	cronogramaHandler := obras_handler.NovoCronogramaHandler(cronogramaSvc, logger)
 	// CORREÇÃO: Usando a variável com nome correto 'suprimentosSvc'.
 	suprimentosHandler := suprimentos_handler.NovoSuprimentosHandler(suprimentosSvc, logger)
 	dashboardHandler := dashboard_handler.NovoDashboardHandler(dashboardSvc, logger, dashLogger, jwtService)
@@ -187,9 +193,10 @@ func main() {
 		ObrasHandler:        obraHandler,
 		PessoalHandler:      pessoalHandler,
 		SuprimentosHandler:  suprimentosHandler,
-		FinanceiroHandler:   finaceiroHandler,
+		FinanceiroHandler:   financeiroHandler,
 		ContaReceberHandler: contaReceberHandler,
 		ContaPagarHandler:   contaPagarHandler,
+		CronogramaHandler:   cronogramaHandler,
 		DashboardHandler:    dashboardHandler,
 	}
 	r := router.New(routerCfg)

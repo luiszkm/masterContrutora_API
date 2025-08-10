@@ -39,6 +39,7 @@ type Service interface {
 	ListarOrcamentos(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*dto.OrcamentoListItemDTO], error)
 	BuscarOrcamentoPorID(ctx context.Context, id string) (*dto.OrcamentoDetalhadoDTO, error)
 	AtualizarOrcamento(ctx context.Context, orcamentoID string, input dto.AtualizarOrcamentoInput) (*dto.OrcamentoDetalhadoDTO, error)
+	CompararOrcamentosPorCategoria(ctx context.Context, categoria string) (*dto.CompararOrcamentosResponse, error)
 }
 
 type Handler struct {

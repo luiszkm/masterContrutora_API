@@ -954,7 +954,7 @@ func (q *DashboardQuerierPostgres) ObterEstatisticasGeraisFornecedores(ctx conte
 			COUNT(CASE WHEN status = 'Ativo' THEN 1 END) as fornecedores_ativos,
 			COUNT(CASE WHEN status = 'Inativo' THEN 1 END) as fornecedores_inativos,
 			AVG(CASE WHEN avaliacao IS NOT NULL THEN avaliacao END) as avaliacao_media_geral,
-			AVG(EXTRACT(days FROM CURRENT_DATE - created_at)) as tempo_medio_contrato
+			COALESCE(ROUND(AVG(EXTRACT(days FROM CURRENT_DATE - created_at))), 0)::int as tempo_medio_contrato
 		FROM fornecedores 
 		WHERE deleted_at IS NULL`
 

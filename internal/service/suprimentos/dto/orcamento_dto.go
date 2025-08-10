@@ -76,3 +76,25 @@ type AtualizarOrcamentoInput struct {
 	CondicoesPagamento *string
 	Itens              []ItemOrcamentoInput
 }
+
+// CompararOrcamentosRequest é o DTO de entrada para comparar orçamentos por categoria
+type CompararOrcamentosRequest struct {
+	Categoria string `json:"categoria"` // Nome da categoria (ex: "Cimento", "Aço")
+}
+
+// CompararOrcamentosResponse é o DTO de resposta para comparação de orçamentos
+type CompararOrcamentosResponse struct {
+	Categoria  string                `json:"categoria"`
+	Orcamentos []OrcamentoComparacao `json:"orcamentos"`
+}
+
+// OrcamentoComparacao representa um orçamento na comparação
+type OrcamentoComparacao struct {
+	ID             string    `json:"id"`
+	Numero         string    `json:"numero"`
+	FornecedorNome string    `json:"fornecedorNome"`
+	ValorTotal     float64   `json:"valorTotal"`
+	Status         string    `json:"status"`
+	DataEmissao    time.Time `json:"dataEmissao"`
+	ItensCategoria int       `json:"itensCategoria"` // Quantidade de itens da categoria específica
+}

@@ -85,13 +85,45 @@ func (s *Service) CriarNovaObra(ctx context.Context, input dto.CriarNovaObraInpu
 	if err != nil {
 		return nil, fmt.Errorf("%s: formato de data inválido: %w", op, err)
 	}
+
+	// Define valores padrão para campos financeiros
+	valorContratoTotal := 0.0
+	if input.ValorContratoTotal != nil {
+		valorContratoTotal = *input.ValorContratoTotal
+	}
+
+	tipoCobranca := obras.TipoCobrancaVista
+	if input.TipoCobranca != nil {
+		tipoCobranca = *input.TipoCobranca
+	}
+
+	var dataFim *time.Time
+	if input.DataFim != "" {
+		dataFimParsed, err := time.Parse("2006-01-02", input.DataFim)
+		if err != nil {
+			return nil, fmt.Errorf("%s: formato de data fim inválido: %w", op, err)
+		}
+		dataFim = &dataFimParsed
+	}
+
+	var descricao *string
+	if input.Descricao != "" {
+		descricao = &input.Descricao
+	}
+
 	novaObra := &obras.Obra{
-		ID:         uuid.NewString(),
-		Nome:       input.Nome,
-		Cliente:    input.Cliente,
-		Endereco:   input.Endereco,
-		DataInicio: dataInicio,
-		Status:     obras.StatusEmPlanejamento,
+		ID:                     uuid.NewString(),
+		Nome:                   input.Nome,
+		Cliente:                input.Cliente,
+		Endereco:               input.Endereco,
+		DataInicio:             dataInicio,
+		DataFim:                dataFim,
+		Status:                 obras.StatusEmPlanejamento,
+		Descricao:              descricao,
+		ValorContratoTotal:     valorContratoTotal,
+		ValorRecebido:          0.0,
+		TipoCobranca:           tipoCobranca,
+		DataAssinaturaContrato: input.DataAssinaturaContrato,
 	}
 	if err := s.obraRepo.Salvar(ctx, tx, novaObra); err != nil {
 		return nil, fmt.Errorf("%s: falha ao salvar nova obra: %w", op, err)
@@ -336,6 +368,12 @@ func (s *Service) AtualizarObra(ctx context.Context, obraID string, input dto.At
 		return nil, fmt.Errorf("%s: nome, cliente e endereço são obrigatórios", op)
 	}
 
+	// Buscar obra existente primeiro para preservar campos não atualizados
+	obraExistente, err := s.obraRepo.BuscarPorID(ctx, obraID)
+	if err != nil {
+		return nil, fmt.Errorf("%s: obra não encontrada: %w", op, err)
+	}
+
 	dataInicio, err := time.Parse("2006-01-02", input.DataInicio)
 	if err != nil {
 		return nil, fmt.Errorf("%s: formato de data de início inválido: %w", op, err)
@@ -345,15 +383,37 @@ func (s *Service) AtualizarObra(ctx context.Context, obraID string, input dto.At
 		return nil, fmt.Errorf("%s: formato de data de fim inválido: %w", op, err)
 	}
 
+	// Atualizar campos fornecidos, preservando campos financeiros existentes
 	obraAtualizada := &obras.Obra{
-		ID:         obraID,
-		Nome:       input.Nome,
-		Cliente:    input.Cliente,
-		Endereco:   input.Endereco,
-		DataInicio: dataInicio,
-		DataFim:    &dataFim,
-		Status:     obras.Status(input.Status),
-		Descricao:  &input.Descricao,
+		ID:                     obraID,
+		Nome:                   input.Nome,
+		Cliente:                input.Cliente,
+		Endereco:               input.Endereco,
+		DataInicio:             dataInicio,
+		DataFim:                &dataFim,
+		Status:                 obras.Status(input.Status),
+		Descricao:              &input.Descricao,
+		// Preservar campos financeiros existentes
+		ValorContratoTotal:     obraExistente.ValorContratoTotal,
+		ValorRecebido:          obraExistente.ValorRecebido,
+		TipoCobranca:           obraExistente.TipoCobranca,
+		DataAssinaturaContrato: obraExistente.DataAssinaturaContrato,
+	}
+
+	// Atualizar campos financeiros se fornecidos no input
+	if input.ValorContratoTotal != nil {
+		obraAtualizada.ValorContratoTotal = *input.ValorContratoTotal
+	}
+	if input.TipoCobranca != nil {
+		// Validar tipo de cobrança
+		tipoCobranca := *input.TipoCobranca
+		if tipoCobranca != obras.TipoCobrancaVista && tipoCobranca != obras.TipoCobrancaParcelado && tipoCobranca != obras.TipoCobrancaEtapas {
+			return nil, fmt.Errorf("%s: tipo de cobrança inválido. Valores válidos: VISTA, PARCELADO, ETAPAS", op)
+		}
+		obraAtualizada.TipoCobranca = tipoCobranca
+	}
+	if input.DataAssinaturaContrato != nil {
+		obraAtualizada.DataAssinaturaContrato = input.DataAssinaturaContrato
 	}
 
 	if err := s.obraRepo.Atualizar(ctx, obraAtualizada); err != nil {

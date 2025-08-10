@@ -9,6 +9,7 @@ type CriarContaPagarInput struct {
 	OrcamentoID     *string    `json:"orcamentoId,omitempty"`
 	FornecedorNome  string     `json:"fornecedorNome" validate:"required"`
 	TipoContaPagar  string     `json:"tipoContaPagar" validate:"required,oneof=FORNECEDOR SERVICO MATERIAL OUTROS"`
+	Categoria       string     `json:"categoria" validate:"required,oneof=ORCAMENTO APONTAMENTO MANUAL OUTROS"`
 	Descricao       string     `json:"descricao" validate:"required"`
 	ValorOriginal   float64    `json:"valorOriginal" validate:"required,gt=0"`
 	DataVencimento  time.Time  `json:"dataVencimento" validate:"required"`
@@ -21,6 +22,7 @@ type CriarContaPagarInput struct {
 type AtualizarContaPagarInput struct {
 	FornecedorNome *string    `json:"fornecedorNome,omitempty"`
 	TipoContaPagar *string    `json:"tipoContaPagar,omitempty" validate:"omitempty,oneof=FORNECEDOR SERVICO MATERIAL OUTROS"`
+	Categoria      *string    `json:"categoria,omitempty" validate:"omitempty,oneof=ORCAMENTO APONTAMENTO MANUAL OUTROS"`
 	Descricao      *string    `json:"descricao,omitempty"`
 	ValorOriginal  *float64   `json:"valorOriginal,omitempty" validate:"omitempty,gt=0"`
 	DataVencimento *time.Time `json:"dataVencimento,omitempty"`
@@ -45,6 +47,7 @@ type ContaPagarOutput struct {
 	OrcamentoID     *string    `json:"orcamentoId,omitempty"`
 	FornecedorNome  string     `json:"fornecedorNome"`
 	TipoContaPagar  string     `json:"tipoContaPagar"`
+	Categoria       string     `json:"categoria"`
 	Descricao       string     `json:"descricao"`
 	ValorOriginal   float64    `json:"valorOriginal"`
 	ValorPago       float64    `json:"valorPago"`

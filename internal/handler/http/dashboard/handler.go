@@ -285,9 +285,10 @@ func (h *Handler) parseParametrosDashboard(r *http.Request) dto.ParametrosDashbo
 
 // parsePeriodo extrai as datas de início e fim dos parâmetros da query
 func (h *Handler) parsePeriodo(r *http.Request) (time.Time, time.Time) {
-	// Período padrão: últimos 6 meses
-	dataFim := time.Now()
-	dataInicio := dataFim.AddDate(0, -6, 0)
+	// Período padrão: ano corrente completo para capturar todos os dados
+	agora := time.Now()
+	dataInicio := time.Date(agora.Year(), 1, 1, 0, 0, 0, 0, agora.Location())
+	dataFim := time.Date(agora.Year(), 12, 31, 23, 59, 59, 0, agora.Location())
 
 	// Parse data de início
 	if dataInicioStr := r.URL.Query().Get("dataInicio"); dataInicioStr != "" {

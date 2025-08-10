@@ -2,7 +2,7 @@
 ### TESTES FASE 2 - CONTAS A PAGAR E RECEITAS
 ### ===========================================
 
-@baseUrl = http://localhost:8081
+@baseUrl = http://localhost:8084
 @contentType = application/json
 
 ### ===========================================
@@ -14,8 +14,8 @@ POST {{baseUrl}}/cronograma-recebimentos
 Content-Type: {{contentType}}
 
 {
-  "obraId": "uuid-obra-exemplo",
-  "numeroEtapa": 1,
+  "obraId": "35887b98-63ec-44c9-b03e-49706e37b4c8",
+  "numeroEtapa": 5,
   "descricaoEtapa": "Primeira parcela - Fundação",
   "valorPrevisto": 50000.00,
   "dataVencimento": "2025-02-15T00:00:00Z"
@@ -26,7 +26,7 @@ POST {{baseUrl}}/cronograma-recebimentos/lote
 Content-Type: {{contentType}}
 
 {
-  "obraId": "uuid-obra-exemplo",
+  "obraId": "35887b98-63ec-44c9-b03e-49706e37b4c8",
   "substituirExistente": true,
   "cronogramas": [
     {
@@ -51,7 +51,7 @@ Content-Type: {{contentType}}
 }
 
 ### Listar cronogramas por obra
-GET {{baseUrl}}/obras/uuid-obra-exemplo/cronograma-recebimentos
+GET {{baseUrl}}/obras/35887b98-63ec-44c9-b03e-49706e37b4c8/cronograma-recebimentos
 
 ### Registrar recebimento
 POST {{baseUrl}}/cronograma-recebimentos/uuid-cronograma/recebimentos
@@ -168,7 +168,7 @@ Content-Type: {{contentType}}
 GET {{baseUrl}}/dashboard/fluxo-caixa
 
 ### Fluxo de caixa por período
-GET {{baseUrl}}/dashboard/fluxo-caixa?dataInicio=2025-01-01&dataFim=2025-06-30
+GET {{baseUrl}}/dashboard/fluxo-caixa?dataInicio=2025-01-01&dataFim=2025-08-30
 
 ### Dashboard financeiro completo
 GET {{baseUrl}}/dashboard/financeiro

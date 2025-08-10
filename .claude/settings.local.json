@@ -16,7 +16,10 @@
       "Bash(pkill:*)",
       "Bash(timeout 10 go run ./cmd/server/main.go)",
       "Bash(cmd.exe:*)",
-      "Bash(timeout 5 go run ./cmd/server/main.go)"
+      "Bash(timeout 5 go run ./cmd/server/main.go)",
+      "Bash(PORT=8086 go run ./cmd/server/main.go)",
+      "Bash(PORT=8088 go run ./cmd/server/main.go)",
+      "Bash(PORT=8084 go run ./cmd/server/main.go)"
     ],
     "deny": []
   }

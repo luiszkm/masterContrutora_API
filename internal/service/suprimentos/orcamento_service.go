@@ -224,3 +224,37 @@ func (s *Service) AtualizarOrcamento(ctx context.Context, orcamentoID string, in
 	s.logger.InfoContext(ctx, "orçamento atualizado com sucesso", "orcamento_id", orcamentoID)
 	return s.orcamentoRepo.BuscarPorDetalhesID(ctx, orcamentoID)
 }
+
+// CompararOrcamentosPorCategoria compara orçamentos por categoria, retornando os 5 melhores preços
+func (s *Service) CompararOrcamentosPorCategoria(ctx context.Context, categoria string) (*dto.CompararOrcamentosResponse, error) {
+	const op = "service.suprimentos.CompararOrcamentosPorCategoria"
+	const limite = 5
+
+	// Validar entrada
+	if categoria == "" {
+		return nil, fmt.Errorf("%s: categoria não pode estar vazia", op)
+	}
+
+	// Buscar orçamentos no repositório
+	orcamentos, err := s.orcamentoRepo.CompararPorCategoria(ctx, categoria, limite)
+	if err != nil {
+		return nil, fmt.Errorf("%s: falha ao buscar orçamentos: %w", op, err)
+	}
+
+	// Construir resposta
+	response := &dto.CompararOrcamentosResponse{
+		Categoria:  categoria,
+		Orcamentos: make([]dto.OrcamentoComparacao, len(orcamentos)),
+	}
+
+	// Converter ponteiros para valores
+	for i, orc := range orcamentos {
+		response.Orcamentos[i] = *orc
+	}
+
+	s.logger.InfoContext(ctx, "comparação de orçamentos realizada",
+		"categoria", categoria,
+		"orcamentos_encontrados", len(orcamentos))
+
+	return response, nil
+}

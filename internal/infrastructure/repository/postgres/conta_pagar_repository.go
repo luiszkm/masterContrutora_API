@@ -26,10 +26,10 @@ func (r *ContaPagarRepositoryPostgres) Salvar(ctx context.Context, dbtx db.DBTX,
 	query := `
 		INSERT INTO contas_pagar (
 			id, fornecedor_id, obra_id, orcamento_id, fornecedor_nome, tipo_conta_pagar,
-			descricao, valor_original, valor_pago, data_vencimento, 
+			categoria, descricao, valor_original, valor_pago, data_vencimento, 
 			data_pagamento, status, forma_pagamento, observacoes, 
 			numero_documento, numero_compra_nf, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
 	`
 
 	// Se não há transação, usar o pool
@@ -44,6 +44,7 @@ func (r *ContaPagarRepositoryPostgres) Salvar(ctx context.Context, dbtx db.DBTX,
 		conta.OrcamentoID,
 		conta.FornecedorNome,
 		conta.TipoContaPagar,
+		conta.Categoria,
 		conta.Descricao,
 		conta.ValorOriginal,
 		conta.ValorPago,
@@ -72,17 +73,18 @@ func (r *ContaPagarRepositoryPostgres) Atualizar(ctx context.Context, conta *fin
 		UPDATE contas_pagar 
 		SET fornecedor_nome = $2,
 			tipo_conta_pagar = $3,
-			descricao = $4,
-			valor_original = $5,
-			valor_pago = $6,
-			data_vencimento = $7,
-			data_pagamento = $8,
-			status = $9,
-			forma_pagamento = $10,
-			observacoes = $11,
-			numero_documento = $12,
-			numero_compra_nf = $13,
-			updated_at = $14
+			categoria = $4,
+			descricao = $5,
+			valor_original = $6,
+			valor_pago = $7,
+			data_vencimento = $8,
+			data_pagamento = $9,
+			status = $10,
+			forma_pagamento = $11,
+			observacoes = $12,
+			numero_documento = $13,
+			numero_compra_nf = $14,
+			updated_at = $15
 		WHERE id = $1
 	`
 
@@ -90,6 +92,7 @@ func (r *ContaPagarRepositoryPostgres) Atualizar(ctx context.Context, conta *fin
 		conta.ID,
 		conta.FornecedorNome,
 		conta.TipoContaPagar,
+		conta.Categoria,
 		conta.Descricao,
 		conta.ValorOriginal,
 		conta.ValorPago,
@@ -119,7 +122,7 @@ func (r *ContaPagarRepositoryPostgres) BuscarPorID(ctx context.Context, id strin
 
 	query := `
 		SELECT id, fornecedor_id, obra_id, orcamento_id, fornecedor_nome, tipo_conta_pagar,
-			   descricao, valor_original, valor_pago, data_vencimento, 
+			   categoria, descricao, valor_original, valor_pago, data_vencimento, 
 			   data_pagamento, status, forma_pagamento, observacoes, 
 			   numero_documento, numero_compra_nf, created_at, updated_at
 		FROM contas_pagar 
@@ -136,6 +139,7 @@ func (r *ContaPagarRepositoryPostgres) BuscarPorID(ctx context.Context, id strin
 		&conta.OrcamentoID,
 		&conta.FornecedorNome,
 		&conta.TipoContaPagar,
+		&conta.Categoria,
 		&conta.Descricao,
 		&conta.ValorOriginal,
 		&conta.ValorPago,

@@ -378,3 +378,59 @@ func (r *OrcamentoRepositoryPostgres) SoftDelete(ctx context.Context, id string)
 	}
 	return nil
 }
+
+// CompararPorCategoria retorna os orçamentos mais baratos para uma categoria específica
+func (r *OrcamentoRepositoryPostgres) CompararPorCategoria(ctx context.Context, categoria string, limite int) ([]*dto.OrcamentoComparacao, error) {
+	const op = "repository.postgres.orcamento.CompararPorCategoria"
+
+	query := `
+		SELECT DISTINCT 
+			o.id, 
+			o.numero, 
+			f.nome as fornecedor_nome, 
+			o.valor_total, 
+			o.status, 
+			o.data_emissao,
+			COUNT(oi.id) as itens_categoria
+		FROM orcamentos o
+		JOIN fornecedores f ON o.fornecedor_id = f.id
+		JOIN orcamento_itens oi ON o.id = oi.orcamento_id
+		JOIN produtos p ON oi.produto_id = p.id
+		WHERE p.categoria = $1
+		  AND o.deleted_at IS NULL
+		  AND o.status IN ('Aprovado', 'Em Aberto')
+		GROUP BY o.id, f.nome, o.numero, o.valor_total, o.status, o.data_emissao
+		ORDER BY o.valor_total ASC
+		LIMIT $2
+	`
+
+	rows, err := r.db.Query(ctx, query, categoria, limite)
+	if err != nil {
+		return nil, fmt.Errorf("%s: falha na consulta: %w", op, err)
+	}
+	defer rows.Close()
+
+	var orcamentos []*dto.OrcamentoComparacao
+	for rows.Next() {
+		var orc dto.OrcamentoComparacao
+		err := rows.Scan(
+			&orc.ID,
+			&orc.Numero,
+			&orc.FornecedorNome,
+			&orc.ValorTotal,
+			&orc.Status,
+			&orc.DataEmissao,
+			&orc.ItensCategoria,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("%s: falha ao escanear resultado: %w", op, err)
+		}
+		orcamentos = append(orcamentos, &orc)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: erro durante iteração: %w", op, err)
+	}
+
+	return orcamentos, nil
+}

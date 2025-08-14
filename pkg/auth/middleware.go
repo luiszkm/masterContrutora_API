@@ -10,21 +10,32 @@ const PermissoesContextKey = contextKey("permissoes")
 
 func (s *JWTService) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var tokenStr string
+
 		// 1. Tenta ler o cookie da requisição.
 		cookie, err := r.Cookie("jwt-token")
-		if err != nil {
-			// Se o cookie não existir, o usuário não está autenticado.
-			if err == http.ErrNoCookie {
+		if err == nil {
+			// Cookie encontrado
+			tokenStr = cookie.Value
+		} else if err == http.ErrNoCookie {
+			// 2. Se cookie não existir, tenta o header Authorization
+			authHeader := r.Header.Get("Authorization")
+			if authHeader == "" {
 				http.Error(w, "Token de autorização ausente", http.StatusUnauthorized)
 				return
 			}
+			// Verifica se o header tem o formato "Bearer <token>"
+			const bearerPrefix = "Bearer "
+			if len(authHeader) < len(bearerPrefix) || authHeader[:len(bearerPrefix)] != bearerPrefix {
+				http.Error(w, "Formato de autorização inválido", http.StatusUnauthorized)
+				return
+			}
+			tokenStr = authHeader[len(bearerPrefix):]
+		} else {
 			// Outro erro qualquer.
 			http.Error(w, "Requisição inválida", http.StatusBadRequest)
 			return
 		}
-
-		// 2. Pega o valor do token do cookie.
-		tokenStr := cookie.Value
 
 		claims, err := s.ValidateToken(tokenStr)
 		if err != nil {

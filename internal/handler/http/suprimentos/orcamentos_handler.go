@@ -170,3 +170,28 @@ func (h *Handler) HandleAtualizarOrcamento(w http.ResponseWriter, r *http.Reques
 
 	web.Respond(w, r, orcamentoAtualizado, http.StatusOK)
 }
+
+func (h *Handler) HandleCompararOrcamentosPorCategoria(w http.ResponseWriter, r *http.Request) {
+	// Extrai o parâmetro categoria da query string
+	categoria := r.URL.Query().Get("categoria")
+	if categoria == "" {
+		web.RespondError(w, r, "CATEGORIA_OBRIGATORIA", "O parâmetro 'categoria' é obrigatório", http.StatusBadRequest)
+		return
+	}
+
+	// Chama o serviço para buscar os orçamentos com melhores preços
+	orcamentos, err := h.service.CompararOrcamentosPorCategoria(r.Context(), categoria)
+	if err != nil {
+		h.logger.ErrorContext(r.Context(), "falha ao comparar orçamentos por categoria", "erro", err, "categoria", categoria)
+		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao comparar orçamentos por categoria", http.StatusInternalServerError)
+		return
+	}
+
+	// Responde com os orçamentos encontrados
+	web.Respond(w, r, map[string]interface{}{
+		"categoria":   categoria,
+		"orcamentos":  orcamentos,
+		"total":       len(orcamentos),
+		"descripcion": "5 orçamentos com melhores preços da categoria especificada",
+	}, http.StatusOK)
+}

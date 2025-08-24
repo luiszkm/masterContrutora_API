@@ -1,0 +1,26 @@
+### Arquivo de teste para endpoint de comparação de orçamentos por categoria
+
+### 1. Login para obter token de autorização
+POST http://localhost:8084/usuarios/login
+Content-Type: application/json
+
+{
+  "email": "admin@admin.com",
+  "senha": "123456"
+}
+
+### 2. Testar endpoint sem parâmetro categoria (deve retornar erro 400)
+GET http://localhost:8084/orcamentos/comparar
+Authorization: Bearer {{token}}
+
+### 3. Testar endpoint com categoria válida
+GET http://localhost:8084/orcamentos/comparar?categoria=Cimento
+Authorization: Bearer {{token}}
+
+### 4. Testar endpoint com categoria diferente
+GET http://localhost:8084/orcamentos/comparar?categoria=Madeira
+Authorization: Bearer {{token}}
+
+### 5. Testar endpoint com categoria que pode não existir
+GET http://localhost:8084/orcamentos/comparar?categoria=Ferramenta
+Authorization: Bearer {{token}}

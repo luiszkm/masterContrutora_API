@@ -15,6 +15,9 @@ const (
 	// Evento disparado quando uma conta a receber vence
 	ContaReceberVencida = "financeiro:conta_receber_vencida"
 	
+	// Evento disparado quando uma conta a pagar é paga (total ou parcial)
+	ContaPagarPaga = "financeiro:conta_pagar_paga"
+	
 	// Evento disparado quando uma movimentação financeira é registrada
 	MovimentacaoFinanceiraRegistrada = "financeiro:movimentacao_registrada"
 )
@@ -35,18 +38,19 @@ type ContaReceberCriadaPayload struct {
 
 // ContaReceberPagaPayload contém dados do pagamento da conta
 type ContaReceberPagaPayload struct {
-	ContaReceberID  string     `json:"contaReceberId"`
-	ObraID          *string    `json:"obraId,omitempty"`
-	Cliente         string     `json:"cliente"`
-	ValorRecebido   float64    `json:"valorRecebido"`      // Valor desta operação
-	ValorTotalRecebido float64 `json:"valorTotalRecebido"` // Valor total já recebido
-	ValorOriginal   float64    `json:"valorOriginal"`
-	ValorSaldo      float64    `json:"valorSaldo"`         // Saldo restante
-	DataRecebimento time.Time  `json:"dataRecebimento"`
-	FormaPagamento  *string    `json:"formaPagamento,omitempty"`
-	Status          string     `json:"status"`             // PARCIAL ou RECEBIDO
-	ContaBancariaID *string    `json:"contaBancariaId,omitempty"`
-	UsuarioID       string     `json:"usuarioId"`
+	ContaReceberID          string     `json:"contaReceberId"`
+	ObraID                  *string    `json:"obraId,omitempty"`
+	CronogramaRecebimentoID *string    `json:"cronogramaRecebimentoId,omitempty"` // Para sincronizar cronograma
+	Cliente                 string     `json:"cliente"`
+	ValorRecebido           float64    `json:"valorRecebido"`      // Valor desta operação
+	ValorTotalRecebido      float64    `json:"valorTotalRecebido"` // Valor total já recebido
+	ValorOriginal           float64    `json:"valorOriginal"`
+	ValorSaldo              float64    `json:"valorSaldo"`         // Saldo restante
+	DataRecebimento         time.Time  `json:"dataRecebimento"`
+	FormaPagamento          *string    `json:"formaPagamento,omitempty"`
+	Status                  string     `json:"status"`             // PARCIAL ou RECEBIDO
+	ContaBancariaID         *string    `json:"contaBancariaId,omitempty"`
+	UsuarioID               string     `json:"usuarioId"`
 }
 
 // ContaReceberVencidaPayload contém dados da conta vencida
@@ -76,4 +80,20 @@ type MovimentacaoFinanceiraRegistradaPayload struct {
 	DocumentoTipo        *string   `json:"documentoTipo,omitempty"` // CONTA_RECEBER, ORCAMENTO, APONTAMENTO
 	Status               string    `json:"status"`          // PREVISTO, REALIZADO, CONCILIADO
 	UsuarioID            string    `json:"usuarioId"`
+}
+
+// ContaPagarPagaPayload contém dados do pagamento da conta a pagar
+type ContaPagarPagaPayload struct {
+	ContaPagarID      string     `json:"contaPagarId"`
+	OrcamentoID       *string    `json:"orcamentoId,omitempty"`       // Para sincronizar orçamento
+	FornecedorNome    string     `json:"fornecedorNome"`
+	ValorPago         float64    `json:"valorPago"`                   // Valor desta operação
+	ValorTotalPago    float64    `json:"valorTotalPago"`             // Valor total já pago
+	ValorOriginal     float64    `json:"valorOriginal"`
+	ValorSaldo        float64    `json:"valorSaldo"`                 // Saldo restante
+	DataPagamento     time.Time  `json:"dataPagamento"`
+	FormaPagamento    *string    `json:"formaPagamento,omitempty"`
+	Status            string     `json:"status"`                     // PARCIAL ou PAGO
+	ContaBancariaID   *string    `json:"contaBancariaId,omitempty"`
+	UsuarioID         string     `json:"usuarioId"`
 }

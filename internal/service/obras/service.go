@@ -85,13 +85,35 @@ func (s *Service) CriarNovaObra(ctx context.Context, input dto.CriarNovaObraInpu
 	if err != nil {
 		return nil, fmt.Errorf("%s: formato de data inválido: %w", op, err)
 	}
+	// Definir valores padrão ou usar valores do input
+	tipoCobranca := obras.TipoCobrancaVista // Valor padrão
+	if input.TipoCobranca != nil {
+		tipoCobranca = *input.TipoCobranca
+	}
+	
+	valorContrato := 0.0 // Valor padrão
+	if input.ValorContratoTotal != nil {
+		valorContrato = *input.ValorContratoTotal
+	}
+	
+	// Descrição opcional
+	var descricao *string
+	if input.Descricao != "" {
+		descricao = &input.Descricao
+	}
+
 	novaObra := &obras.Obra{
-		ID:         uuid.NewString(),
-		Nome:       input.Nome,
-		Cliente:    input.Cliente,
-		Endereco:   input.Endereco,
-		DataInicio: dataInicio,
-		Status:     obras.StatusEmPlanejamento,
+		ID:                    uuid.NewString(),
+		Nome:                  input.Nome,
+		Cliente:               input.Cliente,
+		Endereco:              input.Endereco,
+		Descricao:             descricao,
+		DataInicio:            dataInicio,
+		Status:                obras.StatusEmPlanejamento,
+		ValorContratoTotal:    valorContrato,
+		ValorRecebido:         0.0,
+		TipoCobranca:          tipoCobranca,
+		DataAssinaturaContrato: input.DataAssinaturaContrato,
 	}
 	if err := s.obraRepo.Salvar(ctx, tx, novaObra); err != nil {
 		return nil, fmt.Errorf("%s: falha ao salvar nova obra: %w", op, err)
@@ -345,15 +367,36 @@ func (s *Service) AtualizarObra(ctx context.Context, obraID string, input dto.At
 		return nil, fmt.Errorf("%s: formato de data de fim inválido: %w", op, err)
 	}
 
+	// Primeiro, buscar a obra existente para preservar campos não fornecidos
+	obraExistente, err := s.obraRepo.BuscarPorID(ctx, obraID)
+	if err != nil {
+		return nil, fmt.Errorf("%s: falha ao buscar obra existente: %w", op, err)
+	}
+	
+	// Definir valores para campos financeiros (usar valores existentes se não fornecidos)
+	valorContrato := obraExistente.ValorContratoTotal
+	if input.ValorContratoTotal != nil {
+		valorContrato = *input.ValorContratoTotal
+	}
+	
+	tipoCobranca := obraExistente.TipoCobranca
+	if input.TipoCobranca != nil {
+		tipoCobranca = *input.TipoCobranca
+	}
+
 	obraAtualizada := &obras.Obra{
-		ID:         obraID,
-		Nome:       input.Nome,
-		Cliente:    input.Cliente,
-		Endereco:   input.Endereco,
-		DataInicio: dataInicio,
-		DataFim:    &dataFim,
-		Status:     obras.Status(input.Status),
-		Descricao:  &input.Descricao,
+		ID:                     obraID,
+		Nome:                   input.Nome,
+		Cliente:                input.Cliente,
+		Endereco:               input.Endereco,
+		DataInicio:             dataInicio,
+		DataFim:                &dataFim,
+		Status:                 obras.Status(input.Status),
+		Descricao:              &input.Descricao,
+		ValorContratoTotal:     valorContrato,
+		ValorRecebido:          obraExistente.ValorRecebido, // Preservar valor recebido
+		TipoCobranca:           tipoCobranca,
+		DataAssinaturaContrato: input.DataAssinaturaContrato,
 	}
 
 	if err := s.obraRepo.Atualizar(ctx, obraAtualizada); err != nil {

@@ -1,0 +1,111 @@
+# ===================================================================
+# TESTE: FLUXO ORÇAMENTO → CONTA A PAGAR
+# Validar aprovação e cancelamento de orçamento
+# ===================================================================
+
+@hostname = http://localhost:8084
+@token =
+
+# IDs existentes (usar IDs reais do sistema)
+@obraId = 0ac82c25-6fbe-4a6f-883e-b7828b4bf175
+@etapaId = 07ad6465-2566-4c75-9bea-6a4d45a5432c
+@fornecedorId = c9acd77c-33ea-4342-982d-4ad5686db544
+@orcamentoId = 7bc9f9ec-a9ee-462f-ba0d-afdab94fb9cf
+
+# ===================================================================
+# 1. CRIAR ORÇAMENTO PARA TESTE
+# ===================================================================
+
+### Criar orçamento teste
+# @name CriarOrcamentoTeste
+POST {{hostname}}/etapas/{{etapaId}}/orcamentos
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "fornecedorId": "{{fornecedorId}}",
+    "descricaoServico": "🧪 TESTE: Orçamento para validar fluxo automático",
+    "dataValidade": "2025-12-31T00:00:00Z",
+    "itens": [
+        {
+            "materialId": "11111111-1111-1111-1111-111111111111",
+            "descricaoItem": "Cimento CP-II 50kg",
+            "quantidade": 10,
+            "valorUnitario": 25.50,
+            "observacoes": "Item teste 1"
+        },
+        {
+            "materialId": "22222222-2222-2222-2222-222222222222", 
+            "descricaoItem": "Areia média (m³)",
+            "quantidade": 5,
+            "valorUnitario": 45.00,
+            "observacoes": "Item teste 2"
+        }
+    ],
+    "observacoes": "Orçamento criado para testar aprovação automática"
+}
+
+
+# ===================================================================
+# 2. VERIFICAR ESTADO INICIAL (SEM CONTA A PAGAR)
+# ===================================================================
+
+### Listar contas a pagar ANTES da aprovação 
+# @name ContasPagarAntes
+GET {{hostname}}/contas-pagar?page=1&pageSize=20
+Cookie: jwt-token={{token}}
+
+# ===================================================================
+# 3. APROVAR ORÇAMENTO (DEVE CRIAR CONTA A PAGAR)
+# ===================================================================
+
+### ⚡ APROVAR ORÇAMENTO
+# @name AprovarOrcamento  
+PATCH {{hostname}}/orcamentos/{{orcamentoId}}/status
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "status": "Aprovado"
+}
+
+### Verificar se conta a pagar foi criada automaticamente
+# @name ContasPagarAposAprovacao
+GET {{hostname}}/contas-pagar?page=1&pageSize=20
+Cookie: jwt-token={{token}}
+
+### Verificar orçamento aprovado
+# @name VerificarOrcamentoAprovado
+GET {{hostname}}/orcamentos/{{orcamentoId}}
+Cookie: jwt-token={{token}}
+
+# ===================================================================
+# 4. CANCELAR ORÇAMENTO (DEVE CANCELAR CONTA A PAGAR)
+# ===================================================================
+
+### 🔴 CANCELAR ORÇAMENTO
+# @name CancelarOrcamento
+PATCH {{hostname}}/orcamentos/{{orcamentoId}}/status
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "status": "Cancelado"
+}
+
+### Verificar se conta a pagar foi cancelada automaticamente
+# @name ContasPagarAposCancelamento
+GET {{hostname}}/contas-pagar?page=1&pageSize=20
+Cookie: jwt-token={{token}}
+
+# ===================================================================
+# RESULTADO ESPERADO:
+# 
+# ✅ ANTES: Nenhuma conta a pagar relacionada ao orçamento
+# ✅ APÓS APROVAÇÃO: Conta a pagar criada automaticamente
+#    - Logs: "orçamento aprovado - criando conta a pagar"
+#    - Logs: "conta a pagar criada automaticamente"
+# ✅ APÓS CANCELAMENTO: Conta a pagar cancelada
+#    - Logs: "orçamento cancelado após aprovação - cancelando conta a pagar"
+#    - Logs: "conta a pagar cancelada automaticamente"
+# ===================================================================

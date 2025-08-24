@@ -154,6 +154,50 @@ func (r *ContaReceberRepositoryPostgres) BuscarPorID(ctx context.Context, id str
 	return conta, nil
 }
 
+func (r *ContaReceberRepositoryPostgres) BuscarPorCronogramaRecebimentoID(ctx context.Context, cronogramaID string) (*financeiro.ContaReceber, error) {
+	const op = "repository.postgres.conta_receber.BuscarPorCronogramaRecebimentoID"
+
+	query := `
+		SELECT id, obra_id, cronograma_recebimento_id, cliente, tipo_conta_receber,
+			   descricao, valor_original, valor_recebido, data_vencimento, 
+			   data_recebimento, status, forma_pagamento, observacoes, 
+			   numero_documento, created_at, updated_at
+		FROM contas_receber 
+		WHERE cronograma_recebimento_id = $1
+	`
+
+	row := r.dbpool.QueryRow(ctx, query, cronogramaID)
+
+	conta := &financeiro.ContaReceber{}
+	err := row.Scan(
+		&conta.ID,
+		&conta.ObraID,
+		&conta.CronogramaRecebimentoID,
+		&conta.Cliente,
+		&conta.TipoContaReceber,
+		&conta.Descricao,
+		&conta.ValorOriginal,
+		&conta.ValorRecebido,
+		&conta.DataVencimento,
+		&conta.DataRecebimento,
+		&conta.Status,
+		&conta.FormaPagamento,
+		&conta.Observacoes,
+		&conta.NumeroDocumento,
+		&conta.CreatedAt,
+		&conta.UpdatedAt,
+	)
+
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, ErrNaoEncontrado
+		}
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return conta, nil
+}
+
 func (r *ContaReceberRepositoryPostgres) ListarPorObraID(ctx context.Context, obraID string) ([]*financeiro.ContaReceber, error) {
 	const op = "repository.postgres.conta_receber.ListarPorObraID"
 

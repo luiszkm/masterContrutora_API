@@ -86,7 +86,7 @@ func (s *ContaPagarService) CriarContaDeOrcamento(ctx context.Context, input dto
 		FornecedorNome:  "Fornecedor do Orçamento", // TODO: buscar do orçamento
 		TipoContaPagar:  "MATERIAL",
 		Descricao:       "Conta gerada automaticamente do orçamento " + input.OrcamentoID,
-		ValorOriginal:   1000.00, // TODO: buscar valor do orçamento
+		ValorOriginal:   input.ValorOrcamento, // ✅ Usando valor real do orçamento
 		DataVencimento:  input.DataVencimento,
 		NumeroDocumento: input.NumeroDocumento,
 		NumeroCompraNF:  input.NumeroCompraNF,
@@ -118,6 +118,9 @@ func (s *ContaPagarService) RegistrarPagamento(ctx context.Context, contaID stri
 
 	// Publicar evento de pagamento
 	s.publicarEventoPagamentoRealizado(ctx, conta, input.Valor, input.ContaBancariaID)
+	
+	// Publicar evento de conta a pagar paga (para sincronização com orçamento)
+	s.publicarEventoContaPagarPaga(ctx, conta, input.Valor, input.FormaPagamento, input.ContaBancariaID)
 
 	s.logger.InfoContext(ctx, "pagamento registrado", 
 		"conta_id", conta.ID, 
@@ -370,10 +373,16 @@ func (s *ContaPagarService) publicarEventoContaCriada(ctx context.Context, conta
 }
 
 func (s *ContaPagarService) publicarEventoPagamentoRealizado(ctx context.Context, conta *financeiro.ContaPagar, valorPago float64, contaBancariaID *string) {
+	// Tratar caso contaBancariaID seja nil
+	contaBancariaIDValue := ""
+	if contaBancariaID != nil {
+		contaBancariaIDValue = *contaBancariaID
+	}
+
 	// Publicar evento de movimentação financeira (saída)
 	payload := events.MovimentacaoFinanceiraRegistradaPayload{
 		MovimentacaoID:   uuid.NewString(),
-		ContaBancariaID:  *contaBancariaID, // TODO: tratar caso seja nil
+		ContaBancariaID:  contaBancariaIDValue, // ✅ Tratado caso nil
 		TipoMovimentacao: "SAIDA",
 		Valor:            valorPago,
 		DataMovimentacao: time.Now(),
@@ -389,6 +398,34 @@ func (s *ContaPagarService) publicarEventoPagamentoRealizado(ctx context.Context
 		Nome:    events.MovimentacaoFinanceiraRegistrada,
 		Payload: payload,
 	})
+}
+
+func (s *ContaPagarService) publicarEventoContaPagarPaga(ctx context.Context, conta *financeiro.ContaPagar, valorPago float64, formaPagamento *string, contaBancariaID *string) {
+	payload := events.ContaPagarPagaPayload{
+		ContaPagarID:      conta.ID,
+		OrcamentoID:       conta.OrcamentoID, // Para sincronizar orçamento
+		FornecedorNome:    conta.FornecedorNome,
+		ValorPago:         valorPago,
+		ValorTotalPago:    conta.ValorPago,
+		ValorOriginal:     conta.ValorOriginal,
+		ValorSaldo:        conta.ValorSaldo(),
+		DataPagamento:     time.Now(),
+		FormaPagamento:    formaPagamento,
+		Status:            conta.Status,
+		ContaBancariaID:   contaBancariaID,
+		UsuarioID:         "system", // TODO: pegar do contexto
+	}
+
+	s.eventBus.Publicar(ctx, bus.Evento{
+		Nome:    events.ContaPagarPaga,
+		Payload: payload,
+	})
+
+	s.logger.InfoContext(ctx, "evento conta a pagar paga publicado", 
+		"conta_id", conta.ID,
+		"orcamento_id", conta.OrcamentoID,
+		"valor_pago", valorPago,
+		"status", conta.Status)
 }
 
 func (s *ContaPagarService) publicarEventoContaVencida(ctx context.Context, conta *financeiro.ContaPagar) {

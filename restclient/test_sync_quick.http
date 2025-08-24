@@ -1,0 +1,67 @@
+# ===================================================================
+# TESTE RÁPIDO DE SINCRONIZAÇÃO BIDIRECIONAL
+# Usando dados existentes dos logs
+# ===================================================================
+
+@hostname = http://localhost:8084
+@token =
+
+# IDs reais dos logs - sincronização funcionando ✅
+@obraId = 0ac82c25-6fbe-4a6f-883e-b7828b4bf175
+@cronogramaId = ea6f160b-728c-41bb-aa33-5d63941f35ab
+@contaId = e3099aaf-ac3a-425f-aea8-bb6624d23a89
+
+# ===================================================================
+# 1. VERIFICAR ESTADO ATUAL
+# ===================================================================
+
+### Estado atual do cronograma
+GET {{hostname}}/cronograma-recebimentos/{{cronogramaId}}
+Cookie: jwt-token={{token}}
+
+### Estado atual da conta a receber
+GET {{hostname}}/contas-receber/{{contaId}}
+Cookie: jwt-token={{token}}
+
+# ===================================================================
+# 2. TESTE: RECEBIMENTO VIA CONTA A RECEBER (Fluxo Novo!)
+# ===================================================================
+
+### 🧪 REGISTRO DE RECEBIMENTO VIA CONTA A RECEBER
+# Este deve sincronizar o cronograma automaticamente
+POST {{hostname}}/contas-receber/{{contaId}}/recebimentos
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "valor": 2000.00,
+    "formaPagamento": "PIX",
+    "observacoes": "🧪 TESTE SINCRONIZAÇÃO: Conta → Cronograma"
+}
+
+# ===================================================================
+# 3. VALIDAR SINCRONIZAÇÃO
+# ===================================================================
+
+### ✅ Verificar se cronograma foi sincronizado
+GET {{hostname}}/cronograma-recebimentos/{{cronogramaId}}
+Cookie: jwt-token={{token}}
+
+### Estado atualizado da conta
+GET {{hostname}}/contas-receber/{{contaId}}
+Cookie: jwt-token={{token}}
+
+# ===================================================================
+# VALIDAÇÃO:
+# 
+# ❓ ANTES: cronograma.valorRecebido = X
+# ✅ DEPOIS: cronograma.valorRecebido = X + 2500
+# 
+# 🔍 LOGS A OBSERVAR:
+# - "processando evento" → "financeiro:conta_receber_paga"
+# - "sincronizando recebimento no cronograma"
+# - "recebimento sincronizado sem eventos"
+# - "cronograma sincronizado com sucesso"
+# 
+# SE OS VALORES BATEM = SINCRONIZAÇÃO FUNCIONANDO! 🎉
+# ===================================================================

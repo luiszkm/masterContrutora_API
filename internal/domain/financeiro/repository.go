@@ -19,6 +19,7 @@ type ContaReceberRepository interface {
 	Salvar(ctx context.Context, db db.DBTX, conta *ContaReceber) error
 	Atualizar(ctx context.Context, conta *ContaReceber) error
 	BuscarPorID(ctx context.Context, id string) (*ContaReceber, error)
+	BuscarPorCronogramaRecebimentoID(ctx context.Context, cronogramaID string) (*ContaReceber, error)
 	ListarPorObraID(ctx context.Context, obraID string) ([]*ContaReceber, error)
 	ListarVencidas(ctx context.Context) ([]*ContaReceber, error)
 	ListarVencidasPorPeriodo(ctx context.Context, dataInicio, dataFim time.Time) ([]*ContaReceber, error)

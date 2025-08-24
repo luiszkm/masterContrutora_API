@@ -1,6 +1,6 @@
 @hostname = http://localhost:8084
 @token =
-@obraId =a3ab9091-41f3-4d2c-803f-74203bb6fe2e
+@obraId =b8a89a55-fa43-4e79-a2ac-99608db1baf7
 @etapaId =e830a43a-bbb3-49ec-8171-9f86a062f30f
 @funcionarioId =fb0677ac-4c9a-49a9-b601-c0ed35f5b9fb
 @funcionarioParaDeletarId =
@@ -10,7 +10,7 @@
 @orcamentoId =19b50d8a-333e-4829-8731-1235e3f0e55d
 @apontamentoId = c1377600-6c9d-42cd-aaba-a85b5df3d217
 @etapaPadraoId = 4525251c-999c-4417-aa9e-72d7a9809b09
-
+@cronogramaId = 1e798bbe-bb25-43e9-ab2a-6d212ba40723
 # ===================================================================
 # [FLUXO 2] - CENÁRIO DE UMA OBRA COMPLETA
 # ===================================================================
@@ -23,7 +23,7 @@ Content-Type: application/json
 Cookie: jwt-token={{token}}
 
 {
-    "nome": "Obra teste para o fluxo completo",
+    "nome": "Obra teste de sync",
     "cliente": "ncorporadora Morar Bem",
     "endereco": "Rua das Palmeiras, 100",
     "dataInicio": "2025-08-01",
@@ -91,4 +91,96 @@ Cookie: jwt-token={{token}}
 
 GET {{hostname}}/obras/{{obraId}}/etapas
 Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+# ===================================================================
+# CRONOGRAMA DE RECEBIMENTOS
+# ===================================================================
+
+###
+# @name CriarCronograma
+# Cria um cronograma de recebimento individual para uma obra
+POST {{hostname}}/cronograma-recebimentos
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "obraId": "{{obraId}}",
+    "numeroEtapa": 1,
+    "descricaoEtapa": "Primeira etapa - Fundação",
+    "valorPrevisto": 15000.00,
+    "dataVencimento": "2025-09-15T00:00:00Z"
+}
+
+> {%
+    client.global.set("cronogramaId", response.body.id);
+%}
+
+###
+# @name CriarCronogramasEmLote
+# Cria múltiplos cronogramas de recebimento de uma vez
+POST {{hostname}}/cronograma-recebimentos/lote
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "obraId": "{{obraId}}",
+    "substituirExistente": true,
+    "cronogramas": [
+        {
+            "obraId": "{{obraId}}",
+            "numeroEtapa": 2,
+            "descricaoEtapa": "Segunda etapa - Estrutura",
+            "valorPrevisto": 25000.00,
+            "dataVencimento": "2025-10-15T00:00:00Z"
+        },
+        {
+            "obraId": "{{obraId}}",
+            "numeroEtapa": 3,
+            "descricaoEtapa": "Terceira etapa - Cobertura",
+            "valorPrevisto": 20000.00,
+            "dataVencimento": "2025-11-15T00:00:00Z"
+        },
+        {
+            "obraId": "{{obraId}}",
+            "numeroEtapa": 4,
+            "descricaoEtapa": "Quarta etapa - Acabamento",
+            "valorPrevisto": 18000.00,
+            "dataVencimento": "2025-12-15T00:00:00Z"
+        }
+    ]
+}
+
+###
+# @name BuscarCronograma
+# Busca um cronograma específico por ID
+GET {{hostname}}/cronograma-recebimentos/{{cronogramaId}}
+Cookie: jwt-token={{token}}
+
+###
+# @name RegistrarRecebimento
+# Registra um recebimento parcial ou total em um cronograma
+POST {{hostname}}/cronograma-recebimentos/{{cronogramaId}}/recebimentos
+Content-Type: application/json
+    Cookie: jwt-token={{token}}
+
+{
+    "valor": 7500.00,
+    "observacoes": "Recebimento parcial da primeira etapa"
+}
+
+###
+POST {{hostname}}/ccontas-receber/{{cronogramaId}}/recebimentos
+Content-Type: application/json
+    Cookie: jwt-token={{token}}
+{
+  "valor": 25000.00,
+  "observacoes": "Recebimento parcial da primeira etapa"
+}
+
+
+###
+# @name ListarCronogramasPorObra
+# Lista todos os cronogramas de recebimento de uma obra específica
+GET {{hostname}}/obras/{{obraId}}/cronograma-recebimentos
 Cookie: jwt-token={{token}}

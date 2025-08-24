@@ -1,0 +1,147 @@
+# ===================================================================
+# TESTE DE SINCRONIZAÇÃO BIDIRECIONAL
+# Cronograma de Recebimento ↔ Conta a Receber  
+# ===================================================================
+
+@hostname = http://localhost:8084
+@token =
+@obraId = 0ac82c25-6fbe-4a6f-883e-b7828b4bf175
+
+# IDs reais dos logs - sincronização funcionando ✅
+@cronogramaId = 9ab6fc62-2b69-4c24-be99-3a7c11b9a009
+@contaId = c5edcbb7-400a-45a8-89fb-a244848bba9d
+
+# ===================================================================
+# ETAPA 0: CRIAR DADOS DE TESTE
+# ===================================================================
+
+### Criar cronograma de teste
+# @name CriarCronogramaTeste
+POST {{hostname}}/cronograma-recebimentos
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "obraId": "{{obraId}}",
+    "numeroEtapa": 99,
+    "descricaoEtapa": "TESTE - Sincronização Bidirecional",
+    "valorPrevisto": 10000.00,
+    "dataVencimento": "2025-12-31T00:00:00Z"
+}
+
+> {%
+    client.global.set("cronogramaId", response.body.id);
+%}
+
+### Aguardar propagação do evento e listar contas criadas automaticamente
+# @name ListarContasDaObra
+GET {{hostname}}/obras/{{obraId}}/contas-receber
+Cookie: jwt-token={{token}}
+
+# ===================================================================
+# ETAPA 1: VERIFICAR ESTADO INICIAL
+# ===================================================================
+
+### Verificar cronograma inicial
+# @name VerificarCronogramaInicial
+GET {{hostname}}/cronograma-recebimentos/{{cronogramaId}}
+Cookie: jwt-token={{token}}
+
+### Buscar conta a receber correspondente ao cronograma criado
+# @name BuscarContaCorrespondente
+GET {{hostname}}/contas-receber?page=1&pageSize=20
+Cookie: jwt-token={{token}}
+
+# ===================================================================
+# ETAPA 2: TESTAR FLUXO 1 (Cronograma → Conta a Receber)
+# ===================================================================
+
+### Registrar recebimento VIA CRONOGRAMA
+# @name RecebimentoViaCronograma
+POST {{hostname}}/cronograma-recebimentos/{{cronogramaId}}/recebimentos
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "valor": 1000.00,
+    "observacoes": "Teste Fluxo 1: Cronograma → Conta"
+}
+
+### Verificar se conta foi atualizada automaticamente
+# @name VerificarContaAposFluxo1
+GET {{hostname}}/contas-receber/{{contaId}}
+Cookie: jwt-token={{token}}
+
+### Verificar cronograma após fluxo 1
+# @name VerificarCronogramaAposFluxo1
+GET {{hostname}}/cronograma-recebimentos/{{cronogramaId}}
+Cookie: jwt-token={{token}}
+
+# ===================================================================
+# ETAPA 3: TESTAR FLUXO 2 (Conta a Receber → Cronograma) 🆕
+# ===================================================================
+
+### Registrar recebimento VIA CONTA A RECEBER
+# @name RecebimentoViaContaReceber
+POST {{hostname}}/contas-receber/{{contaId}}/recebimentos
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "valor": 3000.00,
+    "formaPagamento": "PIX",
+    "contaBancariaId": null,
+    "observacoes": "Teste Fluxo 2: Conta → Cronograma (SINCRONIZAÇÃO BIDIRECIONAL)"
+}
+
+### Verificar se cronograma foi sincronizado automaticamente ✅
+# @name VerificarCronogramaAposSincronizacao
+GET {{hostname}}/cronograma-recebimentos/{{cronogramaId}}
+Cookie: jwt-token={{token}}
+
+### Verificar conta após fluxo 2
+# @name VerificarContaAposFluxo2
+GET {{hostname}}/contas-receber/{{contaId}}
+Cookie: jwt-token={{token}}
+
+# ===================================================================
+# ETAPA 4: VALIDAR CONSISTÊNCIA FINAL
+# ===================================================================
+
+### Estado final do cronograma
+# @name EstadoFinalCronograma
+GET {{hostname}}/cronograma-recebimentos/{{cronogramaId}}
+Cookie: jwt-token={{token}}
+
+### Estado final da conta
+# @name EstadoFinalConta
+GET {{hostname}}/contas-receber/{{contaId}}
+Cookie: jwt-token={{token}}
+
+### Listar todos os cronogramas da obra
+# @name ListarCronogramasDaObra
+GET {{hostname}}/obras/{{obraId}}/cronograma-recebimentos
+Cookie: jwt-token={{token}}
+
+# ===================================================================
+# COMO EXECUTAR O TESTE:
+# 
+# 1. Fazer login e obter token válido
+# 2. Executar requests na ordem numerada (0 → 1 → 2 → 3 → 4)
+# 3. Observar logs do servidor para eventos de sincronização
+# 4. Validar valores nos estados finais
+# 
+# RESULTADO ESPERADO:
+# 
+# Cronograma inicial: valorRecebido = 0
+# Após Fluxo 1: valorRecebido = 5000 (cronograma + conta sincronizados)  
+# Após Fluxo 2: valorRecebido = 8000 (conta → cronograma sincronizado)
+# 
+# LOGS ESPERADOS:
+# - "conta a receber criada a partir do cronograma" 
+# - "sincronizando recebimento no cronograma"
+# - "recebimento sincronizado sem eventos"
+# - "cronograma sincronizado com sucesso"
+# 
+# ✅ SINCRONIZAÇÃO BIDIRECIONAL FUNCIONANDO!
+# ===================================================================

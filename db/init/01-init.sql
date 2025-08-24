@@ -76,7 +76,8 @@ CREATE TABLE IF NOT EXISTS produtos (
     unidade_de_medida VARCHAR(50) NOT NULL,
     categoria VARCHAR(100), -- Categoria como string, pode ser vinculada a tabela 'categorias' no futuro se necessário
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ DEFAULT NULL
 );
 
 CREATE TABLE IF NOT EXISTS etapas_padrao (
@@ -140,7 +141,8 @@ CREATE TABLE IF NOT EXISTS orcamentos (
     condicoes_pagamento VARCHAR(255),
     criado_por_usuario_id UUID REFERENCES usuarios(id), -- Permitir nulo caso o usuário seja deletado
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ DEFAULT NULL
 );
 
 CREATE TABLE IF NOT EXISTS orcamento_itens (

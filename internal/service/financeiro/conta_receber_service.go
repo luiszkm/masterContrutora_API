@@ -110,18 +110,19 @@ func (s *ContaReceberService) RegistrarRecebimento(ctx context.Context, contaID 
 
 	// Publicar evento
 	payload := events.ContaReceberPagaPayload{
-		ContaReceberID:     conta.ID,
-		ObraID:             conta.ObraID,
-		Cliente:            conta.Cliente,
-		ValorRecebido:      input.Valor,
-		ValorTotalRecebido: conta.ValorRecebido,
-		ValorOriginal:      conta.ValorOriginal,
-		ValorSaldo:         conta.ValorSaldo(),
-		DataRecebimento:    time.Now(),
-		FormaPagamento:     input.FormaPagamento,
-		Status:             conta.Status,
-		ContaBancariaID:    input.ContaBancariaID,
-		UsuarioID:          "system", // TODO: pegar do contexto
+		ContaReceberID:          conta.ID,
+		ObraID:                  conta.ObraID,
+		CronogramaRecebimentoID: conta.CronogramaRecebimentoID,
+		Cliente:                 conta.Cliente,
+		ValorRecebido:           input.Valor,
+		ValorTotalRecebido:      conta.ValorRecebido,
+		ValorOriginal:           conta.ValorOriginal,
+		ValorSaldo:              conta.ValorSaldo(),
+		DataRecebimento:         time.Now(),
+		FormaPagamento:          input.FormaPagamento,
+		Status:                  conta.Status,
+		ContaBancariaID:         input.ContaBancariaID,
+		UsuarioID:               "system", // TODO: pegar do contexto
 	}
 
 	s.eventBus.Publicar(ctx, bus.Evento{
@@ -133,6 +134,48 @@ func (s *ContaReceberService) RegistrarRecebimento(ctx context.Context, contaID 
 		"conta_id", conta.ID, 
 		"valor", input.Valor, 
 		"status", conta.Status)
+
+	return s.toOutput(conta), nil
+}
+
+// SincronizarRecebimento registra recebimento sem disparar eventos (para evitar loops)
+func (s *ContaReceberService) SincronizarRecebimento(ctx context.Context, contaID string, valor float64, observacoes string) (*dto.ContaReceberOutput, error) {
+	const op = "service.financeiro.conta_receber.SincronizarRecebimento"
+
+	// Buscar conta
+	conta, err := s.contaReceberRepo.BuscarPorID(ctx, contaID)
+	if err != nil {
+		return nil, fmt.Errorf("%s: conta não encontrada: %w", op, err)
+	}
+
+	// Registrar recebimento
+	if err := conta.RegistrarRecebimento(valor, nil, &observacoes); err != nil {
+		return nil, fmt.Errorf("%s: falha ao registrar recebimento: %w", op, err)
+	}
+
+	// Atualizar no banco
+	if err := s.contaReceberRepo.Atualizar(ctx, conta); err != nil {
+		return nil, fmt.Errorf("%s: falha ao atualizar conta: %w", op, err)
+	}
+
+	// IMPORTANTE: NÃO publicar evento para evitar loop infinito de sincronização
+	s.logger.InfoContext(ctx, "recebimento sincronizado sem eventos", 
+		"conta_id", conta.ID, 
+		"valor", valor, 
+		"status", conta.Status,
+		"origem", "cronograma_sync")
+
+	return s.toOutput(conta), nil
+}
+
+// BuscarPorCronogramaRecebimentoID busca conta por cronograma ID
+func (s *ContaReceberService) BuscarPorCronogramaRecebimentoID(ctx context.Context, cronogramaID string) (*dto.ContaReceberOutput, error) {
+	const op = "service.financeiro.conta_receber.BuscarPorCronogramaRecebimentoID"
+
+	conta, err := s.contaReceberRepo.BuscarPorCronogramaRecebimentoID(ctx, cronogramaID)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
 
 	return s.toOutput(conta), nil
 }

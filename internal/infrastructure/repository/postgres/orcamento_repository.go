@@ -378,3 +378,49 @@ func (r *OrcamentoRepositoryPostgres) SoftDelete(ctx context.Context, id string)
 	}
 	return nil
 }
+
+func (r *OrcamentoRepositoryPostgres) BuscarMelhoresPrecosPorCategoria(ctx context.Context, categoria string, limit int) ([]*dto.OrcamentoListItemDTO, error) {
+	const op = "repository.postgres.orcamento.BuscarMelhoresPrecosPorCategoria"
+
+	// Query que busca orçamentos que contenham pelo menos um produto da categoria especificada
+	// e ordena por valor total crescente (melhores preços primeiro)
+	query := `
+		SELECT DISTINCT
+			o.id,
+			o.numero,
+			o.valor_total,
+			o.status,
+			o.data_emissao,
+			o.fornecedor_id,
+			f.nome as fornecedor_nome,
+			ob.id as obra_id,
+			ob.nome as obra_nome,
+			COUNT(oi.id) as itens_count,
+			COALESCE(array_agg(DISTINCT p.categoria) FILTER (WHERE p.categoria IS NOT NULL), ARRAY[]::text[]) as categorias
+		FROM orcamentos o
+		JOIN etapas e ON o.etapa_id = e.id
+		JOIN obras ob ON e.obra_id = ob.id
+		JOIN fornecedores f ON o.fornecedor_id = f.id
+		LEFT JOIN orcamento_itens oi ON o.id = oi.orcamento_id
+		LEFT JOIN produtos p ON oi.produto_id = p.id
+		WHERE o.deleted_at IS NULL 
+		  AND p.categoria = $1
+		  AND p.deleted_at IS NULL
+		GROUP BY o.id, f.nome, ob.id, ob.nome
+		ORDER BY o.valor_total ASC
+		LIMIT $2
+	`
+
+	rows, err := r.db.Query(ctx, query, categoria, limit)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	defer rows.Close()
+
+	orcamentos, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[dto.OrcamentoListItemDTO])
+	if err != nil {
+		return nil, fmt.Errorf("%s: falha ao escanear orçamentos: %w", op, err)
+	}
+
+	return orcamentos, nil
+}

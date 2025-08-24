@@ -39,6 +39,7 @@ import (
 
 	financeiro_events "github.com/luiszkm/masterCostrutora/internal/service/financeiro/events"
 	obras_events "github.com/luiszkm/masterCostrutora/internal/service/obras/events"
+	suprimentos_events "github.com/luiszkm/masterCostrutora/internal/service/suprimentos/events"
 )
 
 func main() {
@@ -106,6 +107,7 @@ func main() {
 	dashboardQuerier := postgres.NovoDashboardQuerier(dbpool, logger)     // NOVO
 	contaReceberRepo := postgres.NovoContaReceberRepositoryPostgres(dbpool)
 	contaPagarRepo := postgres.NovoContaPagarRepositoryPostgres(dbpool)
+	cronogramaRepo := postgres.NovoCronogramaRecebimentoRepositoryPostgres(dbpool)
 
 	// Serviços
 	identidadeSvc := identidade_service.NovoServico(usuarioRepo, passwordHasher, jwtService, logger)
@@ -133,6 +135,9 @@ func main() {
 	// Services financeiros específicos
 	contaReceberSvc := financeiro_service.NovoContaReceberService(contaReceberRepo, eventBus, logger)
 	contaPagarSvc := financeiro_service.NovoContaPagarService(contaPagarRepo, eventBus, logger)
+	
+	// Serviço de cronograma
+	cronogramaSvc := obras_service.NovoCronogramaService(cronogramaRepo, obraRepo, eventBus, logger, dbpool)
 
 	obraSvc := obras_service.NovoServico(
 		obraRepo,
@@ -164,6 +169,7 @@ func main() {
 	identidadeHandler := identidade_handler.NovoIdentidadeHandler(identidadeSvc, logger)
 	pessoalHandler := pessoal_handler.NovoPessoalHandler(pessoalSvc, logger)
 	obraHandler := obras_handler.NovoObrasHandler(obraSvc, logger)
+	cronogramaHandler := obras_handler.NovoCronogramaHandler(cronogramaSvc, logger)
 	finaceiroHandler := financeiro_handler.NovoFinanceiroHandler(financeiroSvc, logger)
 	// Handlers financeiros específicos
 	contaReceberHandler := financeiro_handler.NovoContaReceberHandler(contaReceberSvc, logger)
@@ -173,18 +179,24 @@ func main() {
 	dashboardHandler := dashboard_handler.NovoDashboardHandler(dashboardSvc, logger, dashLogger, jwtService)
 
 	// 4. Configuração do Event Bus e Manipuladores de Eventos (Correto)
-	obrasEventHandler := obras_events.NovoObrasEventHandler(logger)
+	obrasEventHandler := obras_events.NovoObrasEventHandler(cronogramaSvc, logger)
 	eventBus.Subscrever(events.OrcamentoStatusAtualizado, obrasEventHandler.HandleOrcamentoStatusAtualizado)
+	eventBus.Subscrever(events.ContaReceberPaga, obrasEventHandler.HandleContaReceberPaga)
 
 	// Event Handlers Financeiros
 	financeiroEventHandler := financeiro_events.NovoFinanceiroEventHandler(contaReceberSvc, contaPagarSvc, logger)
 	financeiro_events.ConfigurarEventHandlers(*eventBus, financeiroEventHandler)
+
+	// Event Handlers Suprimentos
+	suprimentosEventHandler := suprimentos_events.NovoSuprimentosEventHandler(suprimentosSvc, logger)
+	suprimentos_events.ConfigurarEventHandlers(*eventBus, suprimentosEventHandler)
 
 	// 5. Configuração do Servidor HTTP e Roteamento (Correto)
 	routerCfg := router.Config{
 		JwtService:          jwtService,
 		IdentidadeHandler:   identidadeHandler,
 		ObrasHandler:        obraHandler,
+		CronogramaHandler:   cronogramaHandler,
 		PessoalHandler:      pessoalHandler,
 		SuprimentosHandler:  suprimentosHandler,
 		FinanceiroHandler:   finaceiroHandler,

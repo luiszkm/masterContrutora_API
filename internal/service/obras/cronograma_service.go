@@ -264,6 +264,49 @@ func (s *CronogramaService) RegistrarRecebimento(ctx context.Context, cronograma
 	return s.toOutput(cronograma), nil
 }
 
+// SincronizarRecebimento registra recebimento SEM disparar eventos (para evitar loops de sincronização)
+func (s *CronogramaService) SincronizarRecebimento(ctx context.Context, cronogramaID string, input dto.RegistrarRecebimentoInput) (*dto.CronogramaRecebimentoOutput, error) {
+	const op = "service.obras.cronograma.SincronizarRecebimento"
+
+	// Buscar cronograma
+	cronograma, err := s.cronogramaRepo.BuscarPorID(ctx, cronogramaID)
+	if err != nil {
+		return nil, fmt.Errorf("%s: cronograma não encontrado: %w", op, err)
+	}
+
+	// Buscar obra para atualizar valor recebido
+	obra, err := s.obraRepo.BuscarPorID(ctx, cronograma.ObraID)
+	if err != nil {
+		return nil, fmt.Errorf("%s: obra não encontrada: %w", op, err)
+	}
+
+	// Registrar recebimento
+	if err := cronograma.RegistrarRecebimento(input.Valor, input.Observacoes); err != nil {
+		return nil, fmt.Errorf("%s: falha ao registrar recebimento: %w", op, err)
+	}
+
+	// Atualizar no banco
+	if err := s.cronogramaRepo.Atualizar(ctx, cronograma); err != nil {
+		return nil, fmt.Errorf("%s: falha ao atualizar cronograma: %w", op, err)
+	}
+
+	// Atualizar valor recebido na obra
+	obra.ValorRecebido += input.Valor
+	if err := s.obraRepo.Atualizar(ctx, obra); err != nil {
+		s.logger.WarnContext(ctx, "falha ao atualizar valor recebido na obra", "obra_id", obra.ID, "erro", err)
+	}
+
+	// IMPORTANTE: NÃO publicar evento para evitar loop infinito de sincronização
+
+	s.logger.InfoContext(ctx, "recebimento sincronizado sem eventos", 
+		"cronograma_id", cronograma.ID, 
+		"valor", input.Valor, 
+		"status", cronograma.Status,
+		"origem", "conta_receber_sync")
+
+	return s.toOutput(cronograma), nil
+}
+
 // ListarPorObraID lista cronogramas de uma obra
 func (s *CronogramaService) ListarPorObraID(ctx context.Context, obraID string) ([]*dto.CronogramaRecebimentoOutput, error) {
 	const op = "service.obras.cronograma.ListarPorObraID"

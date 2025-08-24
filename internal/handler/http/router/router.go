@@ -18,15 +18,16 @@ import (
 )
 
 type Config struct {
-	JwtService         *auth.JWTService
-	IdentidadeHandler  *identidade.Handler
-	ObrasHandler       *obras.Handler
-	PessoalHandler     *pessoal.Handler
-	SuprimentosHandler *suprimentos.Handler
-	FinanceiroHandler  *financeiro.Handler
+	JwtService          *auth.JWTService
+	IdentidadeHandler   *identidade.Handler
+	ObrasHandler        *obras.Handler
+	CronogramaHandler   *obras.CronogramaHandler
+	PessoalHandler      *pessoal.Handler
+	SuprimentosHandler  *suprimentos.Handler
+	FinanceiroHandler   *financeiro.Handler
 	ContaReceberHandler *financeiro.ContaReceberHandler
-	ContaPagarHandler  *financeiro.ContaPagarHandler
-	DashboardHandler   *dashboard.Handler
+	ContaPagarHandler   *financeiro.ContaPagarHandler
+	DashboardHandler    *dashboard.Handler
 }
 
 func New(c Config) *chi.Mux {
@@ -49,7 +50,7 @@ func New(c Config) *chi.Mux {
 	r.Route("/dashboard", func(r chi.Router) {
 		// Dashboard completo - sem autenticação para debug
 		r.Get("/", c.DashboardHandler.HandleObterDashboardCompleto)
-		
+
 		// Seções específicas do dashboard - sem autenticação para debug
 		r.Get("/financeiro", c.DashboardHandler.HandleObterDashboardFinanceiro)
 		r.Get("/obras", c.DashboardHandler.HandleObterDashboardObras)
@@ -60,9 +61,7 @@ func New(c Config) *chi.Mux {
 		r.Get("/cache-info", c.DashboardHandler.HandleObterParametrosCache)
 	})
 
-	// --- GRUPO ÚNICO PARA TODAS AS ROTAS PROTEGIDAS ---
 	r.Group(func(r chi.Router) {
-		// Aplicamos o middleware de autenticação UMA VEZ para todo o grupo.
 		r.Use(c.JwtService.AuthMiddleware)
 
 		// --- Recursos de Pessoal ---
@@ -169,6 +168,9 @@ func New(c Config) *chi.Mux {
 			r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).
 				Get("/", c.SuprimentosHandler.HandleListarOrcamentos)
 
+			r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).
+				Get("/comparar", c.SuprimentosHandler.HandleCompararOrcamentosPorCategoria)
+
 			r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).
 				Put("/{orcamentoId}", c.SuprimentosHandler.HandleAtualizarOrcamento)
 
@@ -177,7 +179,7 @@ func New(c Config) *chi.Mux {
 
 			r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).
 				Patch("/{orcamentoId}/status", c.SuprimentosHandler.HandleAtualizarOrcamentoStatus)
-			
+
 			r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).
 				Delete("/{orcamentoId}", c.SuprimentosHandler.HandleDeletarOrcamento)
 		})
@@ -198,11 +200,11 @@ func New(c Config) *chi.Mux {
 				Get("/", c.ContaReceberHandler.HandleListarContas)
 			r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).
 				Get("/{contaId}", c.ContaReceberHandler.HandleBuscarConta)
-			
+
 			// Ações específicas
 			r.With(auth.Authorize(authz.PermissaoFinanceiroEscrever)).
 				Post("/{contaId}/recebimentos", c.ContaReceberHandler.HandleRegistrarRecebimento)
-			
+
 			// Relatórios e consultas
 			r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).
 				Get("/vencidas", c.ContaReceberHandler.HandleListarContasVencidas)
@@ -219,13 +221,13 @@ func New(c Config) *chi.Mux {
 				Get("/", c.ContaPagarHandler.HandleListarContas)
 			r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).
 				Get("/{contaId}", c.ContaPagarHandler.HandleBuscarConta)
-			
+
 			// Ações específicas
 			r.With(auth.Authorize(authz.PermissaoFinanceiroEscrever)).
 				Post("/{contaId}/pagamentos", c.ContaPagarHandler.HandleRegistrarPagamento)
 			r.With(auth.Authorize(authz.PermissaoFinanceiroEscrever)).
 				Post("/orcamentos", c.ContaPagarHandler.HandleCriarContaDeOrcamento)
-			
+
 			// Relatórios e consultas
 			r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).
 				Get("/vencidas", c.ContaPagarHandler.HandleListarContasVencidas)
@@ -249,36 +251,8 @@ func New(c Config) *chi.Mux {
 			r.With(auth.Authorize(authz.PermissaoObrasEscrever)).Delete("/{etapaId}", c.ObrasHandler.HandleDeletarEtapaPadrao)
 		})
 
-		// --- Recursos de Dashboard (COMENTADO PARA DEBUG) ---
-		// r.Route("/dashboard", func(r chi.Router) {
-		// 	// Dashboard completo - requer permissão de leitura geral
-		// 	r.With(auth.Authorize(authz.PermissaoObrasLer)).
-		// 		Get("/", c.DashboardHandler.HandleObterDashboardCompleto)
-
-		// 	// Seções específicas do dashboard
-		// 	r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).
-		// 		Get("/financeiro", c.DashboardHandler.HandleObterDashboardFinanceiro)
-			
-		// 	r.With(auth.Authorize(authz.PermissaoObrasLer)).
-		// 		Get("/obras", c.DashboardHandler.HandleObterDashboardObras)
-			
-		// 	r.With(auth.Authorize(authz.PermissaoPessoalLer)).
-		// 		Get("/funcionarios", c.DashboardHandler.HandleObterDashboardFuncionarios)
-			
-		// 	r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).
-		// 		Get("/fornecedores", c.DashboardHandler.HandleObterDashboardFornecedores)
-
-		// 	// Endpoints específicos
-		// 	r.With(auth.Authorize(authz.PermissaoFinanceiroLer)).
-		// 		Get("/fluxo-caixa", c.DashboardHandler.HandleObterFluxoCaixa)
-
-		// 	// Endpoint genérico para seções por URL
-		// 	r.With(auth.Authorize(authz.PermissaoObrasLer)).
-		// 		Get("/{secao}", c.DashboardHandler.HandleObterDashboardPorSecao)
-
-		// 	// Parâmetros de cache
-		// 	r.Get("/cache-info", c.DashboardHandler.HandleObterParametrosCache)
-		// })
+		// --- Recursos de Cronograma de Recebimento ---
+		obras.SetupCronogramaRoutes(r, c.CronogramaHandler)
 	})
 
 	return r

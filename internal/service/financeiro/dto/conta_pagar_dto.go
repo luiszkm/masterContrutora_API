@@ -90,6 +90,7 @@ type ResumoContasPagarOutput struct {
 // CriarContaPagarDeOrcamentoInput para criação automática a partir de orçamento
 type CriarContaPagarDeOrcamentoInput struct {
 	OrcamentoID       string     `json:"orcamentoId" validate:"required"`
+	ValorOrcamento    float64    `json:"valorOrcamento" validate:"required,gt=0"`
 	DataVencimento    time.Time  `json:"dataVencimento" validate:"required"`
 	NumeroDocumento   *string    `json:"numeroDocumento,omitempty"`
 	NumeroCompraNF    *string    `json:"numeroCompraNf,omitempty"`

@@ -15,6 +15,8 @@ import (
 // ContaReceberService interface para o service de contas a receber
 type ContaReceberService interface {
 	CriarConta(ctx context.Context, input dto.CriarContaReceberInput) (*dto.ContaReceberOutput, error)
+	BuscarPorCronogramaRecebimentoID(ctx context.Context, cronogramaID string) (*dto.ContaReceberOutput, error)
+	SincronizarRecebimento(ctx context.Context, contaID string, valor float64, observacoes string) (*dto.ContaReceberOutput, error)
 }
 
 // ContaPagarService interface para o service de contas a pagar
@@ -89,6 +91,7 @@ func (h *FinanceiroEventHandler) HandleCronogramaRecebimentoCriado(ctx context.C
 
 // HandleRecebimentoRealizado processa evento de recebimento realizado
 func (h *FinanceiroEventHandler) HandleRecebimentoRealizado(ctx context.Context, evento bus.Evento) {
+	h.logger.InfoContext(ctx, "🔧 NOVA VERSÃO: HandleRecebimentoRealizado executando")
 	payload, ok := evento.Payload.(events.RecebimentoRealizadoPayload)
 	if !ok {
 		h.logger.ErrorContext(ctx, "payload de evento de recebimento inválido", "evento", evento.Nome)
@@ -100,11 +103,44 @@ func (h *FinanceiroEventHandler) HandleRecebimentoRealizado(ctx context.Context,
 		"valor", payload.ValorRecebido,
 		"cronograma_id", payload.CronogramaRecebimentoID)
 
-	// Este evento pode disparar outros processos, como:
-	// - Atualização de movimentações financeiras
-	// - Notificações para o cliente
-	// - Relatórios de recebimento
-	// Por enquanto, apenas logamos
+	// Se não há cronograma ID, não podemos sincronizar
+	if payload.CronogramaRecebimentoID == nil {
+		h.logger.InfoContext(ctx, "recebimento sem cronograma vinculado, nada para sincronizar")
+		return
+	}
+
+	h.logger.InfoContext(ctx, "DEBUG: cronograma ID encontrado, iniciando sincronização", 
+		"cronograma_id", *payload.CronogramaRecebimentoID)
+
+	cronogramaID := *payload.CronogramaRecebimentoID
+
+	// Buscar conta a receber por cronograma ID
+	conta, err := h.contaReceberService.BuscarPorCronogramaRecebimentoID(ctx, cronogramaID)
+	if err != nil {
+		h.logger.ErrorContext(ctx, "falha ao buscar conta a receber para sincronização", 
+			"cronograma_id", cronogramaID,
+			"erro", err)
+		return
+	}
+
+	// Sincronizar recebimento na conta a receber (sem disparar eventos para evitar loop)
+	observacoes := fmt.Sprintf("SYNC:Cronograma:%s", cronogramaID)
+	contaAtualizada, err := h.contaReceberService.SincronizarRecebimento(ctx, conta.ID, payload.ValorRecebido, observacoes)
+	if err != nil {
+		h.logger.ErrorContext(ctx, "falha ao sincronizar recebimento na conta a receber", 
+			"conta_id", conta.ID,
+			"cronograma_id", cronogramaID,
+			"valor", payload.ValorRecebido,
+			"erro", err)
+		return
+	}
+
+	h.logger.InfoContext(ctx, "conta a receber sincronizada com sucesso", 
+		"conta_id", conta.ID,
+		"cronograma_id", cronogramaID,
+		"valor", payload.ValorRecebido,
+		"novo_status", contaAtualizada.Status,
+		"valor_total_recebido", contaAtualizada.ValorRecebido)
 
 	// TODO: Implementar criação de MovimentacaoFinanceira quando a entidade existir
 }
@@ -132,6 +168,7 @@ func (h *FinanceiroEventHandler) HandleOrcamentoStatusAtualizado(ctx context.Con
 		// Criar input para conta a pagar baseado no orçamento
 		input := dto.CriarContaPagarDeOrcamentoInput{
 			OrcamentoID:        payload.OrcamentoID,
+			ValorOrcamento:     payload.Valor, // ✅ Usando valor real do orçamento
 			DataVencimento:     time.Now().AddDate(0, 0, 30), // 30 dias para vencimento por padrão
 			NumeroDocumento:    nil, // Será preenchido quando tiver a nota fiscal
 			Observacoes:        func() *string { s := "Conta gerada automaticamente do orçamento aprovado"; return &s }(),

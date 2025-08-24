@@ -1,0 +1,356 @@
+### ===============================================
+### TESTE: FLUXO COMPLETO DE APROVAÇÃO E CANCELAMENTO DE ORÇAMENTO
+### Este arquivo testa o fluxo completo de criação, aprovação e cancelamento
+### de orçamentos com verificação automática de contas a pagar
+### ===============================================
+
+@baseUrl = http://localhost:8084
+@contentType = application/json
+
+# Variables to be filled during execution
+@token = 
+@obraId = 
+@etapaId = 
+@fornecedorId = 
+@orcamentoId = 
+@contaPagarId = 
+
+### ===============================================
+### STEP 1: AUTHENTICATION
+### ===============================================
+
+### 1.1 Login to get authentication token
+# @name Login
+POST {{baseUrl}}/usuarios/login
+Content-Type: {{contentType}}
+
+{
+  "email": "admin@construtora.com",
+  "senha": "senha_forte_123"
+}
+
+> {%
+    client.global.set("token", response.body.accessToken);
+    client.log("Token obtained: " + response.body.accessToken);
+%}
+
+### ===============================================
+### STEP 2: SETUP - Create necessary entities
+### ===============================================
+
+### 2.1 Create a new Obra (Construction Project)
+# @name CriarObra
+POST {{baseUrl}}/obras
+Content-Type: {{contentType}}
+Cookie: jwt-token={{token}}
+
+{
+    "nome": "Teste Aprovação Orçamento",
+    "local": "Local de Teste",
+    "descricao": "Obra criada para testar fluxo de aprovação de orçamento",
+    "valorContrato": 500000.00,
+    "dataInicio": "2025-08-24",
+    "dataPrevisaoTermino": "2025-12-31"
+}
+
+> {%
+    client.global.set("obraId", response.body.id);
+    client.log("Obra ID: " + response.body.id);
+%}
+
+### 2.2 Create an Etapa (Project Stage)
+# @name CriarEtapa
+POST {{baseUrl}}/obras/{{obraId}}/etapas
+Content-Type: {{contentType}}
+Cookie: jwt-token={{token}}
+
+{
+    "nome": "Fundação",
+    "descricao": "Etapa de fundação da obra",
+    "ordem": 1,
+    "dataPrevisaoInicio": "2025-08-25",
+    "dataPrevisaoFim": "2025-10-25"
+}
+
+> {%
+    client.global.set("etapaId", response.body.id);
+    client.log("Etapa ID: " + response.body.id);
+%}
+
+### 2.3 Create a Fornecedor (Supplier)
+# @name CriarFornecedor
+POST {{baseUrl}}/fornecedores
+Content-Type: {{contentType}}
+Cookie: jwt-token={{token}}
+
+{
+    "nome": "Teste Materiais Ltda",
+    "cnpj": "12.345.678/0001-90",
+    "contato": "João da Silva",
+    "email": "joao@testemateriais.com",
+    "telefone": "(11) 99999-9999",
+    "endereco": "Rua dos Testes, 123"
+}
+
+> {%
+    client.global.set("fornecedorId", response.body.id);
+    client.log("Fornecedor ID: " + response.body.id);
+%}
+
+### ===============================================
+### STEP 3: CREATE ORÇAMENTO (Budget)
+### ===============================================
+
+### 3.1 Create a new budget
+# @name CriarOrcamento
+POST {{baseUrl}}/etapas/{{etapaId}}/orcamentos
+Content-Type: {{contentType}}
+Cookie: jwt-token={{token}}
+
+{
+    "fornecedorId": "{{fornecedorId}}",
+    "itens": [
+        {
+            "nomeProduto": "Cimento CP II-Z-32 50kg",
+            "unidadeDeMedida": "saco",
+            "categoria": "Cimento",
+            "quantidade": 200,
+            "valorUnitario": 32.50
+        },
+        {
+            "nomeProduto": "Areia Média",
+            "unidadeDeMedida": "m³",
+            "categoria": "Agregado",
+            "quantidade": 15,
+            "valorUnitario": 85.00
+        },
+        {
+            "nomeProduto": "Brita 1",
+            "unidadeDeMedida": "m³", 
+            "categoria": "Agregado",
+            "quantidade": 10,
+            "valorUnitario": 95.00
+        }
+    ],
+    "condicoesPagamento": "30/60 dias",
+    "observacoes": "Material para início da fundação - entrega urgente"
+}
+
+> {%
+    client.global.set("orcamentoId", response.body.id);
+    client.log("Orçamento created with ID: " + response.body.id);
+    client.log("Orçamento Status: " + response.body.status);
+    client.log("Valor Total: R$ " + response.body.valorTotal);
+%}
+
+### 3.2 Verify budget was created with correct status
+# @name BuscarOrcamento
+GET {{baseUrl}}/orcamentos/{{orcamentoId}}
+Cookie: jwt-token={{token}}
+
+> {%
+    client.test("Orçamento should be created with status 'Em Aberto'", function() {
+        client.assert(response.body.status === "Em Aberto", "Status should be 'Em Aberto'");
+    });
+    client.log("Orçamento Status: " + response.body.status);
+%}
+
+### 3.3 Check that no conta_pagar exists yet
+# @name VerificarContasPagar_PreApproval
+GET {{baseUrl}}/contas-pagar?orcamentoId={{orcamentoId}}
+Cookie: jwt-token={{token}}
+
+> {%
+    client.test("No conta_pagar should exist before approval", function() {
+        client.assert(response.body.contas.length === 0, "Should have 0 contas_pagar before approval");
+    });
+    client.log("Contas a pagar before approval: " + response.body.contas.length);
+%}
+
+### ===============================================
+### STEP 4: APPROVE ORÇAMENTO
+### ===============================================
+
+### 4.1 Approve the budget (should automatically create conta_pagar)
+# @name AprovarOrcamento  
+PATCH {{baseUrl}}/orcamentos/{{orcamentoId}}/status
+Content-Type: {{contentType}}
+Cookie: jwt-token={{token}}
+
+{
+    "status": "Aprovado"
+}
+
+> {%
+    client.test("Orçamento should be approved successfully", function() {
+        client.assert(response.status === 200, "Response status should be 200");
+        client.assert(response.body.status === "Aprovado", "Status should be 'Aprovado'");
+    });
+    client.log("✅ Orçamento approved successfully");
+    client.log("New Status: " + response.body.status);
+%}
+
+### 4.2 Verify conta_pagar was created automatically
+# @name VerificarContasPagar_PostApproval  
+GET {{baseUrl}}/contas-pagar?orcamentoId={{orcamentoId}}
+Cookie: jwt-token={{token}}
+
+> {%
+    client.test("Conta_pagar should be created after approval", function() {
+        client.assert(response.body.contas.length === 1, "Should have 1 conta_pagar after approval");
+        client.assert(response.body.contas[0].status === "PENDENTE", "Conta should be PENDENTE");
+    });
+    
+    if (response.body.contas.length > 0) {
+        client.global.set("contaPagarId", response.body.contas[0].id);
+        client.log("✅ Conta a pagar created automatically");
+        client.log("Conta Pagar ID: " + response.body.contas[0].id);
+        client.log("Status: " + response.body.contas[0].status);
+        client.log("Valor: R$ " + response.body.contas[0].valorOriginal);
+    }
+%}
+
+### 4.3 Get detailed conta_pagar information
+# @name DetalharContaPagar
+GET {{baseUrl}}/contas-pagar/{{contaPagarId}}
+Cookie: jwt-token={{token}}
+
+> {%
+    client.test("Conta_pagar details should match orçamento", function() {
+        client.assert(response.body.orcamentoId === client.global.get("orcamentoId"), "OrcamentoId should match");
+        client.assert(response.body.status === "PENDENTE", "Status should be PENDENTE");
+    });
+    client.log("Conta Pagar Details:");
+    client.log("- Fornecedor: " + response.body.fornecedorNome);
+    client.log("- Descrição: " + response.body.descricao);
+    client.log("- Valor: R$ " + response.body.valorOriginal);
+    client.log("- Status: " + response.body.status);
+%}
+
+### ===============================================
+### STEP 5: CANCEL ORÇAMENTO
+### ===============================================
+
+### 5.1 Cancel the approved budget (should automatically cancel conta_pagar)
+# @name CancelarOrcamento
+PATCH {{baseUrl}}/orcamentos/{{orcamentoId}}/status
+Content-Type: {{contentType}}
+Cookie: jwt-token={{token}}
+
+{
+    "status": "Cancelado"
+}
+
+> {%
+    client.test("Orçamento should be cancelled successfully", function() {
+        client.assert(response.status === 200, "Response status should be 200");
+        client.assert(response.body.status === "Cancelado", "Status should be 'Cancelado'");
+    });
+    client.log("❌ Orçamento cancelled successfully");
+    client.log("New Status: " + response.body.status);
+%}
+
+### 5.2 Verify conta_pagar was cancelled automatically  
+# @name VerificarContasPagar_PostCancellation
+GET {{baseUrl}}/contas-pagar/{{contaPagarId}}
+Cookie: jwt-token={{token}}
+
+> {%
+    client.test("Conta_pagar should be cancelled after orçamento cancellation", function() {
+        client.assert(response.body.status === "CANCELADO", "Conta status should be CANCELADO");
+    });
+    client.log("❌ Conta a pagar cancelled automatically");
+    client.log("Final Status: " + response.body.status);
+%}
+
+### 5.3 Verify all contas_pagar for this orçamento are cancelled
+# @name VerificarTodasContasPagar_Final
+GET {{baseUrl}}/contas-pagar?orcamentoId={{orcamentoId}}
+Cookie: jwt-token={{token}}
+
+> {%
+    client.test("All contas_pagar should be cancelled", function() {
+        const contas = response.body.contas;
+        client.assert(contas.length === 1, "Should still have 1 conta_pagar");
+        client.assert(contas[0].status === "CANCELADO", "Conta should be CANCELADO");
+    });
+    client.log("✅ Verification complete - all contas cancelled");
+%}
+
+### ===============================================
+### STEP 6: ADDITIONAL TEST SCENARIOS  
+### ===============================================
+
+### 6.1 Try to approve the cancelled budget (should work - creates new conta_pagar)
+# @name ReaprovarOrcamento
+PATCH {{baseUrl}}/orcamentos/{{orcamentoId}}/status
+Content-Type: {{contentType}}
+Cookie: jwt-token={{token}}
+
+{
+    "status": "Aprovado"
+}
+
+> {%
+    client.test("Cancelled orçamento should be re-approvable", function() {
+        client.assert(response.status === 200, "Response status should be 200");
+        client.assert(response.body.status === "Aprovado", "Status should be 'Aprovado' again");
+    });
+    client.log("✅ Orçamento re-approved successfully");
+%}
+
+### 6.2 Verify new conta_pagar was created after re-approval
+# @name VerificarNovaContaPagar
+GET {{baseUrl}}/contas-pagar?orcamentoId={{orcamentoId}}&status=PENDENTE
+Cookie: jwt-token={{token}}
+
+> {%
+    client.test("New conta_pagar should be created on re-approval", function() {
+        const contasPendentes = response.body.contas.filter(c => c.status === "PENDENTE");
+        client.assert(contasPendentes.length === 1, "Should have 1 PENDENTE conta_pagar");
+    });
+    client.log("✅ New conta a pagar created on re-approval");
+%}
+
+### ===============================================
+### SUMMARY REPORT
+### ===============================================
+
+### 6.3 Final status check - Get complete summary
+# @name RelatorioFinal
+GET {{baseUrl}}/orcamentos/{{orcamentoId}}
+Cookie: jwt-token={{token}}
+
+> {%
+    client.log("==========================================");
+    client.log("           FINAL TEST REPORT");
+    client.log("==========================================");
+    client.log("Orçamento ID: " + response.body.id);
+    client.log("Final Status: " + response.body.status);
+    client.log("Valor Total: R$ " + response.body.valorTotal);
+    client.log("Fornecedor: " + response.body.fornecedorNome);
+    client.log("==========================================");
+    client.log("✅ Test completed successfully!");
+    client.log("The budget approval/cancellation flow works correctly.");
+    client.log("==========================================");
+%}
+
+### Check server logs
+### Expected log messages:
+### - "orçamento aprovado - criando conta a pagar" 
+### - "conta a pagar criada automaticamente"
+### - "orçamento cancelado após aprovação - cancelando conta a pagar"
+### - "conta a pagar cancelada automaticamente devido ao cancelamento do orçamento"
+
+### ===============================================
+### CLEANUP (Optional)
+### ===============================================
+
+### Delete the test obra (will cascade delete everything)
+# @name LimpezaFinal
+DELETE {{baseUrl}}/obras/{{obraId}}
+Cookie: jwt-token={{token}}
+
+> {%
+    client.log("🧹 Cleanup completed - test data removed");
+%}

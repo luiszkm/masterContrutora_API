@@ -809,9 +809,13 @@ func (q *DashboardQuerierPostgres) ObterTopFornecedores(ctx context.Context, lim
 	var fornecedores []*dto.TopFornecedorDTO
 	for rows.Next() {
 		var fornecedor dto.TopFornecedorDTO
+		var valorTotalGasto *float64
 		err := rows.Scan(&fornecedor.FornecedorID, &fornecedor.NomeFornecedor, &fornecedor.CNPJ,
 			&fornecedor.Avaliacao, &fornecedor.Status, &fornecedor.TotalOrcamentos,
-			&fornecedor.ValorTotalGasto, &fornecedor.UltimoOrcamento)
+			&valorTotalGasto, &fornecedor.UltimoOrcamento)
+		if err == nil && valorTotalGasto != nil {
+			fornecedor.ValorTotalGasto = *valorTotalGasto
+		}
 		if err != nil {
 			return nil, fmt.Errorf("%s: falha ao escanear top fornecedores: %w", op, err)
 		}
@@ -954,18 +958,22 @@ func (q *DashboardQuerierPostgres) ObterEstatisticasGeraisFornecedores(ctx conte
 			COUNT(CASE WHEN status = 'Ativo' THEN 1 END) as fornecedores_ativos,
 			COUNT(CASE WHEN status = 'Inativo' THEN 1 END) as fornecedores_inativos,
 			AVG(CASE WHEN avaliacao IS NOT NULL THEN avaliacao END) as avaliacao_media_geral,
-			AVG(EXTRACT(days FROM CURRENT_DATE - created_at)) as tempo_medio_contrato
+			COALESCE(AVG(EXTRACT(days FROM CURRENT_DATE - created_at)), 0) as tempo_medio_contrato
 		FROM fornecedores 
 		WHERE deleted_at IS NULL`
 
 	var stats dto.EstatisticasGeraisFornecedoresDTO
+	var tempoMedioFloat float64
 	err := q.db.QueryRow(ctx, query).Scan(
 		&stats.TotalFornecedores,
 		&stats.FornecedoresAtivos,
 		&stats.FornecedoresInativos,
 		&stats.AvaliacaoMediaGeral,
-		&stats.TempoMedioContrato,
+		&tempoMedioFloat,
 	)
+	if err == nil {
+		stats.TempoMedioContrato = int(tempoMedioFloat)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}

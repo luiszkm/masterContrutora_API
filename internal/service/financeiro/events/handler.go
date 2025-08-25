@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/luiszkm/masterCostrutora/internal/events"
 	"github.com/luiszkm/masterCostrutora/internal/service/financeiro/dto"
 	"github.com/luiszkm/masterCostrutora/internal/platform/bus"
@@ -24,6 +23,7 @@ type ContaPagarService interface {
 	CriarConta(ctx context.Context, input dto.CriarContaPagarInput) (*dto.ContaPagarOutput, error)
 	CriarContaDeOrcamento(ctx context.Context, input dto.CriarContaPagarDeOrcamentoInput, orcamento interface{}) (*dto.ContaPagarOutput, error)
 	CancelarContaDeOrcamento(ctx context.Context, orcamentoID string) error
+	CancelarContaDeApontamento(ctx context.Context, apontamentoID string) error
 }
 
 // FinanceiroEventHandler processa eventos relacionados ao módulo financeiro
@@ -206,48 +206,6 @@ func (h *FinanceiroEventHandler) HandleOrcamentoStatusAtualizado(ctx context.Con
 	}
 }
 
-// HandlePagamentoApontamentoRealizado processa pagamento de apontamento
-func (h *FinanceiroEventHandler) HandlePagamentoApontamentoRealizado(ctx context.Context, evento bus.Evento) {
-	payload, ok := evento.Payload.(events.PagamentoApontamentoRealizadoPayload)
-	if !ok {
-		h.logger.ErrorContext(ctx, "payload de evento de pagamento de apontamento inválido", "evento", evento.Nome)
-		return
-	}
-
-	h.logger.InfoContext(ctx, "processando pagamento de apontamento", 
-		"funcionario_id", payload.FuncionarioID,
-		"obra_id", payload.ObraID,
-		"valor", payload.ValorCalculado,
-		"periodo", payload.PeriodoReferencia)
-
-	// Publicar evento de movimentação financeira (saída de caixa)
-	movimentacaoPayload := events.MovimentacaoFinanceiraRegistradaPayload{
-		MovimentacaoID:       uuid.NewString(),
-		ContaBancariaID:      payload.ContaBancariaID,
-		TipoMovimentacao:     "SAIDA",
-		Valor:                payload.ValorCalculado,
-		DataMovimentacao:     payload.DataDeEfetivacao,
-		DataCompetencia:      payload.DataDeEfetivacao,
-		Descricao:            fmt.Sprintf("Pagamento de apontamento - %s", payload.PeriodoReferencia),
-		DocumentoID:          &payload.FuncionarioID, // ID do funcionário como referência
-		DocumentoTipo:        func() *string { s := "APONTAMENTO"; return &s }(),
-		Status:               "REALIZADO",
-		UsuarioID:            "system", // TODO: pegar do contexto quando disponível
-	}
-
-	// TODO: Implementar EventPublisher interface no handler quando disponível
-	// Por enquanto, apenas logar que a movimentação seria criada
-	// eventoMovimentacao := bus.Evento{
-	// 	Nome:    events.MovimentacaoFinanceiraRegistrada,
-	// 	Payload: movimentacaoPayload,
-	// }
-	h.logger.InfoContext(ctx, "movimentação financeira registrada", 
-		"movimentacao_id", movimentacaoPayload.MovimentacaoID,
-		"tipo", "SAIDA",
-		"valor", payload.ValorCalculado,
-		"funcionario_id", payload.FuncionarioID,
-		"conta_bancaria", payload.ContaBancariaID)
-}
 
 // HandleApontamentoAprovado cria conta a pagar quando apontamento é aprovado
 func (h *FinanceiroEventHandler) HandleApontamentoAprovado(ctx context.Context, evento bus.Evento) {
@@ -290,6 +248,34 @@ func (h *FinanceiroEventHandler) HandleApontamentoAprovado(ctx context.Context, 
 		"valor", payload.ValorCalculado)
 }
 
+// HandleApontamentoCancelado cancela conta a pagar quando apontamento é cancelado
+func (h *FinanceiroEventHandler) HandleApontamentoCancelado(ctx context.Context, evento bus.Evento) {
+	payload, ok := evento.Payload.(events.ApontamentoCanceladoPayload)
+	if !ok {
+		h.logger.ErrorContext(ctx, "payload de evento de apontamento cancelado inválido", "evento", evento.Nome)
+		return
+	}
+
+	h.logger.InfoContext(ctx, "processando apontamento cancelado", 
+		"apontamento_id", payload.ApontamentoID,
+		"funcionario", payload.FuncionarioNome,
+		"status_anterior", payload.StatusAnterior,
+		"motivo", payload.MotivoCancelamento)
+
+	// Cancelar conta a pagar associada ao apontamento
+	if err := h.contaPagarService.CancelarContaDeApontamento(ctx, payload.ApontamentoID); err != nil {
+		h.logger.ErrorContext(ctx, "falha ao cancelar conta a pagar do apontamento cancelado", 
+			"apontamento_id", payload.ApontamentoID,
+			"funcionario_id", payload.FuncionarioID,
+			"erro", err)
+		return
+	}
+
+	h.logger.InfoContext(ctx, "conta a pagar cancelada automaticamente devido ao cancelamento do apontamento", 
+		"apontamento_id", payload.ApontamentoID,
+		"funcionario", payload.FuncionarioNome)
+}
+
 // HandleOrcamentoExcluido cancela conta a pagar quando orçamento é excluído
 func (h *FinanceiroEventHandler) HandleOrcamentoExcluido(ctx context.Context, evento bus.Evento) {
 	payload, ok := evento.Payload.(events.OrcamentoExcluidoPayload)
@@ -329,5 +315,5 @@ func ConfigurarEventHandlers(eventBus bus.EventBus, handler *FinanceiroEventHand
 	
 	// Eventos de apontamento (integração com Pessoal)
 	eventBus.Subscrever(events.ApontamentoAprovado, handler.HandleApontamentoAprovado)
-	eventBus.Subscrever(events.PagamentoApontamentoRealizado, handler.HandlePagamentoApontamentoRealizado)
+	eventBus.Subscrever(events.ApontamentoCancelado, handler.HandleApontamentoCancelado)
 }

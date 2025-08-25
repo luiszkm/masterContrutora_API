@@ -15,7 +15,6 @@ const (
 	PermissaoPessoalApontamentoEscrever = "pessoal:apontamento:escrever"
 	PermissaoPessoalApontamentoLer      = "pessoal:apontamento:ler"
 	PermissaoPessoalApontamentoAprovar  = "pessoal:apontamento:aprovar"
-	PermissaoPessoalApontamentoPagar    = "pessoal:apontamento:pagar"
 )
 
 // Papel define um nome de papel/função para um conjunto de permissões.
@@ -40,7 +39,6 @@ var mapaDePapeis = map[Papel][]string{
 		PermissaoFinanceiroEscrever,
 		PermissaoPessoalApontamentoEscrever,
 		PermissaoPessoalApontamentoAprovar,
-		PermissaoPessoalApontamentoPagar,
 	},
 	PapelVisualizador: {
 		PermissaoObrasLer,

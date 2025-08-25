@@ -405,6 +405,8 @@ func (s *ContaPagarService) publicarEventoContaPagarPaga(ctx context.Context, co
 		ContaPagarID:      conta.ID,
 		OrcamentoID:       conta.OrcamentoID, // Para sincronizar orçamento
 		FornecedorNome:    conta.FornecedorNome,
+		TipoContaPagar:    string(conta.TipoContaPagar),
+		NumeroDocumento:   conta.NumeroDocumento, // Para vincular com apontamento
 		ValorPago:         valorPago,
 		ValorTotalPago:    conta.ValorPago,
 		ValorOriginal:     conta.ValorOriginal,
@@ -443,4 +445,68 @@ func (s *ContaPagarService) publicarEventoContaCancelada(ctx context.Context, co
 		"orcamento_id", orcamentoID,
 		"fornecedor", conta.FornecedorNome,
 		"valor_original", conta.ValorOriginal)
+}
+
+func (s *ContaPagarService) CancelarContaDeApontamento(ctx context.Context, apontamentoID string) error {
+	const op = "service.financeiro.conta_pagar.CancelarContaDeApontamento"
+
+	// Buscar conta pelo número do documento (apontamento ID)
+	// Como não temos um método específico, vamos usar uma query SQL direta ou buscar por funcionário
+	// Por enquanto, vou usar uma abordagem mais robusta: buscar todas as contas PENDENTES de FUNCIONARIO e filtrar
+	filtros := common.ListarFiltros{
+		Status:        "PENDENTE",
+		Pagina:        1,
+		TamanhoPagina: 100,
+	}
+	contas, _, err := s.contaPagarRepo.Listar(ctx, filtros)
+	if err != nil {
+		return fmt.Errorf("%s: falha ao buscar contas: %w", op, err)
+	}
+
+	// Filtrar pela conta que tem o numero do documento igual ao apontamento ID e é de funcionário
+	var contaEncontrada *financeiro.ContaPagar
+	for _, conta := range contas {
+		if conta.NumeroDocumento != nil && 
+		   *conta.NumeroDocumento == apontamentoID && 
+		   conta.TipoContaPagar == financeiro.TipoContaPagarFuncionario {
+			contaEncontrada = conta
+			break
+		}
+	}
+
+	if contaEncontrada == nil {
+		s.logger.WarnContext(ctx, "nenhuma conta a pagar encontrada para o apontamento", 
+			"apontamento_id", apontamentoID)
+		return nil // Não é erro se não existe conta
+	}
+
+	// Verificar se a conta pode ser cancelada (não pode ter pagamentos)
+	if contaEncontrada.ValorPago > 0 {
+		return fmt.Errorf("%s: conta não pode ser cancelada pois já possui pagamentos (valor pago: %.2f)", 
+			op, contaEncontrada.ValorPago)
+	}
+
+	// Marcar como cancelada
+	contaEncontrada.Status = financeiro.StatusContaPagarCancelado
+	contaEncontrada.Observacoes = func() *string { 
+		obs := "Cancelada automaticamente devido ao cancelamento do apontamento"
+		if contaEncontrada.Observacoes != nil {
+			obs = *contaEncontrada.Observacoes + " | " + obs
+		}
+		return &obs 
+	}()
+	contaEncontrada.UpdatedAt = time.Now()
+
+	// Salvar alteração
+	if err := s.contaPagarRepo.Atualizar(ctx, contaEncontrada); err != nil {
+		return fmt.Errorf("%s: falha ao cancelar conta: %w", op, err)
+	}
+
+	s.logger.InfoContext(ctx, "conta a pagar cancelada devido ao cancelamento do apontamento", 
+		"conta_id", contaEncontrada.ID,
+		"apontamento_id", apontamentoID,
+		"fornecedor", contaEncontrada.FornecedorNome,
+		"valor_original", contaEncontrada.ValorOriginal)
+
+	return nil
 }

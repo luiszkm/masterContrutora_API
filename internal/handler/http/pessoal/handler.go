@@ -27,11 +27,11 @@ type Service interface {
 	BuscarPorID(ctx context.Context, id string) (*pessoal.Funcionario, error)
 	CriarApontamento(ctx context.Context, input dto.CriarApontamentoInput) (*pessoal.ApontamentoQuinzenal, error)
 	AprovarApontamento(ctx context.Context, apontamentoID string) (*pessoal.ApontamentoQuinzenal, error)
-	RegistrarPagamentoApontamento(ctx context.Context, apontamentoID string, contaPagamentoID string) (*pessoal.ApontamentoQuinzenal, error) // NOVO
 	ListarApontamentos(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*pessoal.ApontamentoQuinzenal], error)
 	ListarApontamentosPorFuncionario(ctx context.Context, funcionarioID string, filtros common.ListarFiltros) (*common.RespostaPaginada[*pessoal.ApontamentoQuinzenal], error)
 	ListarComUltimoApontamento(ctx context.Context, filtros common.ListarFiltros) ([]*dto.ListagemFuncionarioDTO, *common.PaginacaoInfo, error)
 	AtualizarApontamento(ctx context.Context, id string, input dto.AtualizarApontamentoInput) (*pessoal.ApontamentoQuinzenal, error)
+	CancelarApontamento(ctx context.Context, apontamentoID string, motivoCancelamento string) (*pessoal.ApontamentoQuinzenal, error)
 	AtivarFuncionario(ctx context.Context, id string) error
 	ReplicarParaProximaQuinzena(ctx context.Context, input dto.ReplicarApontamentosInput) (*dto.ResultadoReplicacao, error)
 }
@@ -171,4 +171,31 @@ func (h *Handler) HandleAtivarFuncionario(w http.ResponseWriter, r *http.Request
 		return
 	}
 	web.Respond(w, r, nil, http.StatusNoContent)
+}
+
+type cancelarApontamentoRequest struct {
+	MotivoCancelamento string `json:"motivoCancelamento"`
+}
+
+func (h *Handler) HandleCancelarApontamento(w http.ResponseWriter, r *http.Request) {
+	apontamentoID := chi.URLParam(r, "apontamentoId")
+	
+	var req cancelarApontamentoRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		web.RespondError(w, r, "PAYLOAD_INVALIDO", "Payload inválido", http.StatusBadRequest)
+		return
+	}
+
+	apontamento, err := h.service.CancelarApontamento(r.Context(), apontamentoID, req.MotivoCancelamento)
+	if err != nil {
+		if errors.Is(err, postgres.ErrNaoEncontrado) {
+			web.RespondError(w, r, "APONTAMENTO_NAO_ENCONTRADO", "Apontamento não encontrado", http.StatusNotFound)
+			return
+		}
+		h.logger.ErrorContext(r.Context(), "falha ao cancelar apontamento", "erro", err)
+		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao cancelar apontamento", http.StatusInternalServerError)
+		return
+	}
+
+	web.Respond(w, r, apontamento, http.StatusOK)
 }

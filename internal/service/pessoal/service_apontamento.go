@@ -139,40 +139,6 @@ func (s *Service) AprovarApontamento(ctx context.Context, apontamentoID string) 
 	s.logger.InfoContext(ctx, "apontamento aprovado e evento publicado", "apontamento_id", apontamento.ID)
 	return apontamento, nil
 }
-func (s *Service) RegistrarPagamentoApontamento(ctx context.Context, apontamentoID string, contaPagamentoID string) (*pessoal.ApontamentoQuinzenal, error) {
-	const op = "service.pessoal.RegistrarPagamentoApontamento"
-
-	apontamento, err := s.apontamentoRepo.BuscarPorID(ctx, apontamentoID)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
-
-	// Usa o método do nosso Rich Domain Model.
-	if err := apontamento.RegistrarPagamento(); err != nil {
-		return nil, fmt.Errorf("%s: regra de negócio violada: %w", op, err)
-	}
-
-	if err := s.apontamentoRepo.Atualizar(ctx, s.dbpool, apontamento); err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
-
-	// Publica o evento para que o contexto Financeiro possa agir.
-	payload := events.PagamentoApontamentoRealizadoPayload{
-		FuncionarioID:     apontamento.FuncionarioID,
-		ObraID:            apontamento.ObraID,
-		PeriodoReferencia: fmt.Sprintf("%s a %s", apontamento.PeriodoInicio.Format("02/01"), apontamento.PeriodoFim.Format("02/01/2006")),
-		ValorCalculado:    apontamento.ValorTotalCalculado,
-		DataDeEfetivacao:  time.Now(),
-		ContaBancariaID:   contaPagamentoID,
-	}
-	s.eventBus.Publicar(ctx, bus.Evento{
-		Nome:    events.PagamentoApontamentoRealizado,
-		Payload: payload,
-	})
-
-	s.logger.InfoContext(ctx, "pagamento de apontamento registrado e evento publicado", "apontamento_id", apontamentoID)
-	return apontamento, nil
-}
 
 func (s *Service) ListarApontamentos(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*pessoal.ApontamentoQuinzenal], error) {
 	apontamentos, paginacao, err := s.apontamentoRepo.Listar(ctx, filtros)
@@ -350,4 +316,93 @@ func criarApontamentoAPartirDeTemplate(template *pessoal.ApontamentoQuinzenal) *
 		CreatedAt:           time.Now(),
 		UpdatedAt:           time.Now(),
 	}
+}
+
+func (s *Service) MarcarComoPago(ctx context.Context, apontamentoID string) error {
+	const op = "service.pessoal.MarcarComoPago"
+
+	// 1. Busca o agregado que será modificado
+	apontamento, err := s.apontamentoRepo.BuscarPorID(ctx, apontamentoID)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	// 2. Executa o método de negócio do próprio agregado
+	if err := apontamento.MarcarComoPago(); err != nil {
+		return fmt.Errorf("%s: regra de negócio violada: %w", op, err)
+	}
+
+	// 3. Persiste o estado atualizado do agregado
+	if err := s.apontamentoRepo.Atualizar(ctx, s.dbpool, apontamento); err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	s.logger.InfoContext(ctx, "apontamento marcado como pago", "apontamento_id", apontamentoID)
+	return nil
+}
+
+func (s *Service) CancelarApontamento(ctx context.Context, apontamentoID string, motivoCancelamento string) (*pessoal.ApontamentoQuinzenal, error) {
+	const op = "service.pessoal.CancelarApontamento"
+
+	// 1. Busca o agregado que será modificado
+	apontamento, err := s.apontamentoRepo.BuscarPorID(ctx, apontamentoID)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	statusAnterior := apontamento.Status
+
+	// 2. Executa o método de negócio do próprio agregado
+	if err := apontamento.Cancelar(); err != nil {
+		return nil, fmt.Errorf("%s: regra de negócio violada: %w", op, err)
+	}
+
+	// 3. Persiste o estado atualizado do agregado
+	if err := s.apontamentoRepo.Atualizar(ctx, s.dbpool, apontamento); err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	// 4. Buscar dados complementares para o evento
+	funcionario, err := s.repo.BuscarPorID(ctx, apontamento.FuncionarioID)
+	if err != nil {
+		s.logger.WarnContext(ctx, "não foi possível buscar funcionário para evento", "funcionario_id", apontamento.FuncionarioID)
+	}
+
+	obra, err := s.obraFinder.BuscarPorID(ctx, apontamento.ObraID)
+	if err != nil {
+		s.logger.WarnContext(ctx, "não foi possível buscar obra para evento", "obra_id", apontamento.ObraID)
+	}
+
+	// 5. Publicar evento para cancelar conta a pagar
+	funcionarioNome := "Funcionário"
+	if funcionario != nil {
+		funcionarioNome = funcionario.Nome
+	}
+	
+	obraNome := "Obra"
+	if obra != nil {
+		obraNome = obra.Nome
+	}
+
+	payload := events.ApontamentoCanceladoPayload{
+		ApontamentoID:       apontamento.ID,
+		FuncionarioID:       apontamento.FuncionarioID,
+		FuncionarioNome:     funcionarioNome,
+		ObraID:              apontamento.ObraID,
+		ObraNome:            obraNome,
+		PeriodoReferencia:   fmt.Sprintf("%s a %s", apontamento.PeriodoInicio.Format("02/01"), apontamento.PeriodoFim.Format("02/01/2006")),
+		ValorCalculado:      apontamento.ValorTotalCalculado,
+		StatusAnterior:      statusAnterior,
+		DataCancelamento:    time.Now(),
+		MotivoCancelamento:  motivoCancelamento,
+		UsuarioID:           "system", // TODO: pegar do contexto quando disponível
+	}
+
+	s.eventBus.Publicar(ctx, bus.Evento{
+		Nome:    events.ApontamentoCancelado,
+		Payload: payload,
+	})
+
+	s.logger.InfoContext(ctx, "apontamento cancelado e evento publicado", "apontamento_id", apontamento.ID, "status_anterior", statusAnterior)
+	return apontamento, nil
 }

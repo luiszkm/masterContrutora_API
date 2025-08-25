@@ -5,7 +5,7 @@ import "time"
 
 const (
 	ApontamentoAprovado           = "pessoal:apontamento_aprovado"
-	PagamentoApontamentoRealizado = "pessoal:pagamento_apontamento_realizado"
+	ApontamentoCancelado          = "pessoal:apontamento_cancelado"
 )
 
 // ApontamentoAprovadoPayload contém dados do apontamento aprovado
@@ -22,12 +22,18 @@ type ApontamentoAprovadoPayload struct {
 	UsuarioID           string    `json:"usuarioId"`
 }
 
-// PagamentoApontamentoRealizadoPayload são os dados que o evento carrega.
-type PagamentoApontamentoRealizadoPayload struct {
-	FuncionarioID     string
-	ObraID            string
-	PeriodoReferencia string
-	ValorCalculado    float64
-	DataDeEfetivacao  time.Time
-	ContaBancariaID   string
+// ApontamentoCanceladoPayload contém dados do apontamento cancelado
+type ApontamentoCanceladoPayload struct {
+	ApontamentoID       string    `json:"apontamentoId"`
+	FuncionarioID       string    `json:"funcionarioId"`
+	FuncionarioNome     string    `json:"funcionarioNome"`
+	ObraID              string    `json:"obraId"`
+	ObraNome            string    `json:"obraNome"`
+	PeriodoReferencia   string    `json:"periodoReferencia"`
+	ValorCalculado      float64   `json:"valorCalculado"`
+	StatusAnterior      string    `json:"statusAnterior"`     // EM_ABERTO ou APROVADO_PARA_PAGAMENTO
+	DataCancelamento    time.Time `json:"dataCancelamento"`
+	MotivoCancelamento  string    `json:"motivoCancelamento,omitempty"`
+	UsuarioID           string    `json:"usuarioId"`
 }
+

@@ -18,6 +18,11 @@
       "Bash(cmd.exe:*)",
       "Bash(timeout 5 go run ./cmd/server/main.go)"
     ],
-    "deny": []
+    "deny": [],
+    "additionalDirectories": [
+      "C:\\c\\www\\freela\\masterContrutora_API\\internal\\service\\financeiro",
+      "C:\\c\\www\\freela\\masterContrutora_API\\internal\\handler\\http\\pessoal",
+      "C:\\c\\www\\freela"
+    ]
   }
 }

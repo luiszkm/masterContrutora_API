@@ -16,10 +16,11 @@ const (
 
 // TipoContaPagar representa os tipos de conta a pagar
 const (
-	TipoContaPagarFornecedor = "FORNECEDOR"
-	TipoContaPagarServico    = "SERVICO"
-	TipoContaPagarMaterial   = "MATERIAL"
-	TipoContaPagarOutros     = "OUTROS"
+	TipoContaPagarFornecedor  = "FORNECEDOR"
+	TipoContaPagarServico     = "SERVICO"
+	TipoContaPagarMaterial    = "MATERIAL"
+	TipoContaPagarFuncionario = "FUNCIONARIO"
+	TipoContaPagarOutros      = "OUTROS"
 )
 
 // ContaPagar representa uma conta a pagar no sistema
@@ -29,7 +30,7 @@ type ContaPagar struct {
 	ObraID            *string    `json:"obraId,omitempty"`              // Referência à obra (opcional)
 	OrcamentoID       *string    `json:"orcamentoId,omitempty"`         // Referência ao orçamento que originou
 	FornecedorNome    string     `json:"fornecedorNome"`                // Nome do fornecedor
-	TipoContaPagar    string     `json:"tipoContaPagar"`                // FORNECEDOR, SERVICO, MATERIAL, OUTROS
+	TipoContaPagar    string     `json:"tipoContaPagar"`                // FORNECEDOR, SERVICO, MATERIAL, FUNCIONARIO, OUTROS
 	Descricao         string     `json:"descricao"`                     // Descrição da conta
 	ValorOriginal     float64    `json:"valorOriginal"`                 // Valor original
 	ValorPago         float64    `json:"valorPago"`                     // Valor já pago
@@ -137,8 +138,9 @@ func (cp *ContaPagar) Validar() error {
 	if cp.TipoContaPagar != TipoContaPagarFornecedor && 
 		cp.TipoContaPagar != TipoContaPagarServico && 
 		cp.TipoContaPagar != TipoContaPagarMaterial &&
+		cp.TipoContaPagar != TipoContaPagarFuncionario &&
 		cp.TipoContaPagar != TipoContaPagarOutros {
-		return errors.New("tipoContaPagar deve ser FORNECEDOR, SERVICO, MATERIAL ou OUTROS")
+		return errors.New("tipoContaPagar deve ser FORNECEDOR, SERVICO, MATERIAL, FUNCIONARIO ou OUTROS")
 	}
 	if cp.Descricao == "" {
 		return errors.New("descrição é obrigatória")

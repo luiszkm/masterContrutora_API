@@ -1,0 +1,382 @@
+###
+# ===============================================================================
+# TESTE COMPLETO - FLUXO DE APONTAMENTO
+# ===============================================================================
+# 
+# Este arquivo testa o fluxo completo de apontamento:
+# 1. Criar funcionário
+# 2. Criar apontamento
+# 3. Aprovar apontamento (deve gerar conta a pagar automaticamente)
+# 4. Verificar se conta a pagar foi criada
+# 5. Pagar a conta a pagar
+# 6. Verificar se apontamento mudou status para PAGO
+#
+# Execute as requisições em ordem para testar todo o fluxo.
+# ===============================================================================
+
+### VARIÁVEIS GLOBAIS
+@hostname = http://localhost:8084
+@token = 
+@funcionarioId = 7692e3c1-0747-4df7-a603-004cdae94f65
+@obraId = b2a64e0c-c599-437e-848c-1db4cfacc32e
+@apontamentoId = 82699122-1745-40cf-8275-4ac3adb3cd98
+@contaPagarId = 88877806-14a1-4ef8-aab7-ab0df19b70db
+
+# ===============================================================================
+# STEP 1: AUTENTICAÇÃO
+# ===============================================================================
+
+###
+# @name Login
+# Faça login para obter o token de autenticação
+POST {{hostname}}/usuarios/login
+Content-Type: application/json
+
+{
+    "email": "admin@construtora.com",
+    "senha": "senha_forte_123"
+}
+
+> {%
+    client.global.set("token", response.body.accessToken);
+    client.log("✅ Token obtido: " + response.body.accessToken.substring(0, 20) + "...");
+%}
+
+# ===============================================================================
+# STEP 2: CRIAR FUNCIONÁRIO PARA O TESTE
+# ===============================================================================
+
+###
+# @name CriarFuncionario
+# Cria um funcionário que será usado no apontamento
+POST {{hostname}}/funcionarios
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "nome": "João Santos da Silva",
+    "cpf": "12345678901",
+    "cargo": "Pedreiro",
+    "departamento": "Construção",
+    "diaria": 150.00,
+    "chavePix": "joao.santos@email.com",
+    "telefone": "(11) 99999-9999",
+    "observacoes": "Funcionário para teste de fluxo completo"
+}
+
+> {%
+    client.global.set("funcionarioId", response.body.id);
+    client.log("✅ Funcionário criado: " + response.body.nome + " (ID: " + response.body.id + ")");
+    client.test("Funcionário criado com sucesso", function() {
+        client.assert(response.status === 201, "Status deve ser 201");
+        client.assert(response.body.status === "ATIVO", "Funcionário deve estar ATIVO");
+    });
+%}
+
+# ===============================================================================
+# STEP 3: CRIAR APONTAMENTO
+# ===============================================================================
+
+###
+# @name CriarApontamento
+# Cria um apontamento para o funcionário recém-criado
+POST {{hostname}}/apontamentos
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "FuncionarioID": "{{funcionarioId}}",
+    "ObraID": "{{obraId}}",
+    "PeriodoInicio": "2025-01-01",
+    "PeriodoFim": "2025-01-15",
+    "Diaria": 150.00,
+    "DiasTrabalhados": 15,
+    "ValorAdicional": 100.00,
+    "Descontos": 50.00,
+    "Adiantamento": 200.00
+}
+
+> {%
+    client.global.set("apontamentoId", response.body.id);
+    client.log("✅ Apontamento criado: ID " + response.body.id);
+    client.log("   Status: " + response.body.status);
+    client.log("   Valor Total: R$ " + response.body.valorTotalCalculado);
+    client.test("Apontamento criado com sucesso", function() {
+        client.assert(response.status === 201, "Status deve ser 201");
+        client.assert(response.body.status === "EM_ABERTO", "Status deve ser EM_ABERTO");
+        client.assert(response.body.valorTotalCalculado === 2100.00, "Valor total deve ser 2100.00");
+    });
+%}
+
+# ===============================================================================
+# STEP 4: VERIFICAR APONTAMENTO CRIADO
+# ===============================================================================
+
+###
+# @name VerificarApontamento
+# Verifica o apontamento recém-criado
+GET {{hostname}}/funcionarios/{{funcionarioId}}/apontamentos
+Cookie: jwt-token={{token}}
+
+> {%
+    client.log("📋 Status do apontamento antes da aprovação:");
+    if (response.body.data && response.body.data.length > 0) {
+        const apontamento = response.body.data[0];
+        client.log("   ID: " + apontamento.id);
+        client.log("   Status: " + apontamento.status);
+        client.log("   Valor: R$ " + apontamento.valorTotalCalculado);
+    }
+%}
+
+# ===============================================================================
+# STEP 5: APROVAR APONTAMENTO (DEVE GERAR CONTA A PAGAR AUTOMATICAMENTE)
+# ===============================================================================
+
+###
+# @name AprovarApontamento
+# Aprova o apontamento - isso deve gerar uma conta a pagar automaticamente
+PATCH {{hostname}}/apontamentos/{{apontamentoId}}/aprovar
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+> {%
+    client.log("✅ Apontamento aprovado!");
+    client.log("   Novo Status: " + response.body.status);
+    client.test("Apontamento aprovado com sucesso", function() {
+        client.assert(response.status === 200, "Status deve ser 200");
+        client.assert(response.body.status === "APROVADO_PARA_PAGAMENTO", "Status deve ser APROVADO_PARA_PAGAMENTO");
+    });
+    
+    // Aguarda um pouco para o evento ser processado
+    setTimeout(function() {
+        client.log("⏳ Aguardando processamento do evento de aprovação...");
+    }, 1000);
+%}
+
+# ===============================================================================
+# STEP 6: VERIFICAR SE CONTA A PAGAR FOI CRIADA AUTOMATICAMENTE
+# ===============================================================================
+
+###
+# @name VerificarContasPagar
+# Verifica se uma conta a pagar foi criada automaticamente para o funcionário
+GET {{hostname}}/contas-pagar?tipoContaPagar=FUNCIONARIO&fornecedorNome=João Santos
+Cookie: jwt-token={{token}}
+
+> {%
+    client.log("🔍 Verificando contas a pagar criadas automaticamente:");
+    if (response.body.data && response.body.data.length > 0) {
+        const conta = response.body.data[0];
+        client.global.set("contaPagarId", conta.id);
+        client.log("✅ Conta a pagar encontrada:");
+        client.log("   ID: " + conta.id);
+        client.log("   Fornecedor: " + conta.fornecedorNome);
+        client.log("   Tipo: " + conta.tipoContaPagar);
+        client.log("   Valor: R$ " + conta.valorOriginal);
+        client.log("   Status: " + conta.status);
+        client.log("   Descrição: " + conta.descricao);
+        
+        client.test("Conta a pagar criada automaticamente", function() {
+            client.assert(conta.tipoContaPagar === "FUNCIONARIO", "Tipo deve ser FUNCIONARIO");
+            client.assert(conta.status === "PENDENTE", "Status deve ser PENDENTE");
+            client.assert(conta.valorOriginal === 2100.00, "Valor deve ser 2100.00");
+        });
+    } else {
+        client.log("❌ Nenhuma conta a pagar encontrada. Verificar se evento foi processado.");
+    }
+%}
+
+# ===============================================================================
+# STEP 7: LISTAR TODAS AS CONTAS A PAGAR PARA DEPURAÇÃO
+# ===============================================================================
+
+###
+# @name ListarTodasContasPagar
+# Lista todas as contas a pagar para debug
+GET {{hostname}}/contas-pagar?page=1&pageSize=20
+Cookie: jwt-token={{token}}
+
+> {%
+    client.log("📋 Todas as contas a pagar no sistema:");
+    if (response.body.data) {
+        response.body.data.forEach((conta, index) => {
+            client.log(`   ${index + 1}. ID: ${conta.id}`);
+            client.log(`      Fornecedor: ${conta.fornecedorNome}`);
+            client.log(`      Tipo: ${conta.tipoContaPagar}`);
+            client.log(`      Valor: R$ ${conta.valorOriginal}`);
+            client.log(`      Status: ${conta.status}`);
+            client.log(`      Documento: ${conta.numeroDocumento || 'N/A'}`);
+            client.log("      ---");
+        });
+    }
+%}
+
+# ===============================================================================
+# STEP 8: PAGAR A CONTA A PAGAR (DEVE ATUALIZAR APONTAMENTO PARA PAGO)
+# ===============================================================================
+
+###
+# @name PagarConta
+# Efetua o pagamento da conta a pagar - isso deve atualizar o apontamento para PAGO
+POST {{hostname}}/contas-pagar/{{contaPagarId}}/pagamentos
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "valor": 2100.00,
+    "formaPagamento": "PIX",
+    "observacoes": "Pagamento completo do apontamento via PIX",
+    "dataVencimento": "2025-01-24"
+}
+
+> {%
+    if (response.status === 201) {
+        client.log("✅ Pagamento registrado com sucesso!");
+        client.log("   Valor pago: R$ " + response.body.valor);
+        client.log("   Forma: " + response.body.formaPagamento);
+        
+        client.test("Pagamento registrado", function() {
+            client.assert(response.status === 201, "Status deve ser 201");
+        });
+    } else {
+        client.log("❌ Erro ao registrar pagamento: " + response.body.message);
+    }
+    
+    // Aguarda processamento do evento
+    setTimeout(function() {
+        client.log("⏳ Aguardando processamento do evento de pagamento...");
+    }, 1000);
+%}
+
+# ===============================================================================
+# STEP 9: VERIFICAR SE APONTAMENTO MUDOU PARA PAGO
+# ===============================================================================
+
+###
+# @name VerificarApontamentoPago
+# Verifica se o apontamento mudou automaticamente para PAGO
+GET {{hostname}}/funcionarios/{{funcionarioId}}/apontamentos
+Cookie: jwt-token={{token}}
+
+> {%
+    client.log("🔍 Verificando status final do apontamento:");
+    if (response.body.data && response.body.data.length > 0) {
+        const apontamento = response.body.data.find(a => a.id === client.global.get("apontamentoId"));
+        if (apontamento) {
+            client.log("✅ Apontamento encontrado:");
+            client.log("   ID: " + apontamento.id);
+            client.log("   Status Final: " + apontamento.status);
+            client.log("   Valor: R$ " + apontamento.valorTotalCalculado);
+            client.log("   Última Atualização: " + apontamento.updatedAt);
+            
+            client.test("Apontamento atualizado para PAGO", function() {
+                client.assert(apontamento.status === "PAGO", "Status deve ser PAGO após pagamento da conta");
+            });
+            
+            if (apontamento.status === "PAGO") {
+                client.log("🎉 FLUXO COMPLETO FINALIZADO COM SUCESSO!");
+                client.log("   ✅ Funcionário criado");
+                client.log("   ✅ Apontamento criado (EM_ABERTO)");
+                client.log("   ✅ Apontamento aprovado (APROVADO_PARA_PAGAMENTO)");
+                client.log("   ✅ Conta a pagar criada automaticamente");
+                client.log("   ✅ Conta a pagar quitada");
+                client.log("   ✅ Apontamento atualizado automaticamente (PAGO)");
+            } else {
+                client.log("⚠️  Apontamento ainda não foi atualizado para PAGO");
+                client.log("   Status atual: " + apontamento.status);
+            }
+        } else {
+            client.log("❌ Apontamento não encontrado");
+        }
+    }
+%}
+
+# ===============================================================================
+# STEP 10: VERIFICAR STATUS FINAL DA CONTA A PAGAR
+# ===============================================================================
+
+###
+# @name VerificarContaFinal
+# Verifica o status final da conta a pagar
+GET {{hostname}}/contas-pagar/{{contaPagarId}}
+Cookie: jwt-token={{token}}
+
+> {%
+    client.log("📋 Status final da conta a pagar:");
+    client.log("   ID: " + response.body.id);
+    client.log("   Status: " + response.body.status);
+    client.log("   Valor Original: R$ " + response.body.valorOriginal);
+    client.log("   Valor Pago: R$ " + response.body.valorPago);
+    client.log("   Fornecedor: " + response.body.fornecedorNome);
+    
+    client.test("Conta a pagar quitada", function() {
+        client.assert(response.body.status === "PAGO", "Conta deve estar PAGA");
+        client.assert(response.body.valorPago === response.body.valorOriginal, "Valor pago deve ser igual ao valor original");
+    });
+%}
+
+# ===============================================================================
+# STEP 11: RESUMO FINAL DO TESTE
+# ===============================================================================
+
+###
+# @name ResumoFinal
+# Busca informações finais para resumo do teste
+GET {{hostname}}/funcionarios/{{funcionarioId}}
+Cookie: jwt-token={{token}}
+
+> {%
+    client.log("===============================================================================");
+    client.log("📊 RESUMO FINAL DO TESTE DE FLUXO COMPLETO");
+    client.log("===============================================================================");
+    client.log("🧑 Funcionário: " + response.body.nome + " (" + response.body.id + ")");
+    client.log("📄 Apontamento: " + client.global.get("apontamentoId"));
+    client.log("💰 Conta a Pagar: " + client.global.get("contaPagarId"));
+    client.log("===============================================================================");
+    client.log("");
+    client.log("🔄 FLUXO EXECUTADO:");
+    client.log("   1. Funcionário criado ✅");
+    client.log("   2. Apontamento criado (EM_ABERTO) ✅");
+    client.log("   3. Apontamento aprovado (APROVADO_PARA_PAGAMENTO) ✅");
+    client.log("   4. Evento disparado → Conta a pagar criada automaticamente ✅");
+    client.log("   5. Conta a pagar quitada ✅");
+    client.log("   6. Evento disparado → Apontamento atualizado (PAGO) ✅");
+    client.log("");
+    client.log("✨ INTEGRAÇÃO ENTRE MÓDULOS PESSOAL E FINANCEIRO FUNCIONANDO!");
+    client.log("===============================================================================");
+%}
+
+# ===============================================================================
+# LIMPEZA (OPCIONAL) - DESCOMENTAR PARA EXECUTAR
+# ===============================================================================
+
+# ### 
+# # @name LimparDados
+# # Remove o funcionário criado para o teste (opcional)
+# DELETE {{hostname}}/funcionarios/{{funcionarioId}}
+# Cookie: jwt-token={{token}}
+
+# > {%
+#     if (response.status === 204) {
+#         client.log("🧹 Funcionário removido com sucesso");
+#     } else {
+#         client.log("⚠️  Não foi possível remover funcionário: " + response.body.message);
+#     }
+# %}
+
+# ===============================================================================
+# NOTAS IMPORTANTES:
+# ===============================================================================
+#
+# 1. Execute as requisições em ordem sequencial
+# 2. Aguarde alguns segundos entre aprovação e verificação (processamento assíncrono)  
+# 3. Verifique se o servidor está rodando na porta correta (8084)
+# 4. Certifique-se de que existe uma obra com o ID especificado
+# 5. O fluxo testa a integração completa entre módulos Pessoal e Financeiro
+#
+# TROUBLESHOOTING:
+# - Se conta a pagar não for criada: Verificar se eventos estão sendo processados
+# - Se apontamento não mudar para PAGO: Verificar se pagamento foi registrado corretamente
+# - Verificar logs do servidor para erros de processamento de eventos
+#
+# ===============================================================================

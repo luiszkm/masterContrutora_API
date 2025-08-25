@@ -39,6 +39,7 @@ import (
 
 	financeiro_events "github.com/luiszkm/masterCostrutora/internal/service/financeiro/events"
 	obras_events "github.com/luiszkm/masterCostrutora/internal/service/obras/events"
+	pessoal_events "github.com/luiszkm/masterCostrutora/internal/service/pessoal/events"
 	suprimentos_events "github.com/luiszkm/masterCostrutora/internal/service/suprimentos/events"
 )
 
@@ -190,6 +191,10 @@ func main() {
 	// Event Handlers Suprimentos
 	suprimentosEventHandler := suprimentos_events.NovoSuprimentosEventHandler(suprimentosSvc, logger)
 	suprimentos_events.ConfigurarEventHandlers(*eventBus, suprimentosEventHandler)
+
+	// Event Handlers Pessoal
+	pessoalEventHandler := pessoal_events.NovoPessoalEventHandler(pessoalSvc, logger)
+	pessoal_events.ConfigurarEventHandlers(*eventBus, pessoalEventHandler)
 
 	// 5. Configuração do Servidor HTTP e Roteamento (Correto)
 	routerCfg := router.Config{

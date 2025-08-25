@@ -87,6 +87,8 @@ type ContaPagarPagaPayload struct {
 	ContaPagarID      string     `json:"contaPagarId"`
 	OrcamentoID       *string    `json:"orcamentoId,omitempty"`       // Para sincronizar orçamento
 	FornecedorNome    string     `json:"fornecedorNome"`
+	TipoContaPagar    string     `json:"tipoContaPagar"`             // FORNECEDOR, FUNCIONARIO, etc.
+	NumeroDocumento   *string    `json:"numeroDocumento,omitempty"`   // Para vincular com apontamento
 	ValorPago         float64    `json:"valorPago"`                   // Valor desta operação
 	ValorTotalPago    float64    `json:"valorTotalPago"`             // Valor total já pago
 	ValorOriginal     float64    `json:"valorOriginal"`

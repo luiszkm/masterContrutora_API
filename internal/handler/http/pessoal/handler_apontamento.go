@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/luiszkm/masterCostrutora/internal/handler/web"
 	"github.com/luiszkm/masterCostrutora/internal/infrastructure/repository/postgres"
-	pessoal_service "github.com/luiszkm/masterCostrutora/internal/service/pessoal"
 	"github.com/luiszkm/masterCostrutora/internal/service/pessoal/dto"
 )
 
@@ -49,37 +48,6 @@ func (h *Handler) HandleAprovarApontamento(w http.ResponseWriter, r *http.Reques
 	web.Respond(w, r, apontamento, http.StatusOK)
 }
 
-func (h *Handler) HandleRegistrarPagamentoApontamento(w http.ResponseWriter, r *http.Request) {
-	apontamentoID := chi.URLParam(r, "apontamentoId")
-
-	var req registrarPagamentoRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		web.RespondError(w, r, "PAYLOAD_INVALIDO", "Payload inválido", http.StatusBadRequest)
-		return
-	}
-	if req.ContaBancariaID == "" {
-		web.RespondError(w, r, "DADOS_OBRIGATORIOS", "O campo contaBancariaId é obrigatório", http.StatusBadRequest)
-		return
-	}
-
-	apontamento, err := h.service.RegistrarPagamentoApontamento(r.Context(), apontamentoID, req.ContaBancariaID)
-	if err != nil {
-		if errors.Is(err, postgres.ErrNaoEncontrado) {
-			web.RespondError(w, r, "APONTAMENTO_NAO_ENCONTRADO", "Apontamento não encontrado", http.StatusNotFound)
-			return
-		}
-		// Trata o erro de regra de negócio vindo do método .RegistrarPagamento() do agregado.
-		if errors.Is(err, pessoal_service.ErrFuncionarioAlocado) || err.Error() == "só é possível pagar um apontamento que está 'Aprovado para Pagamento'" {
-			web.RespondError(w, r, "REGRA_NEGOCIO_VIOLADA", err.Error(), http.StatusConflict) // 409 Conflict
-			return
-		}
-		h.logger.ErrorContext(r.Context(), "falha ao registrar pagamento de apontamento", "erro", err)
-		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao registrar pagamento", http.StatusInternalServerError)
-		return
-	}
-
-	web.Respond(w, r, apontamento, http.StatusOK)
-}
 
 func (h *Handler) HandleListarApontamentos(w http.ResponseWriter, r *http.Request) {
 	// Lógica para extrair filtros da URL (status, page, pageSize)
@@ -176,3 +144,4 @@ func (h *Handler) HandleReplicarApontamentos(w http.ResponseWriter, r *http.Requ
 	// ADR-012: Respondendo com 207 Multi-Status e o corpo detalhado.
 	web.Respond(w, r, resultado, http.StatusMultiStatus)
 }
+

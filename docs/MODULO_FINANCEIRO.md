@@ -76,7 +76,7 @@ type ContaPagar struct {
     ObraID          *string
     OrcamentoID     *string
     FornecedorNome  string
-    TipoContaPagar  string  // FORNECEDOR, SERVICO, MATERIAL, OUTROS
+    TipoContaPagar  string  // FORNECEDOR, SERVICO, MATERIAL, FUNCIONARIO, OUTROS
     Descricao       string
     ValorOriginal   float64
     ValorPago       float64

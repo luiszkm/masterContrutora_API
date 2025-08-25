@@ -115,8 +115,8 @@ func New(c Config) *chi.Mux {
 		r.Route("/apontamentos/{apontamentoId}", func(r chi.Router) {
 			r.With(auth.Authorize(authz.PermissaoPessoalApontamentoAprovar)).
 				Patch("/aprovar", c.PessoalHandler.HandleAprovarApontamento)
-			r.With(auth.Authorize(authz.PermissaoPessoalApontamentoPagar)).
-				Patch("/pagar", c.PessoalHandler.HandleRegistrarPagamentoApontamento)
+			r.With(auth.Authorize(authz.PermissaoPessoalApontamentoEscrever)).
+				Patch("/cancelar", c.PessoalHandler.HandleCancelarApontamento)
 		})
 		// --- Recursos de Suprimentos ---
 		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).Post("/fornecedores", c.SuprimentosHandler.HandleCadastrarFornecedor)

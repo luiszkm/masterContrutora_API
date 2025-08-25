@@ -11,6 +11,7 @@ const (
 	StatusApontamentoEmAberto              = "EM_ABERTO"
 	StatusApontamentoAprovadoParaPagamento = "APROVADO_PARA_PAGAMENTO"
 	StatusApontamentoPago                  = "PAGO"
+	StatusApontamentoCancelado             = "CANCELADO"
 )
 
 // ApontamentoQuinzenal representa os dados transacionais de uma quinzena de trabalho.
@@ -44,12 +45,6 @@ func (a *ApontamentoQuinzenal) Aprovar() error {
 	return nil
 }
 
-// RegistrarPagamento valida e finaliza o ciclo de vida, movendo para PAGO.
-func (a *ApontamentoQuinzenal) RegistrarPagamento() error {
-	a.Status = StatusApontamentoPago
-	a.UpdatedAt = time.Now()
-	return nil
-}
 
 // EditarDiasTrabalhados protege o invariante de que um apontamento pago não pode ser alterado.
 func (a *ApontamentoQuinzenal) EditarDiasTrabalhados(novosDias int) error {
@@ -96,6 +91,30 @@ func (a *ApontamentoQuinzenal) AprovarEPagar() error {
 		return errors.New("só é possível usar o pagamento direto em um apontamento que está 'Em Aberto'")
 	}
 	a.Status = StatusApontamentoPago
+	a.UpdatedAt = time.Now()
+	return nil
+}
+
+// MarcarComoPago valida e executa a transição de estado de APROVADO_PARA_PAGAMENTO para PAGO.
+func (a *ApontamentoQuinzenal) MarcarComoPago() error {
+	if a.Status != StatusApontamentoAprovadoParaPagamento {
+		return errors.New("só é possível marcar como pago um apontamento que está 'Aprovado para Pagamento'")
+	}
+	a.Status = StatusApontamentoPago
+	a.UpdatedAt = time.Now()
+	return nil
+}
+
+// Cancelar valida e executa a transição de estado para CANCELADO.
+// Permite cancelar apontamentos em EM_ABERTO ou APROVADO_PARA_PAGAMENTO
+func (a *ApontamentoQuinzenal) Cancelar() error {
+	if a.Status == StatusApontamentoPago {
+		return errors.New("não é possível cancelar um apontamento que já foi pago")
+	}
+	if a.Status == StatusApontamentoCancelado {
+		return errors.New("apontamento já está cancelado")
+	}
+	a.Status = StatusApontamentoCancelado
 	a.UpdatedAt = time.Now()
 	return nil
 }

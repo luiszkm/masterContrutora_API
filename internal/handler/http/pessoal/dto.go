@@ -1,8 +1,5 @@
 package pessoal
 
-type registrarPagamentoRequest struct {
-	ContaBancariaID string `json:"contaBancariaId"`
-}
 
 type cadastrarFuncionarioRequest struct {
 	Nome         string  `json:"nome"`

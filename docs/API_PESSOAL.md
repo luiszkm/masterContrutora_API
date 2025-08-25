@@ -52,7 +52,7 @@ A API Pessoal gerencia funcionários e apontamentos quinzenais de trabalho na ap
   "descontos": 50.00,
   "adiantamentos": 200.00,
   "valorTotalCalculado": 2100.00,
-  "status": "EM_ABERTO|APROVADO_PARA_PAGAMENTO|PAGO",
+  "status": "EM_ABERTO|APROVADO_PARA_PAGAMENTO|PAGO|CANCELADO",
   "createdAt": "2025-01-01T00:00:00Z",
   "updatedAt": "2025-01-01T00:00:00Z",
   "funcionarioNome": "Nome do Funcionário"
@@ -564,8 +564,51 @@ Status: 204 No Content
 
 ---
 
+### 5. Cancelar Apontamento
 
-### 5. Replicar Apontamentos para Próxima Quinzena
+**Endpoint:** `PATCH /apontamentos/{apontamentoId}/cancelar`  
+**Permissão:** `PESSOAL_APONTAMENTO_ESCREVER`  
+**Autenticação:** Obrigatória
+
+#### Parâmetros de URL:
+- `apontamentoId`: UUID do apontamento
+
+#### Payload de Entrada:
+```json
+{
+  "motivoCancelamento": "Funcionário solicitou cancelamento do apontamento"
+}
+```
+
+#### Resposta de Sucesso (200):
+```json
+{
+  "id": "456e7890-e89b-12d3-a456-426614174001",
+  "funcionarioId": "123e4567-e89b-12d3-a456-426614174000",
+  "obraId": "789e0123-e89b-12d3-a456-426614174002",
+  "periodoInicio": "2025-01-01T00:00:00Z",
+  "periodoFim": "2025-01-15T00:00:00Z",
+  "diaria": 150.00,
+  "diasTrabalhados": 15,
+  "adicionais": 100.00,
+  "descontos": 50.00,
+  "adiantamentos": 200.00,
+  "valorTotalCalculado": 2100.00,
+  "status": "CANCELADO",
+  "createdAt": "2025-01-01T00:00:00Z",
+  "updatedAt": "2025-01-24T14:30:00Z",
+  "funcionarioNome": "João Silva"
+}
+```
+
+#### Erros Possíveis:
+- **404 Not Found:** Apontamento não encontrado
+- **409 Conflict:** Regra de negócio violada (ex: apontamento já foi pago)
+- **500 Internal Server Error:** Erro interno
+
+---
+
+### 6. Replicar Apontamentos para Próxima Quinzena
 
 **Endpoint:** `POST /funcionarios/apontamentos/replicar`  
 **Permissão:** `PESSOAL_APONTAMENTO_ESCREVER`  
@@ -614,9 +657,10 @@ Status: 204 No Content
 
 Os apontamentos seguem um ciclo de vida com os seguintes status:
 
-- **EM_ABERTO**: Apontamento criado, pode ser editado
-- **APROVADO_PARA_PAGAMENTO**: Apontamento aprovado, conta a pagar criada automaticamente no módulo financeiro
-- **PAGO**: Status atualizado automaticamente quando a conta correspondente é quitada no módulo financeiro, não pode mais ser alterado
+- **EM_ABERTO**: Apontamento criado, pode ser editado e cancelado
+- **APROVADO_PARA_PAGAMENTO**: Apontamento aprovado, conta a pagar criada automaticamente no módulo financeiro, pode ser cancelado
+- **PAGO**: Status atualizado automaticamente quando a conta correspondente é quitada no módulo financeiro, não pode mais ser alterado ou cancelado
+- **CANCELADO**: Apontamento cancelado, conta a pagar correspondente é cancelada automaticamente no módulo financeiro, não pode mais ser alterado
 
 ## Status de Funcionários
 
@@ -637,12 +681,15 @@ Os funcionários possuem os seguintes status possíveis:
 ## Regras de Negócio
 
 1. **Funcionários alocados não podem ser deletados** - retorna erro 409
-2. **Apontamentos pagos não podem ser editados** - retorna erro 409
-3. **Só é possível aprovar apontamentos em aberto**
-4. **Aprovação de apontamento cria conta a pagar automaticamente** no módulo financeiro
-5. **Status PAGO é atualizado automaticamente** quando conta é quitada no módulo financeiro
-6. **Replicação considera apenas apontamentos da quinzena atual**
-7. **Valor total é calculado automaticamente**: (diasTrabalhados × diaria) + adicionais - descontos - adiantamentos
+2. **Apontamentos pagos não podem ser editados ou cancelados** - retorna erro 409
+3. **Apontamentos cancelados não podem ser editados** - retorna erro 409
+4. **Só é possível aprovar apontamentos em aberto**
+5. **Só é possível cancelar apontamentos em aberto ou aprovados para pagamento**
+6. **Aprovação de apontamento cria conta a pagar automaticamente** no módulo financeiro
+7. **Cancelamento de apontamento cancela automaticamente a conta a pagar** no módulo financeiro
+8. **Status PAGO é atualizado automaticamente** quando conta é quitada no módulo financeiro
+9. **Replicação considera apenas apontamentos da quinzena atual**
+10. **Valor total é calculado automaticamente**: (diasTrabalhados × diaria) + adicionais - descontos - adiantamentos
 
 ## Integração com Módulo Financeiro
 
@@ -654,6 +701,12 @@ O módulo Pessoal integra-se automaticamente com o módulo Financeiro através d
 3. **Conta a Pagar** → Contém informações do funcionário, valor calculado e data de vencimento
 4. **Pagamento da Conta** → Quando conta é paga no módulo financeiro, status do apontamento muda para `PAGO`
 
+### Fluxo de Cancelamento
+1. **Apontamento Cancelado** → Publica evento `pessoal:apontamento_cancelado`
+2. **Módulo Financeiro** → Escuta o evento e **cancela automaticamente** a conta a pagar correspondente
+3. **Conta a Pagar** → Status alterado para `CANCELADO`, não pode mais ser paga
+4. **Regras**: Só cancela contas pendentes (sem pagamentos realizados)
+
 ### Dados Criados Automaticamente na Conta a Pagar
 - **Fornecedor**: Nome do funcionário
 - **Tipo**: `FUNCIONARIO`
@@ -664,8 +717,10 @@ O módulo Pessoal integra-se automaticamente com o módulo Financeiro através d
 
 ### Eventos Relacionados
 - `pessoal:apontamento_aprovado`: Disparado quando apontamento é aprovado
+- `pessoal:apontamento_cancelado`: Disparado quando apontamento é cancelado
 - `financeiro:conta_pagar_criada`: Disparado quando conta é criada automaticamente
-- `financeiro:pagamento_realizado`: Quando conta é paga, status do apontamento muda para PAGO
+- `financeiro:conta_pagar_paga`: Quando conta é paga, status do apontamento muda para PAGO
+- `financeiro:conta_pagar_cancelada`: Disparado quando conta é cancelada automaticamente
 
 ## Códigos de Erro Padronizados
 

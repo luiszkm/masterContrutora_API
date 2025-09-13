@@ -188,6 +188,102 @@ func (r *FuncionarioRepositoryPostgres) Listar(ctx context.Context) ([]*pessoal.
 
 	return funcionarios, nil
 }
+
+func (r *FuncionarioRepositoryPostgres) ListarPaginado(ctx context.Context, filtros common.ListarFiltros) ([]*pessoal.Funcionario, *common.PaginacaoInfo, error) {
+	const op = "repository.postgres.funcionario.ListarPaginado"
+
+	// Definir valores padrão de paginação
+	pagina := filtros.Pagina
+	tamanhoPagina := filtros.TamanhoPagina
+	if pagina <= 0 {
+		pagina = 1
+	}
+	if tamanhoPagina <= 0 {
+		tamanhoPagina = 10
+	}
+
+	// Construir a cláusula WHERE baseada nos filtros
+	whereConditions := []string{"1=1"}
+	args := []interface{}{}
+	argIndex := 1
+
+	if filtros.Status != "" {
+		whereConditions = append(whereConditions, fmt.Sprintf("status = $%d", argIndex))
+		args = append(args, filtros.Status)
+		argIndex++
+	}
+
+	if filtros.FuncionarioID != "" {
+		whereConditions = append(whereConditions, fmt.Sprintf("id = $%d", argIndex))
+		args = append(args, filtros.FuncionarioID)
+		argIndex++
+	}
+
+	whereClause := strings.Join(whereConditions, " AND ")
+
+	// Query para contar o total de registros
+	countQuery := fmt.Sprintf(`
+		SELECT COUNT(*) 
+		FROM funcionarios 
+		WHERE %s`, whereClause)
+
+	var totalItens int
+	err := r.db.QueryRow(ctx, countQuery, args...).Scan(&totalItens)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s: falha ao contar funcionários: %w", op, err)
+	}
+
+	// Query principal com paginação
+	offset := (pagina - 1) * tamanhoPagina
+	query := fmt.Sprintf(`
+		SELECT id, nome, cpf, cargo, departamento, status, email, data_contratacao,
+		       chave_pix, desligamento_data, motivo_desligamento, observacoes, avaliacao_desempenho
+		FROM funcionarios
+		WHERE %s
+		ORDER BY nome ASC
+		LIMIT $%d OFFSET $%d`, whereClause, argIndex, argIndex+1)
+
+	args = append(args, tamanhoPagina, offset)
+
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s: %w", op, err)
+	}
+	defer rows.Close()
+
+	var funcionarios []*pessoal.Funcionario
+	for rows.Next() {
+		var f pessoal.Funcionario
+		if err := rows.Scan(
+			&f.ID,
+			&f.Nome,
+			&f.CPF,
+			&f.Cargo,
+			&f.Departamento,
+			&f.Status,
+			&f.Email,
+			&f.DataContratacao,
+			&f.ChavePix,
+			&f.DesligamentoData,
+			&f.MotivoDesligamento,
+			&f.Observacoes,
+			&f.AvaliacaoDesempenho,
+		); err != nil {
+			return nil, nil, fmt.Errorf("%s: erro ao ler linha: %w", op, err)
+		}
+		funcionarios = append(funcionarios, &f)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, nil, fmt.Errorf("%s: erro ao iterar sobre linhas: %w", op, err)
+	}
+
+	// Criar info de paginação
+	paginacaoInfo := common.NewPaginacaoInfo(totalItens, pagina, tamanhoPagina)
+
+	return funcionarios, paginacaoInfo, nil
+}
+
 func (r *FuncionarioRepositoryPostgres) ListarComUltimoApontamento(ctx context.Context, filtros common.ListarFiltros) ([]*pessoal_dto.ListagemFuncionarioDTO, *common.PaginacaoInfo, error) {
 	const op = "repository.postgres.funcionario.ListarComUltimoApontamento"
 

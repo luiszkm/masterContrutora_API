@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/luiszkm/masterCostrutora/internal/domain/common"
 	"github.com/luiszkm/masterCostrutora/internal/domain/suprimentos"
 )
 
@@ -74,6 +76,69 @@ func (r *CategoriaRepositoryPostgres) ListarTodas(ctx context.Context) ([]*supri
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 	return categorias, nil
+}
+
+func (r *CategoriaRepositoryPostgres) Listar(ctx context.Context, filtros common.ListarFiltros) ([]*suprimentos.Categoria, *common.PaginacaoInfo, error) {
+	const op = "repository.postgres.categoria.Listar"
+
+	// Definir valores padrão de paginação
+	pagina := filtros.Pagina
+	tamanhoPagina := filtros.TamanhoPagina
+	if pagina <= 0 {
+		pagina = 1
+	}
+	if tamanhoPagina <= 0 {
+		tamanhoPagina = 10
+	}
+
+	// Para categorias, normalmente não há muitos filtros específicos
+	whereConditions := []string{"1=1"}
+	args := []interface{}{}
+	argIndex := 1
+	
+	whereClause := strings.Join(whereConditions, " AND ")
+
+	// Query para contar o total de registros
+	countQuery := fmt.Sprintf(`
+		SELECT COUNT(*) 
+		FROM categorias 
+		WHERE %s`, whereClause)
+
+	var totalItens int
+	err := r.db.QueryRow(ctx, countQuery, args...).Scan(&totalItens)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s: falha ao contar categorias: %w", op, err)
+	}
+
+	// Query principal com paginação
+	offset := (pagina - 1) * tamanhoPagina
+	query := fmt.Sprintf(`
+		SELECT id, nome, created_at, updated_at 
+		FROM categorias 
+		WHERE %s
+		ORDER BY nome ASC
+		LIMIT $%d OFFSET $%d`, whereClause, argIndex, argIndex+1)
+
+	args = append(args, tamanhoPagina, offset)
+
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	categorias, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[suprimentos.Categoria])
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			paginacaoInfo := common.NewPaginacaoInfo(0, pagina, tamanhoPagina)
+			return []*suprimentos.Categoria{}, paginacaoInfo, nil
+		}
+		return nil, nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	// Criar info de paginação
+	paginacaoInfo := common.NewPaginacaoInfo(totalItens, pagina, tamanhoPagina)
+
+	return categorias, paginacaoInfo, nil
 }
 
 func (r *CategoriaRepositoryPostgres) Deletar(ctx context.Context, id string) error {

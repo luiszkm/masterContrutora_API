@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/luiszkm/masterCostrutora/internal/domain/common"
 	"github.com/luiszkm/masterCostrutora/internal/domain/suprimentos"
 )
 
@@ -260,4 +261,99 @@ func (r *FornecedorRepositoryPostgres) ListarTodos(ctx context.Context) ([]*supr
 	}
 
 	return fornecedores, nil
+}
+
+func (r *FornecedorRepositoryPostgres) Listar(ctx context.Context, filtros common.ListarFiltros) ([]*suprimentos.Fornecedor, *common.PaginacaoInfo, error) {
+	const op = "repository.postgres.fornecedor.Listar"
+
+	// Definir valores padrão de paginação
+	pagina := filtros.Pagina
+	tamanhoPagina := filtros.TamanhoPagina
+	if pagina <= 0 {
+		pagina = 1
+	}
+	if tamanhoPagina <= 0 {
+		tamanhoPagina = 10
+	}
+
+	// Construir a cláusula WHERE baseada nos filtros
+	whereConditions := []string{"f.deleted_at IS NULL"}
+	args := []interface{}{}
+	argIndex := 1
+
+	if filtros.Status != "" {
+		whereConditions = append(whereConditions, fmt.Sprintf("f.status = $%d", argIndex))
+		args = append(args, filtros.Status)
+		argIndex++
+	}
+
+	whereClause := strings.Join(whereConditions, " AND ")
+
+	// Query para contar o total de registros
+	countQuery := fmt.Sprintf(`
+		SELECT COUNT(DISTINCT f.id) 
+		FROM fornecedores f
+		LEFT JOIN fornecedor_categorias fc ON f.id = fc.fornecedor_id
+		WHERE %s`, whereClause)
+
+	var totalItens int
+	err := r.db.QueryRow(ctx, countQuery, args...).Scan(&totalItens)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s: falha ao contar fornecedores: %w", op, err)
+	}
+
+	// Query principal com paginação
+	offset := (pagina - 1) * tamanhoPagina
+	query := fmt.Sprintf(`
+		SELECT
+			f.id, f.nome, f.cnpj, f.contato, f.email, f.status, f.endereco, f.avaliacao, f.observacoes,
+			COUNT(DISTINCT o.id) as orcamentos_count,
+			COALESCE(
+				json_agg(json_build_object('ID', c.id, 'Nome', c.nome)) FILTER (WHERE c.id IS NOT NULL),
+				'[]'
+			) as categorias
+		FROM fornecedores f
+		LEFT JOIN fornecedor_categorias fc ON f.id = fc.fornecedor_id
+		LEFT JOIN categorias c ON fc.categoria_id = c.id
+		LEFT JOIN orcamentos o ON f.id = o.fornecedor_id 
+		WHERE %s
+		GROUP BY f.id 
+		ORDER BY f.nome ASC
+		LIMIT $%d OFFSET $%d`, whereClause, argIndex, argIndex+1)
+
+	args = append(args, tamanhoPagina, offset)
+
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s: %w", op, err)
+	}
+	defer rows.Close()
+
+	var fornecedores []*suprimentos.Fornecedor
+	for rows.Next() {
+		var f suprimentos.Fornecedor
+		var categoriasJSON []byte
+
+		if err := rows.Scan(
+			&f.ID, &f.Nome, &f.CNPJ, &f.Contato, &f.Email, &f.Status, &f.Endereco, &f.Avaliacao, &f.Observacoes,
+			&f.OrcamentosCount,
+			&categoriasJSON,
+		); err != nil {
+			return nil, nil, fmt.Errorf("%s: falha ao escanear linha de fornecedor: %w", op, err)
+		}
+
+		if err := json.Unmarshal(categoriasJSON, &f.Categorias); err != nil {
+			return nil, nil, fmt.Errorf("%s: falha ao decodificar JSON das categorias para %s: %w", op, f.Nome, err)
+		}
+		fornecedores = append(fornecedores, &f)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, nil, fmt.Errorf("%s: erro ao iterar sobre as linhas: %w", op, err)
+	}
+
+	// Criar info de paginação
+	paginacaoInfo := common.NewPaginacaoInfo(totalItens, pagina, tamanhoPagina)
+
+	return fornecedores, paginacaoInfo, nil
 }

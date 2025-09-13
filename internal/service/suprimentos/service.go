@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/luiszkm/masterCostrutora/internal/domain/common"
 	"github.com/luiszkm/masterCostrutora/internal/domain/obras"
 	"github.com/luiszkm/masterCostrutora/internal/domain/suprimentos"
 	"github.com/luiszkm/masterCostrutora/internal/events"
@@ -102,6 +103,22 @@ func (s *Service) ListarFornecedores(ctx context.Context) ([]*suprimentos.Fornec
 	return fornecedores, nil
 }
 
+func (s *Service) ListarFornecedoresPaginado(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*suprimentos.Fornecedor], error) {
+	const op = "service.suprimentos.ListarFornecedoresPaginado"
+	
+	fornecedores, paginacaoInfo, err := s.fornecedorRepo.Listar(ctx, filtros)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	resposta := &common.RespostaPaginada[*suprimentos.Fornecedor]{
+		Dados:     fornecedores,
+		Paginacao: *paginacaoInfo,
+	}
+
+	return resposta, nil
+}
+
 func (s *Service) AtualizarFornecedor(ctx context.Context, id string, input dto.AtualizarFornecedorInput) (*suprimentos.Fornecedor, error) {
 	const op = "service.suprimentos.AtualizarFornecedor"
 
@@ -190,6 +207,22 @@ func (s *Service) CadastrarMaterial(ctx context.Context, input dto.CadastrarProd
 }
 func (s *Service) ListarMateriais(ctx context.Context) ([]*suprimentos.Produto, error) {
 	return s.produtoRepo.ListarTodos(ctx)
+}
+
+func (s *Service) ListarMateriaisPaginado(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*suprimentos.Produto], error) {
+	const op = "service.suprimentos.ListarMateriaisPaginado"
+	
+	materiais, paginacaoInfo, err := s.produtoRepo.Listar(ctx, filtros)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	resposta := &common.RespostaPaginada[*suprimentos.Produto]{
+		Dados:     materiais,
+		Paginacao: *paginacaoInfo,
+	}
+
+	return resposta, nil
 }
 
 func (s *Service) AtualizarMaterial(ctx context.Context, id string, input dto.CadastrarProdutoInput) (*suprimentos.Produto, error) {

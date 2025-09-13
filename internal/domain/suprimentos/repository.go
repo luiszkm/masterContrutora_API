@@ -14,6 +14,7 @@ type FornecedorRepository interface {
 	Atualizar(ctx context.Context, fornecedor *Fornecedor, categoriaIDs *[]string) error
 	BuscarPorID(ctx context.Context, id string) (*Fornecedor, error)
 	ListarTodos(ctx context.Context) ([]*Fornecedor, error)
+	Listar(ctx context.Context, filtros common.ListarFiltros) ([]*Fornecedor, *common.PaginacaoInfo, error)
 	Deletar(ctx context.Context, id string) error
 }
 
@@ -21,6 +22,7 @@ type FornecedorRepository interface {
 type ProdutoRepository interface {
 	Salvar(ctx context.Context, material *Produto) error
 	ListarTodos(ctx context.Context) ([]*Produto, error)
+	Listar(ctx context.Context, filtros common.ListarFiltros) ([]*Produto, *common.PaginacaoInfo, error)
 	BuscarPorID(ctx context.Context, id string) (*Produto, error)
 	BuscarPorNome(ctx context.Context, nome string) (*Produto, error) // NOVO
 	SoftDelete(ctx context.Context, id string) error                  // NOVO
@@ -47,6 +49,7 @@ type CategoriaRepository interface {
 	Salvar(ctx context.Context, categoria *Categoria) error
 	BuscarPorID(ctx context.Context, id string) (*Categoria, error)
 	ListarTodas(ctx context.Context) ([]*Categoria, error)
+	Listar(ctx context.Context, filtros common.ListarFiltros) ([]*Categoria, *common.PaginacaoInfo, error)
 	Atualizar(ctx context.Context, categoria *Categoria) error
 	Deletar(ctx context.Context, id string) error
 }

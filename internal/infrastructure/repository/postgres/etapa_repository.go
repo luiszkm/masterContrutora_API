@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/luiszkm/masterCostrutora/internal/domain/common"
 	"github.com/luiszkm/masterCostrutora/internal/domain/obras"
 	"github.com/luiszkm/masterCostrutora/internal/platform/bus/db"
 )
@@ -111,4 +113,73 @@ func (r *EtapaRepositoryPostgres) ListarPorObraID(ctx context.Context, obraID st
 		return nil, fmt.Errorf("%s: falha ao escanear etapas: %w", op, err)
 	}
 	return etapas, nil
+}
+
+func (r *EtapaRepositoryPostgres) ListarPorObraIDPaginado(ctx context.Context, obraID string, filtros common.ListarFiltros) ([]*obras.Etapa, *common.PaginacaoInfo, error) {
+	const op = "repository.postgres.etapa.ListarPorObraIDPaginado"
+
+	// Definir valores padrão de paginação
+	pagina := filtros.Pagina
+	tamanhoPagina := filtros.TamanhoPagina
+	if pagina <= 0 {
+		pagina = 1
+	}
+	if tamanhoPagina <= 0 {
+		tamanhoPagina = 10
+	}
+
+	// Construir a cláusula WHERE baseada nos filtros
+	whereConditions := []string{"obra_id = $1"}
+	args := []interface{}{obraID}
+	argIndex := 2
+
+	if filtros.Status != "" {
+		whereConditions = append(whereConditions, fmt.Sprintf("status = $%d", argIndex))
+		args = append(args, filtros.Status)
+		argIndex++
+	}
+
+	whereClause := strings.Join(whereConditions, " AND ")
+
+	// Query para contar o total de registros
+	countQuery := fmt.Sprintf(`
+		SELECT COUNT(*) 
+		FROM etapas 
+		WHERE %s`, whereClause)
+
+	var totalItens int
+	err := r.db.QueryRow(ctx, countQuery, args...).Scan(&totalItens)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s: falha ao contar etapas: %w", op, err)
+	}
+
+	// Query principal com paginação
+	offset := (pagina - 1) * tamanhoPagina
+	query := fmt.Sprintf(`
+		SELECT id, obra_id, nome, data_inicio_prevista, data_fim_prevista, status
+		FROM etapas 
+		WHERE %s
+		ORDER BY data_inicio_prevista, nome ASC
+		LIMIT $%d OFFSET $%d`, whereClause, argIndex, argIndex+1)
+
+	args = append(args, tamanhoPagina, offset)
+
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	etapas, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[obras.Etapa])
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			paginacaoInfo := common.NewPaginacaoInfo(0, pagina, tamanhoPagina)
+			return []*obras.Etapa{}, paginacaoInfo, nil
+		}
+		return nil, nil, fmt.Errorf("%s: falha ao escanear etapas: %w", op, err)
+	}
+
+	// Criar info de paginação
+	paginacaoInfo := common.NewPaginacaoInfo(totalItens, pagina, tamanhoPagina)
+
+	return etapas, paginacaoInfo, nil
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/luiszkm/masterCostrutora/internal/domain/common"
 	"github.com/luiszkm/masterCostrutora/internal/domain/obras"
 	"github.com/luiszkm/masterCostrutora/internal/events"
 	"github.com/luiszkm/masterCostrutora/internal/platform/bus"
@@ -322,6 +323,26 @@ func (s *CronogramaService) ListarPorObraID(ctx context.Context, obraID string) 
 	}
 
 	return outputs, nil
+}
+
+// ListarPorObraIDPaginado lista cronogramas de uma obra com paginação
+func (s *CronogramaService) ListarPorObraIDPaginado(ctx context.Context, obraID string, filtros common.ListarFiltros) (*common.RespostaPaginada[*dto.CronogramaRecebimentoOutput], error) {
+	const op = "service.obras.cronograma.ListarPorObraIDPaginado"
+
+	cronogramas, paginacao, err := s.cronogramaRepo.ListarPorObraIDPaginado(ctx, obraID, filtros)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	var outputs []*dto.CronogramaRecebimentoOutput
+	for _, cronograma := range cronogramas {
+		outputs = append(outputs, s.toOutput(cronograma))
+	}
+
+	return &common.RespostaPaginada[*dto.CronogramaRecebimentoOutput]{
+		Dados:     outputs,
+		Paginacao: *paginacao,
+	}, nil
 }
 
 // BuscarPorID busca um cronograma por ID

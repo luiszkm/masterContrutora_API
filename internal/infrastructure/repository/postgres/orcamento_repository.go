@@ -234,7 +234,7 @@ func (r *OrcamentoRepositoryPostgres) ListarOrcamentos(ctx context.Context, filt
 		args["obraID"] = filtros.ObraID
 	}
 
-	// A cláusula FROM agora inclui todos os JOINs necessários, incluindo produtos para categorias
+	// A cláusula FROM agora inclui todos os JOINs necessários, incluindo categorias para ID+Nome
 	fromClause := `
 		FROM orcamentos o
 		JOIN etapas e ON o.etapa_id = e.id
@@ -242,6 +242,7 @@ func (r *OrcamentoRepositoryPostgres) ListarOrcamentos(ctx context.Context, filt
 		JOIN fornecedores f ON o.fornecedor_id = f.id
 		LEFT JOIN orcamento_itens oi ON o.id = oi.orcamento_id
 		LEFT JOIN produtos p ON oi.produto_id = p.id
+		LEFT JOIN categorias c ON p.categoria = c.nome
 	`
 	// Adiciona filtro para soft delete
 	whereClauses = append(whereClauses, "o.deleted_at IS NULL")
@@ -276,7 +277,12 @@ func (r *OrcamentoRepositoryPostgres) ListarOrcamentos(ctx context.Context, filt
 			ob.id as obra_id,
 			ob.nome as obra_nome,
 			COUNT(oi.id) as itens_count,
-			COALESCE(array_agg(DISTINCT p.categoria) FILTER (WHERE p.categoria IS NOT NULL), ARRAY[]::text[]) as categorias
+			COALESCE(
+				json_agg(
+					jsonb_build_object('ID', c.id, 'Nome', c.nome)
+				) FILTER (WHERE c.id IS NOT NULL),
+				'[]'::json
+			) as categorias
 		` + fromClause + whereString + `
 		GROUP BY o.id, f.nome, ob.id, ob.nome
 		ORDER BY o.data_emissao DESC
@@ -292,9 +298,30 @@ func (r *OrcamentoRepositoryPostgres) ListarOrcamentos(ctx context.Context, filt
 	}
 	defer rows.Close()
 
-	orcamentos, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[dto.OrcamentoListItemDTO])
-	if err != nil {
-		return nil, nil, fmt.Errorf("%s: falha ao escanear orçamentos: %w", op, err)
+	var orcamentos []*dto.OrcamentoListItemDTO
+	for rows.Next() {
+		var o dto.OrcamentoListItemDTO
+		var categoriasJSON []byte
+
+		err := rows.Scan(
+			&o.ID, &o.Numero, &o.ValorTotal, &o.Status, &o.DataEmissao,
+			&o.FornecedorID, &o.FornecedorNome, &o.ObraID, &o.ObraNome,
+			&o.ItensCount, &categoriasJSON,
+		)
+		if err != nil {
+			return nil, nil, fmt.Errorf("%s: falha ao escanear linha do orçamento: %w", op, err)
+		}
+
+		// Deserializa o JSON das categorias
+		if err := json.Unmarshal(categoriasJSON, &o.Categorias); err != nil {
+			return nil, nil, fmt.Errorf("%s: falha ao deserializar categorias: %w", op, err)
+		}
+
+		orcamentos = append(orcamentos, &o)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, nil, fmt.Errorf("%s: erro ao iterar sobre as linhas: %w", op, err)
 	}
 
 	return orcamentos, paginacao, nil
@@ -385,7 +412,7 @@ func (r *OrcamentoRepositoryPostgres) BuscarMelhoresPrecosPorCategoria(ctx conte
 	// Query que busca orçamentos que contenham pelo menos um produto da categoria especificada
 	// e ordena por valor total crescente (melhores preços primeiro)
 	query := `
-		SELECT DISTINCT
+		SELECT
 			o.id,
 			o.numero,
 			o.valor_total,
@@ -395,15 +422,21 @@ func (r *OrcamentoRepositoryPostgres) BuscarMelhoresPrecosPorCategoria(ctx conte
 			f.nome as fornecedor_nome,
 			ob.id as obra_id,
 			ob.nome as obra_nome,
-			COUNT(oi.id) as itens_count,
-			COALESCE(array_agg(DISTINCT p.categoria) FILTER (WHERE p.categoria IS NOT NULL), ARRAY[]::text[]) as categorias
+			COUNT(DISTINCT oi.id) as itens_count,
+			COALESCE(
+				json_agg(
+					jsonb_build_object('ID', c.id, 'Nome', c.nome)
+				) FILTER (WHERE c.id IS NOT NULL),
+				'[]'::json
+			) as categorias
 		FROM orcamentos o
 		JOIN etapas e ON o.etapa_id = e.id
 		JOIN obras ob ON e.obra_id = ob.id
 		JOIN fornecedores f ON o.fornecedor_id = f.id
 		LEFT JOIN orcamento_itens oi ON o.id = oi.orcamento_id
 		LEFT JOIN produtos p ON oi.produto_id = p.id
-		WHERE o.deleted_at IS NULL 
+		LEFT JOIN categorias c ON p.categoria = c.nome
+		WHERE o.deleted_at IS NULL
 		  AND p.categoria = $1
 		  AND p.deleted_at IS NULL
 		GROUP BY o.id, f.nome, ob.id, ob.nome
@@ -417,9 +450,30 @@ func (r *OrcamentoRepositoryPostgres) BuscarMelhoresPrecosPorCategoria(ctx conte
 	}
 	defer rows.Close()
 
-	orcamentos, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[dto.OrcamentoListItemDTO])
-	if err != nil {
-		return nil, fmt.Errorf("%s: falha ao escanear orçamentos: %w", op, err)
+	var orcamentos []*dto.OrcamentoListItemDTO
+	for rows.Next() {
+		var o dto.OrcamentoListItemDTO
+		var categoriasJSON []byte
+
+		err := rows.Scan(
+			&o.ID, &o.Numero, &o.ValorTotal, &o.Status, &o.DataEmissao,
+			&o.FornecedorID, &o.FornecedorNome, &o.ObraID, &o.ObraNome,
+			&o.ItensCount, &categoriasJSON,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("%s: falha ao escanear linha do orçamento: %w", op, err)
+		}
+
+		// Deserializa o JSON das categorias
+		if err := json.Unmarshal(categoriasJSON, &o.Categorias); err != nil {
+			return nil, fmt.Errorf("%s: falha ao deserializar categorias: %w", op, err)
+		}
+
+		orcamentos = append(orcamentos, &o)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: erro ao iterar sobre as linhas: %w", op, err)
 	}
 
 	return orcamentos, nil

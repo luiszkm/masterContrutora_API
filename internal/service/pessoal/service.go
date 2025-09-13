@@ -123,6 +123,27 @@ func (s *Service) ListarFuncionarios(ctx context.Context) ([]*pessoal.Funcionari
 	return funcionarios, nil
 }
 
+func (s *Service) ListarFuncionariosPaginado(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*pessoal.Funcionario], error) {
+	const op = "service.pessoal.ListarFuncionariosPaginado"
+	
+	funcionarios, paginacaoInfo, err := s.repo.ListarPaginado(ctx, filtros)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	resposta := &common.RespostaPaginada[*pessoal.Funcionario]{
+		Dados:     funcionarios,
+		Paginacao: *paginacaoInfo,
+	}
+
+	s.logger.InfoContext(ctx, "lista paginada de funcionários recuperada", 
+		"total", paginacaoInfo.TotalItens, 
+		"pagina", paginacaoInfo.PaginaAtual,
+		"tamanho_pagina", paginacaoInfo.TamanhoPagina)
+
+	return resposta, nil
+}
+
 func (s *Service) AtualizarFuncionario(ctx context.Context, id string, input dto.AtualizarFuncionarioInput) (*pessoal.Funcionario, error) {
 	const op = "service.pessoal.AtualizarFuncionario"
 

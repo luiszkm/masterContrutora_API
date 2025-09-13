@@ -1,4 +1,6 @@
 ### Arquivo de teste para endpoint de comparação de orçamentos por categoria
+@hostname = http://localhost:8084
+@token = {{token}}
 
 ### 1. Login para obter token de autorização
 POST http://localhost:8084/usuarios/login

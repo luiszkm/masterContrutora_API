@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/luiszkm/masterCostrutora/internal/domain/common"
 	"github.com/luiszkm/masterCostrutora/internal/domain/suprimentos"
 	"github.com/luiszkm/masterCostrutora/internal/service/suprimentos/dto"
 )
@@ -28,6 +29,22 @@ func (s *Service) CriarCategoria(ctx context.Context, input dto.CriarCategoriaIn
 
 func (s *Service) ListarCategorias(ctx context.Context) ([]*suprimentos.Categoria, error) {
 	return s.categoriaRepo.ListarTodas(ctx)
+}
+
+func (s *Service) ListarCategoriasPaginado(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*suprimentos.Categoria], error) {
+	const op = "service.suprimentos.ListarCategoriasPaginado"
+	
+	categorias, paginacaoInfo, err := s.categoriaRepo.Listar(ctx, filtros)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	resposta := &common.RespostaPaginada[*suprimentos.Categoria]{
+		Dados:     categorias,
+		Paginacao: *paginacaoInfo,
+	}
+
+	return resposta, nil
 }
 
 func (s *Service) AtualizarCategoria(ctx context.Context, id string, input dto.AtualizarCategoriaInput) (*suprimentos.Categoria, error) {

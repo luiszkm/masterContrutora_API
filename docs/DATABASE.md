@@ -54,7 +54,7 @@ CREATE TABLE usuarios (
 ### 2. Contexto Obras
 
 #### obras
-Entidade principal para projetos de construção.
+Entidade principal para projetos de construção com controle financeiro.
 
 ```sql
 CREATE TABLE obras (
@@ -66,6 +66,11 @@ CREATE TABLE obras (
     data_inicio DATE NOT NULL,
     data_fim DATE,
     status VARCHAR(50) NOT NULL,
+    -- Campos financeiros adicionados em migração
+    valor_contrato_total NUMERIC(15, 2),
+    valor_recebido NUMERIC(15, 2) DEFAULT 0.00,
+    tipo_cobranca VARCHAR(20) CHECK (tipo_cobranca IN ('VISTA', 'PARCELADO', 'ETAPAS')),
+    data_assinatura_contrato DATE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ DEFAULT NULL
@@ -81,6 +86,10 @@ CREATE TABLE obras (
 - `data_inicio`: Data de início planejada/real
 - `data_fim`: Data de conclusão (opcional)
 - `status`: Status atual (`Em Planejamento`, `Em Andamento`, `Concluída`, `Cancelada`)
+- `valor_contrato_total`: Valor total do contrato da obra
+- `valor_recebido`: Valor já recebido da obra
+- `tipo_cobranca`: Tipo de cobrança (`VISTA`, `PARCELADO`, `ETAPAS`)
+- `data_assinatura_contrato`: Data de assinatura do contrato
 - `deleted_at`: Timestamp de exclusão lógica
 
 **Índices:**
@@ -407,8 +416,97 @@ CREATE TABLE fornecedor_categorias (
 
 ### 5. Contexto Financeiro
 
+#### cronograma_recebimentos
+Cronogramas de recebimento por etapa de obra.
+
+```sql
+CREATE TABLE cronograma_recebimentos (
+    id UUID PRIMARY KEY,
+    obra_id UUID NOT NULL REFERENCES obras(id) ON DELETE CASCADE,
+    etapa_id UUID REFERENCES etapas(id) ON DELETE SET NULL,
+    descricao VARCHAR(255) NOT NULL,
+    valor_previsto NUMERIC(15, 2) NOT NULL DEFAULT 0.00,
+    valor_recebido NUMERIC(15, 2) NOT NULL DEFAULT 0.00,
+    data_vencimento_prevista DATE NOT NULL,
+    data_recebimento DATE,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDENTE'
+        CHECK (status IN ('PENDENTE', 'RECEBIDO', 'VENCIDO', 'PARCIAL')),
+    observacoes TEXT,
+    parcela INTEGER,
+    total_parcelas INTEGER,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+#### contas_receber
+Contas a receber da empresa.
+
+```sql
+CREATE TABLE contas_receber (
+    id UUID PRIMARY KEY,
+    obra_id UUID NOT NULL REFERENCES obras(id) ON DELETE CASCADE,
+    cronograma_id UUID REFERENCES cronograma_recebimentos(id) ON DELETE SET NULL,
+    descricao VARCHAR(255) NOT NULL,
+    valor_total NUMERIC(15, 2) NOT NULL,
+    valor_recebido NUMERIC(15, 2) NOT NULL DEFAULT 0.00,
+    data_vencimento DATE NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDENTE'
+        CHECK (status IN ('PENDENTE', 'RECEBIDO', 'VENCIDO', 'PARCIAL')),
+    parcela INTEGER,
+    total_parcelas INTEGER,
+    observacoes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+#### contas_pagar
+Contas a pagar da empresa.
+
+```sql
+CREATE TABLE contas_pagar (
+    id UUID PRIMARY KEY,
+    fornecedor_id UUID REFERENCES fornecedores(id) ON DELETE SET NULL,
+    funcionario_id UUID REFERENCES funcionarios(id) ON DELETE SET NULL,
+    obra_id UUID REFERENCES obras(id) ON DELETE SET NULL,
+    orcamento_id UUID REFERENCES orcamentos(id) ON DELETE SET NULL,
+    descricao VARCHAR(255) NOT NULL,
+    valor_total NUMERIC(15, 2) NOT NULL,
+    valor_pago NUMERIC(15, 2) NOT NULL DEFAULT 0.00,
+    data_vencimento DATE NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDENTE'
+        CHECK (status IN ('PENDENTE', 'PAGO', 'VENCIDO', 'PARCIAL')),
+    tipo VARCHAR(20) NOT NULL DEFAULT 'FORNECEDOR'
+        CHECK (tipo IN ('FORNECEDOR', 'FUNCIONARIO', 'OUTROS')),
+    observacoes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
+#### parcelas_conta_pagar
+Parcelas de contas a pagar (para pagamentos parcelados).
+
+```sql
+CREATE TABLE parcelas_conta_pagar (
+    id UUID PRIMARY KEY,
+    conta_pagar_id UUID NOT NULL REFERENCES contas_pagar(id) ON DELETE CASCADE,
+    numero_parcela INTEGER NOT NULL,
+    valor_parcela NUMERIC(15, 2) NOT NULL,
+    data_vencimento DATE NOT NULL,
+    data_pagamento DATE,
+    valor_pago NUMERIC(15, 2) DEFAULT 0.00,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDENTE'
+        CHECK (status IN ('PENDENTE', 'PAGO', 'VENCIDO')),
+    observacoes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+
 #### registros_pagamento
-Registro de pagamentos realizados.
+Registro de pagamentos realizados para funcionários.
 
 ```sql
 CREATE TABLE registros_pagamento (
@@ -422,18 +520,52 @@ CREATE TABLE registros_pagamento (
 );
 ```
 
-**Campos:**
-- `id`: Identificador único do pagamento
-- `funcionario_id`: Referência ao funcionário (FK)
-- `obra_id`: Referência à obra (FK)
-- `periodo_referencia`: Período de referência do pagamento
-- `valor_calculado`: Valor calculado para pagamento
-- `data_de_efetivacao`: Data em que o pagamento foi efetivado
-- `conta_bancaria_id`: Identificador da conta bancária
+**Campos das Tabelas Financeiras:**
 
-**Índices:**
-- Primary Key em `id`
-- Index em `funcionario_id`
+**cronograma_recebimentos:**
+- `id`: Identificador único do cronograma
+- `obra_id`: Referência à obra (FK)
+- `etapa_id`: Referência à etapa (FK, opcional)
+- `descricao`: Descrição do recebimento
+- `valor_previsto`: Valor previsto para recebimento
+- `valor_recebido`: Valor já recebido
+- `data_vencimento_prevista`: Data prevista para recebimento
+- `status`: Status do recebimento
+- `parcela`/`total_parcelas`: Controle de parcelamento
+
+**contas_receber:**
+- `id`: Identificador único da conta
+- `obra_id`: Referência à obra (FK)
+- `cronograma_id`: Referência ao cronograma (FK, opcional)
+- `valor_total`: Valor total da conta
+- `valor_recebido`: Valor já recebido
+- `data_vencimento`: Data de vencimento
+- `status`: Status da conta (`PENDENTE`, `RECEBIDO`, `VENCIDO`, `PARCIAL`)
+
+**contas_pagar:**
+- `id`: Identificador único da conta
+- `fornecedor_id`: Referência ao fornecedor (FK, opcional)
+- `funcionario_id`: Referência ao funcionário (FK, opcional)
+- `obra_id`: Referência à obra (FK, opcional)
+- `orcamento_id`: Referência ao orçamento (FK, opcional)
+- `valor_total`: Valor total da conta
+- `valor_pago`: Valor já pago
+- `tipo`: Tipo da conta (`FORNECEDOR`, `FUNCIONARIO`, `OUTROS`)
+- `status`: Status da conta (`PENDENTE`, `PAGO`, `VENCIDO`, `PARCIAL`)
+
+**parcelas_conta_pagar:**
+- `conta_pagar_id`: Referência à conta pai (FK)
+- `numero_parcela`: Número sequencial da parcela
+- `valor_parcela`: Valor da parcela
+- `data_vencimento`: Data de vencimento da parcela
+- `valor_pago`: Valor pago da parcela
+
+**Índices Financeiros:**
+- Primary Key em todos os `id`
+- Index em `obra_id` para todas as tabelas relacionadas
+- Index em `fornecedor_id` e `funcionario_id` em contas_pagar
+- Index em `data_vencimento` para consultas por vencimento
+- Index em `status` para filtros de status
 
 ## Relacionamentos
 
@@ -447,25 +579,38 @@ obras
 ├── etapas (obra_id)
 ├── alocacoes (obra_id)
 ├── apontamentos_quinzenais (obra_id)
-└── registros_pagamento (obra_id)
+├── registros_pagamento (obra_id)
+├── cronograma_recebimentos (obra_id)
+├── contas_receber (obra_id)
+└── contas_pagar (obra_id)
 
 funcionarios
 ├── alocacoes (funcionario_id)
 ├── apontamentos_quinzenais (funcionario_id)
-└── registros_pagamento (funcionario_id)
+├── registros_pagamento (funcionario_id)
+└── contas_pagar (funcionario_id)
 
 fornecedores
 ├── orcamentos (fornecedor_id)
-└── fornecedor_categorias (fornecedor_id)
+├── fornecedor_categorias (fornecedor_id)
+└── contas_pagar (fornecedor_id)
 
 etapas
-└── orcamentos (etapa_id)
+├── orcamentos (etapa_id)
+└── cronograma_recebimentos (etapa_id)
 
 produtos
 └── orcamento_itens (produto_id)
 
 orcamentos
-└── orcamento_itens (orcamento_id)
+├── orcamento_itens (orcamento_id)
+└── contas_pagar (orcamento_id)
+
+cronograma_recebimentos
+└── contas_receber (cronograma_id)
+
+contas_pagar
+└── parcelas_conta_pagar (conta_pagar_id)
 
 categorias
 └── fornecedor_categorias (categoria_id)
@@ -476,17 +621,32 @@ categorias
 #### One-to-Many (1:N)
 - `obras` → `etapas`
 - `obras` → `alocacoes`
+- `obras` → `cronograma_recebimentos`
+- `obras` → `contas_receber`
+- `obras` → `contas_pagar`
 - `funcionarios` → `alocacoes`
 - `funcionarios` → `apontamentos_quinzenais`
+- `funcionarios` → `contas_pagar`
 - `etapas` → `orcamentos`
+- `etapas` → `cronograma_recebimentos`
 - `fornecedores` → `orcamentos`
+- `fornecedores` → `contas_pagar`
 - `orcamentos` → `orcamento_itens`
+- `orcamentos` → `contas_pagar`
+- `cronograma_recebimentos` → `contas_receber`
+- `contas_pagar` → `parcelas_conta_pagar`
 
 #### Many-to-Many (N:N)
 - `fornecedores` ↔ `categorias` (via `fornecedor_categorias`)
 
 #### Referências Opcionais
 - `usuarios` → `orcamentos` (criado_por_usuario_id - pode ser NULL)
+- `cronograma_recebimentos` → `etapas` (etapa_id - pode ser NULL)
+- `contas_receber` → `cronograma_recebimentos` (cronograma_id - pode ser NULL)
+- `contas_pagar` → `fornecedores` (fornecedor_id - pode ser NULL)
+- `contas_pagar` → `funcionarios` (funcionario_id - pode ser NULL)
+- `contas_pagar` → `obras` (obra_id - pode ser NULL)
+- `contas_pagar` → `orcamentos` (orcamento_id - pode ser NULL)
 
 ## Estratégias de Performance
 

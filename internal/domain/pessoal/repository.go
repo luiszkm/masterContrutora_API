@@ -13,6 +13,7 @@ type FuncionarioRepository interface {
 	BuscarPorID(ctx context.Context, funcionarioID string) (*Funcionario, error)
 	Deletar(ctx context.Context, id string) error // NOVO
 	Listar(ctx context.Context) ([]*Funcionario, error)
+	ListarPaginado(ctx context.Context, filtros common.ListarFiltros) ([]*Funcionario, *common.PaginacaoInfo, error)
 	Atualizar(ctx context.Context, funcionario *Funcionario) error // NOVO
 	AtivarFuncionario(ctx context.Context, id string) error
 }

@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/luiszkm/masterCostrutora/internal/domain/common"
 	"github.com/luiszkm/masterCostrutora/internal/domain/suprimentos"
 )
 
@@ -68,6 +70,73 @@ func (r *ProdutoRepositoryPostgres) ListarTodos(ctx context.Context) ([]*suprime
 		return nil, fmt.Errorf("%s: falha ao escanear produtos: %w", op, err)
 	}
 	return produtos, nil
+}
+
+func (r *ProdutoRepositoryPostgres) Listar(ctx context.Context, filtros common.ListarFiltros) ([]*suprimentos.Produto, *common.PaginacaoInfo, error) {
+	const op = "repository.postgres.produto.Listar"
+
+	// Definir valores padrão de paginação
+	pagina := filtros.Pagina
+	tamanhoPagina := filtros.TamanhoPagina
+	if pagina <= 0 {
+		pagina = 1
+	}
+	if tamanhoPagina <= 0 {
+		tamanhoPagina = 10
+	}
+
+	// Construir a cláusula WHERE baseada nos filtros
+	whereConditions := []string{"deleted_at IS NULL"}
+	args := []interface{}{}
+	argIndex := 1
+
+	// Não há muitos filtros específicos para produtos no sistema atual
+	// mas poderia incluir filtros por categoria se necessário
+	
+	whereClause := strings.Join(whereConditions, " AND ")
+
+	// Query para contar o total de registros
+	countQuery := fmt.Sprintf(`
+		SELECT COUNT(*) 
+		FROM produtos 
+		WHERE %s`, whereClause)
+
+	var totalItens int
+	err := r.db.QueryRow(ctx, countQuery, args...).Scan(&totalItens)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s: falha ao contar produtos: %w", op, err)
+	}
+
+	// Query principal com paginação
+	offset := (pagina - 1) * tamanhoPagina
+	query := fmt.Sprintf(`
+		SELECT id, nome, descricao, unidade_de_medida, categoria, created_at, updated_at, deleted_at 
+		FROM produtos 
+		WHERE %s
+		ORDER BY nome ASC
+		LIMIT $%d OFFSET $%d`, whereClause, argIndex, argIndex+1)
+
+	args = append(args, tamanhoPagina, offset)
+
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s: %w", op, err)
+	}
+	defer rows.Close()
+
+	produtos, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[suprimentos.Produto])
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			paginacaoInfo := common.NewPaginacaoInfo(0, pagina, tamanhoPagina)
+			return []*suprimentos.Produto{}, paginacaoInfo, nil
+		}
+		return nil, nil, fmt.Errorf("%s: falha ao escanear produtos: %w", op, err)
+	}
+
+	// Criar info de paginação
+	paginacaoInfo := common.NewPaginacaoInfo(totalItens, pagina, tamanhoPagina)
+
+	return produtos, paginacaoInfo, nil
 }
 
 func (r *ProdutoRepositoryPostgres) BuscarPorNome(ctx context.Context, nome string) (*suprimentos.Produto, error) {

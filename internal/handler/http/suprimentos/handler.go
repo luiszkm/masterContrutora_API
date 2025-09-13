@@ -20,8 +20,10 @@ import (
 type Service interface {
 	CadastrarFornecedor(ctx context.Context, input dto.CadastrarFornecedorInput) (*suprimentos.Fornecedor, error)
 	ListarFornecedores(ctx context.Context) ([]*suprimentos.Fornecedor, error)
+	ListarFornecedoresPaginado(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*suprimentos.Fornecedor], error)
 	CadastrarMaterial(ctx context.Context, input dto.CadastrarProdutoInput) (*suprimentos.Produto, error)
 	ListarMateriais(ctx context.Context) ([]*suprimentos.Produto, error)
+	ListarMateriaisPaginado(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*suprimentos.Produto], error)
 	BuscarMaterialPorID(ctx context.Context, id string) (*suprimentos.Produto, error)
 	AtualizarMaterial(ctx context.Context, id string, input dto.CadastrarProdutoInput) (*suprimentos.Produto, error)
 	DeletarMaterial(ctx context.Context, id string) error
@@ -33,6 +35,7 @@ type Service interface {
 	BuscarPorID(ctx context.Context, id string) (*suprimentos.Fornecedor, error)
 	CriarCategoria(ctx context.Context, input dto.CriarCategoriaInput) (*suprimentos.Categoria, error)
 	ListarCategorias(ctx context.Context) ([]*suprimentos.Categoria, error)
+	ListarCategoriasPaginado(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*suprimentos.Categoria], error)
 	BuscarCategoria(ctx context.Context, id string) (*suprimentos.Categoria, error)
 	AtualizarCategoria(ctx context.Context, id string, input dto.AtualizarCategoriaInput) (*suprimentos.Categoria, error)
 	DeletarCategoria(ctx context.Context, id string) error
@@ -80,13 +83,29 @@ func (h *Handler) HandleCadastrarFornecedor(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *Handler) HandleListarFornecedores(w http.ResponseWriter, r *http.Request) {
-	fornecedores, err := h.service.ListarFornecedores(r.Context())
+	// Parse query parameters for pagination
+	filtros := web.ParseFiltros(r)
+	
+	// Se não há parâmetros de paginação, usar método sem paginação (backward compatibility)
+	if filtros.Pagina == 0 && filtros.TamanhoPagina == 0 {
+		fornecedores, err := h.service.ListarFornecedores(r.Context())
+		if err != nil {
+			h.logger.ErrorContext(r.Context(), "falha ao listar fornecedores", "erro", err)
+			web.RespondError(w, r, "ERRO_INTERNO", "Erro ao listar fornecedores", http.StatusInternalServerError)
+			return
+		}
+		web.Respond(w, r, fornecedores, http.StatusOK)
+		return
+	}
+	
+	// Usar método com paginação
+	resposta, err := h.service.ListarFornecedoresPaginado(r.Context(), filtros)
 	if err != nil {
-		h.logger.ErrorContext(r.Context(), "falha ao listar fornecedores", "erro", err)
+		h.logger.ErrorContext(r.Context(), "falha ao listar fornecedores paginados", "erro", err)
 		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao listar fornecedores", http.StatusInternalServerError)
 		return
 	}
-	web.Respond(w, r, fornecedores, http.StatusOK)
+	web.Respond(w, r, resposta, http.StatusOK)
 }
 
 // HandleCadastrarMaterial trata a requisição para criar um novo material.
@@ -127,17 +146,46 @@ func (h *Handler) HandleCadastrarMaterial(w http.ResponseWriter, r *http.Request
 
 // HandleListarMateriais trata a requisição para listar todos os materiais.
 func (h *Handler) HandleListarMateriais(w http.ResponseWriter, r *http.Request) {
-	materiais, err := h.service.ListarMateriais(r.Context())
+	// Parse query parameters for pagination
+	filtros := web.ParseFiltros(r)
+	
+	// Se não há parâmetros de paginação, usar método sem paginação (backward compatibility)
+	if filtros.Pagina == 0 && filtros.TamanhoPagina == 0 {
+		materiais, err := h.service.ListarMateriais(r.Context())
+		if err != nil {
+			h.logger.ErrorContext(r.Context(), "falha ao listar materiais", "erro", err)
+			web.RespondError(w, r, "ERRO_INTERNO", "Erro ao listar os materiais", http.StatusInternalServerError)
+			return
+		}
+
+		// Converte a lista de agregados de domínio para uma lista de DTOs de resposta.
+		resp := make([]handler_dto.MaterialResponse, len(materiais))
+		for i, m := range materiais {
+			resp[i] = handler_dto.MaterialResponse{
+				ID:              m.ID,
+				Nome:            m.Nome,
+				Descricao:       m.Descricao,
+				UnidadeDeMedida: m.UnidadeDeMedida,
+				Categoria:       m.Categoria,
+			}
+		}
+
+		web.Respond(w, r, resp, http.StatusOK)
+		return
+	}
+	
+	// Usar método com paginação
+	resposta, err := h.service.ListarMateriaisPaginado(r.Context(), filtros)
 	if err != nil {
-		h.logger.ErrorContext(r.Context(), "falha ao listar materiais", "erro", err)
+		h.logger.ErrorContext(r.Context(), "falha ao listar materiais paginados", "erro", err)
 		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao listar os materiais", http.StatusInternalServerError)
 		return
 	}
-
-	// Converte a lista de agregados de domínio para uma lista de DTOs de resposta.
-	resp := make([]handler_dto.MaterialResponse, len(materiais))
-	for i, m := range materiais {
-		resp[i] = handler_dto.MaterialResponse{
+	
+	// Converte a lista paginada de agregados de domínio para DTOs de resposta
+	materiaisDTO := make([]handler_dto.MaterialResponse, len(resposta.Dados))
+	for i, m := range resposta.Dados {
+		materiaisDTO[i] = handler_dto.MaterialResponse{
 			ID:              m.ID,
 			Nome:            m.Nome,
 			Descricao:       m.Descricao,
@@ -145,8 +193,14 @@ func (h *Handler) HandleListarMateriais(w http.ResponseWriter, r *http.Request) 
 			Categoria:       m.Categoria,
 		}
 	}
+	
+	// Estrutura final da resposta paginada
+	respostaFinal := common.RespostaPaginada[handler_dto.MaterialResponse]{
+		Dados:     materiaisDTO,
+		Paginacao: resposta.Paginacao,
+	}
 
-	web.Respond(w, r, resp, http.StatusOK)
+	web.Respond(w, r, respostaFinal, http.StatusOK)
 }
 
 func (h *Handler) HandleAtualizarFornecedor(w http.ResponseWriter, r *http.Request) {

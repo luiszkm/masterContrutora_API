@@ -1,5 +1,5 @@
-@hostname = http://localhost:8080
-@token =
+@hostname = http://localhost:8084
+@token =eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTc0MTU4NjIsImlhdCI6MTc1NzM4NzA2MiwicGVybWlzc29lcyI6WyJmaW5hbmNlaXJvOmxlciIsImZpbmFuY2Vpcm86ZXNjcmV2ZXIiLCJwZXNzb2FsOmFwb250YW1lbnRvOmFwcm92YXIiLCJwZXNzb2FsOmFwb250YW1lbnRvOnBhZ2FyIiwib2JyYXM6bGVyIiwicGVzc29hbDpsZXIiLCJwZXNzb2FsOmFwb250YW1lbnRvOmVzY3JldmVyIiwicGVzc29hbDphcG9udGFtZW50bzpsZXIiLCJvYnJhczplc2NyZXZlciIsInBlc3NvYWw6ZXNjcmV2ZXIiLCJzdXByaW1lbnRvczpsZXIiLCJzdXByaW1lbnRvczplc2NyZXZlciJdLCJzdWIiOiI5YjFkZTc4Ny00YThkLTQzYjctOWFiOS0xZTZjYzVmNmQ4MDYifQ.r63Gl-EG9YC1-ixVmk1hTsSGYsw_KHiNsSCyv-nSeys
 @obraId =437ee5aa-75ef-4e88-958a-2369482bb009
 @etapaId =
 @funcionarioId =5dba14aa-681d-4f29-be01-4b4c9f1645c6
@@ -29,9 +29,30 @@ Cookie: jwt-token={{token}}
 
 ######
 # @name ListarFornecedores
-# 4. Cadastra o fornecedor principal.
+# Lista todos os fornecedores (sem paginação)
 
-Get {{hostname}}/fornecedores
+GET {{hostname}}/fornecedores
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+### 
+# @name ListarFornecedoresPaginado
+# Lista fornecedores com paginação - Primeira página
+GET {{hostname}}/fornecedores?pagina=1&tamanhoPagina=5
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+### 
+# @name ListarFornecedoresPaginadoSegundaPagina
+# Lista fornecedores com paginação - Segunda página
+GET {{hostname}}/fornecedores?pagina=2&tamanhoPagina=5
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+### 
+# @name ListarFornecedoresFiltradosPorStatus
+# Lista fornecedores filtrados por status com paginação
+GET {{hostname}}/fornecedores?pagina=1&tamanhoPagina=10&status=Ativo
 Content-Type: application/json
 Cookie: jwt-token={{token}}
 

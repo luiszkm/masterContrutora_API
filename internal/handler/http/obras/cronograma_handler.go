@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/luiszkm/masterCostrutora/internal/domain/common"
 	"github.com/luiszkm/masterCostrutora/internal/handler/web"
 	"github.com/luiszkm/masterCostrutora/internal/service/obras/dto"
 )
@@ -17,6 +18,7 @@ type CronogramaService interface {
 	CriarCronogramaEmLote(ctx context.Context, input dto.CriarCronogramaEmLoteInput) ([]*dto.CronogramaRecebimentoOutput, error)
 	RegistrarRecebimento(ctx context.Context, cronogramaID string, input dto.RegistrarRecebimentoInput) (*dto.CronogramaRecebimentoOutput, error)
 	ListarPorObraID(ctx context.Context, obraID string) ([]*dto.CronogramaRecebimentoOutput, error)
+	ListarPorObraIDPaginado(ctx context.Context, obraID string, filtros common.ListarFiltros) (*common.RespostaPaginada[*dto.CronogramaRecebimentoOutput], error)
 	BuscarPorID(ctx context.Context, id string) (*dto.CronogramaRecebimentoOutput, error)
 }
 
@@ -102,14 +104,29 @@ func (h *CronogramaHandler) HandleListarCronogramasPorObra(w http.ResponseWriter
 		return
 	}
 
-	cronogramas, err := h.service.ListarPorObraID(r.Context(), obraID)
+	// Parse query parameters for pagination
+	filtros := web.ParseFiltros(r)
+	
+	// Se não há parâmetros de paginação, usar método sem paginação (backward compatibility)
+	if filtros.Pagina == 0 && filtros.TamanhoPagina == 0 {
+		cronogramas, err := h.service.ListarPorObraID(r.Context(), obraID)
+		if err != nil {
+			h.logger.ErrorContext(r.Context(), "falha ao listar cronogramas", "obra_id", obraID, "erro", err)
+			web.RespondError(w, r, "ERRO_INTERNO", "Erro ao listar cronogramas", http.StatusInternalServerError)
+			return
+		}
+		web.Respond(w, r, cronogramas, http.StatusOK)
+		return
+	}
+	
+	// Usar método com paginação
+	resposta, err := h.service.ListarPorObraIDPaginado(r.Context(), obraID, filtros)
 	if err != nil {
-		h.logger.ErrorContext(r.Context(), "falha ao listar cronogramas", "obra_id", obraID, "erro", err)
+		h.logger.ErrorContext(r.Context(), "falha ao listar cronogramas paginados", "obra_id", obraID, "erro", err)
 		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao listar cronogramas", http.StatusInternalServerError)
 		return
 	}
-
-	web.Respond(w, r, cronogramas, http.StatusOK)
+	web.Respond(w, r, resposta, http.StatusOK)
 }
 
 // HandleBuscarCronograma busca um cronograma por ID

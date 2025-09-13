@@ -31,11 +31,13 @@ type Service interface {
 	BuscarDetalhesPorID(ctx context.Context, obraID string) (*dto.ObraDetalhadaDTO, error)
 	AtualizarObra(ctx context.Context, obraID string, input dto.AtualizarObraInput) (*obras.Obra, error)
 	ListarEtapasPadrao(ctx context.Context) ([]*obras.EtapaPadrao, error)
+	ListarEtapasPadraoPaginado(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*obras.EtapaPadrao], error)
 	CriarEtapaPadrao(ctx context.Context, input dto.CriarEtapaPadraoInput) (*obras.EtapaPadrao, error)
 	BuscarEtapaPadrao(ctx context.Context, id string) (*obras.EtapaPadrao, error)
 	AtualizarEtapaPadrao(ctx context.Context, id string, input dto.AtualizarEtapaPadraoInput) (*obras.EtapaPadrao, error)
 	DeletarEtapaPadrao(ctx context.Context, id string) error
 	ListarEtapasPorObra(ctx context.Context, obraID string) ([]*obras.Etapa, error)
+	ListarEtapasPorObraPaginado(ctx context.Context, obraID string, filtros common.ListarFiltros) (*common.RespostaPaginada[*obras.Etapa], error)
 
 }
 
@@ -53,12 +55,28 @@ func NovoObrasHandler(s Service, l *slog.Logger) *Handler {
 	}
 }
 func (h *Handler) HandleListarEtapasPadrao(w http.ResponseWriter, r *http.Request) {
-	etapas, err := h.service.ListarEtapasPadrao(r.Context())
+	// Parse query parameters for pagination
+	filtros := web.ParseFiltros(r)
+	
+	// Se não há parâmetros de paginação, usar método sem paginação (backward compatibility)
+	if filtros.Pagina == 0 && filtros.TamanhoPagina == 0 {
+		etapas, err := h.service.ListarEtapasPadrao(r.Context())
+		if err != nil {
+			web.RespondError(w, r, "ERRO_INTERNO", "Erro ao listar etapas padrão", http.StatusInternalServerError)
+			return
+		}
+		web.Respond(w, r, etapas, http.StatusOK)
+		return
+	}
+	
+	// Usar método com paginação
+	resposta, err := h.service.ListarEtapasPadraoPaginado(r.Context(), filtros)
 	if err != nil {
+		h.logger.ErrorContext(r.Context(), "falha ao listar etapas padrão paginadas", "erro", err)
 		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao listar etapas padrão", http.StatusInternalServerError)
 		return
 	}
-	web.Respond(w, r, etapas, http.StatusOK)
+	web.Respond(w, r, resposta, http.StatusOK)
 }
 
 func (h *Handler) HandleCriarEtapaPadrao(w http.ResponseWriter, r *http.Request) {
@@ -317,17 +335,36 @@ func (h *Handler) HandleAtualizarObra(w http.ResponseWriter, r *http.Request) {
 }
 func (h *Handler) HandleListarEtapasPorObra(w http.ResponseWriter, r *http.Request) {
 	obraID := chi.URLParam(r, "obraId")
-
-	etapas, err := h.service.ListarEtapasPorObra(r.Context(), obraID)
+	
+	// Parse query parameters for pagination
+	filtros := web.ParseFiltros(r)
+	
+	// Se não há parâmetros de paginação, usar método sem paginação (backward compatibility)
+	if filtros.Pagina == 0 && filtros.TamanhoPagina == 0 {
+		etapas, err := h.service.ListarEtapasPorObra(r.Context(), obraID)
+		if err != nil {
+			if errors.Is(err, postgres.ErrNaoEncontrado) {
+				web.RespondError(w, r, "NAO_ENCONTRADO", "Obra não encontrada", http.StatusNotFound)
+				return
+			}
+			h.logger.ErrorContext(r.Context(), "falha ao listar etapas por obra", "erro", err)
+			web.RespondError(w, r, "ERRO_INTERNO", "Falha ao listar etapas da obra", http.StatusInternalServerError)
+			return
+		}
+		web.Respond(w, r, etapas, http.StatusOK)
+		return
+	}
+	
+	// Usar método com paginação
+	resposta, err := h.service.ListarEtapasPorObraPaginado(r.Context(), obraID, filtros)
 	if err != nil {
 		if errors.Is(err, postgres.ErrNaoEncontrado) {
 			web.RespondError(w, r, "NAO_ENCONTRADO", "Obra não encontrada", http.StatusNotFound)
 			return
 		}
-		h.logger.ErrorContext(r.Context(), "falha ao listar etapas por obra", "erro", err)
+		h.logger.ErrorContext(r.Context(), "falha ao listar etapas por obra paginadas", "erro", err)
 		web.RespondError(w, r, "ERRO_INTERNO", "Falha ao listar etapas da obra", http.StatusInternalServerError)
 		return
 	}
-
-	web.Respond(w, r, etapas, http.StatusOK)
+	web.Respond(w, r, resposta, http.StatusOK)
 }

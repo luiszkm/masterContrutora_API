@@ -158,6 +158,22 @@ func (s *Service) ListarEtapasPadrao(ctx context.Context) ([]*obras.EtapaPadrao,
 	return s.etapaPadraoRepo.ListarTodas(ctx)
 }
 
+func (s *Service) ListarEtapasPadraoPaginado(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*obras.EtapaPadrao], error) {
+	const op = "service.obras.ListarEtapasPadraoPaginado"
+	
+	etapas, paginacaoInfo, err := s.etapaPadraoRepo.Listar(ctx, filtros)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	resposta := &common.RespostaPaginada[*obras.EtapaPadrao]{
+		Dados:     etapas,
+		Paginacao: *paginacaoInfo,
+	}
+
+	return resposta, nil
+}
+
 func (s *Service) CriarEtapaPadrao(ctx context.Context, input dto.CriarEtapaPadraoInput) (*obras.EtapaPadrao, error) {
 	const op = "service.obras.CriarEtapaPadrao"
 
@@ -417,4 +433,25 @@ func (s *Service) ListarEtapasPorObra(ctx context.Context, obraID string) ([]*ob
 	}
 
 	return s.etapaRepo.ListarPorObraID(ctx, obraID)
+}
+
+func (s *Service) ListarEtapasPorObraPaginado(ctx context.Context, obraID string, filtros common.ListarFiltros) (*common.RespostaPaginada[*obras.Etapa], error) {
+	const op = "service.obras.ListarEtapasPorObraPaginado"
+
+	// Valida se a obra existe antes de buscar suas etapas
+	if _, err := s.obraRepo.BuscarPorID(ctx, obraID); err != nil {
+		return nil, fmt.Errorf("%s: obra não encontrada: %w", op, err)
+	}
+	
+	etapas, paginacaoInfo, err := s.etapaRepo.ListarPorObraIDPaginado(ctx, obraID, filtros)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	resposta := &common.RespostaPaginada[*obras.Etapa]{
+		Dados:     etapas,
+		Paginacao: *paginacaoInfo,
+	}
+
+	return resposta, nil
 }

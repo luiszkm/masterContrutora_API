@@ -67,7 +67,7 @@ Cookie: jwt-token={{token}}
 
 ###
 # @name ListarTodasAsObras
-GET {{hostname}}/obras
+GET {{hostname}}/obras?page=2&pageSize=10
 Cookie: jwt-token={{token}}
 ###
 

@@ -1,8 +1,8 @@
 ###
 # @name Variáveis Globais
 # Estas variáveis serão preenchidas dinamicamente ao executar as requisições em ordem.
-@hostname = http://localhost:8080
-@token =
+@hostname = http://localhost:8084
+@token =eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTc0NjMzNzcsImlhdCI6MTc1NzQzNDU3NywicGVybWlzc29lcyI6WyJmaW5hbmNlaXJvOmxlciIsImZpbmFuY2Vpcm86ZXNjcmV2ZXIiLCJwZXNzb2FsOmFwb250YW1lbnRvOmFwcm92YXIiLCJwZXNzb2FsOmFwb250YW1lbnRvOnBhZ2FyIiwib2JyYXM6bGVyIiwicGVzc29hbDpsZXIiLCJwZXNzb2FsOmFwb250YW1lbnRvOmVzY3JldmVyIiwicGVzc29hbDphcG9udGFtZW50bzpsZXIiLCJvYnJhczplc2NyZXZlciIsInBlc3NvYWw6ZXNjcmV2ZXIiLCJzdXByaW1lbnRvczpsZXIiLCJzdXByaW1lbnRvczplc2NyZXZlciJdLCJzdWIiOiI5YjFkZTc4Ny00YThkLTQzYjctOWFiOS0xZTZjYzVmNmQ4MDYifQ.5Hg4VvbPF7ewuEcd9_y1aFwD9lkvOZ3FGcon8l-LEFY
 @obraId =437ee5aa-75ef-4e88-958a-2369482bb009
 @etapaId =
 @funcionarioId =7afef6dd-9374-4131-b6b5-6ac3743711c7
@@ -42,8 +42,23 @@ Cookie: jwt-token={{token}}
 %}
 
 ### @name BuscarFuncionarios
-# 4.1. Busca todos os funcionários cadastrados.
+# 4.1. Busca todos os funcionários cadastrados (sem paginação).
 GET {{hostname}}/funcionarios
+Cookie: jwt-token={{token}}
+
+### @name BuscarFuncionariosPaginado
+# 4.1.1. Lista funcionários com paginação - Primeira página
+GET {{hostname}}/funcionarios?pagina=1&tamanhoPagina=5
+Cookie: jwt-token={{token}}
+
+### @name BuscarFuncionariosSegundaPagina
+# 4.1.2. Lista funcionários com paginação - Segunda página
+GET {{hostname}}/funcionarios?pagina=2&tamanhoPagina=5
+Cookie: jwt-token={{token}}
+
+### @name BuscarFuncionariosFiltradosPorStatus
+# 4.1.3. Lista funcionários filtrados por status com paginação
+GET {{hostname}}/funcionarios?pagina=1&tamanhoPagina=10&status=Ativo
 Cookie: jwt-token={{token}}
 
 # ===================================================================

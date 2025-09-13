@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/luiszkm/masterCostrutora/internal/domain/common"
 	"github.com/luiszkm/masterCostrutora/internal/platform/bus/db"
 )
 
@@ -26,6 +27,7 @@ type EtapaRepository interface {
 	BuscarPorID(ctx context.Context, etapaID string) (*Etapa, error)      // NOVO
 	Atualizar(ctx context.Context, etapa *Etapa) error                    // NOVO
 	ListarPorObraID(ctx context.Context, obraID string) ([]*Etapa, error) // NOVO MÉTODO
+	ListarPorObraIDPaginado(ctx context.Context, obraID string, filtros common.ListarFiltros) ([]*Etapa, *common.PaginacaoInfo, error)
 
 }
 
@@ -34,6 +36,7 @@ type EtapaPadraoRepository interface {
 	Atualizar(ctx context.Context, etapa *EtapaPadrao) error
 	BuscarPorID(ctx context.Context, id string) (*EtapaPadrao, error)
 	ListarTodas(ctx context.Context) ([]*EtapaPadrao, error)
+	Listar(ctx context.Context, filtros common.ListarFiltros) ([]*EtapaPadrao, *common.PaginacaoInfo, error)
 	Deletar(ctx context.Context, id string) error
 }
 
@@ -43,6 +46,7 @@ type CronogramaRecebimentoRepository interface {
 	Atualizar(ctx context.Context, cronograma *CronogramaRecebimento) error
 	BuscarPorID(ctx context.Context, id string) (*CronogramaRecebimento, error)
 	ListarPorObraID(ctx context.Context, obraID string) ([]*CronogramaRecebimento, error)
+	ListarPorObraIDPaginado(ctx context.Context, obraID string, filtros common.ListarFiltros) ([]*CronogramaRecebimento, *common.PaginacaoInfo, error)
 	ListarVencidosPorPeriodo(ctx context.Context, dataInicio, dataFim time.Time) ([]*CronogramaRecebimento, error)
 	Deletar(ctx context.Context, id string) error
 }

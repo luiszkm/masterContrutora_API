@@ -23,6 +23,7 @@ type Service interface {
 	CadastrarFuncionario(ctx context.Context, nome, cpf, cargo, departamento, telefone, chavePix string, diaria float64) (*pessoal.Funcionario, error)
 	DeletarFuncionario(ctx context.Context, id string) error
 	ListarFuncionarios(ctx context.Context) ([]*pessoal.Funcionario, error)
+	ListarFuncionariosPaginado(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*pessoal.Funcionario], error)
 	AtualizarFuncionario(ctx context.Context, id string, input dto.AtualizarFuncionarioInput) (*pessoal.Funcionario, error)
 	BuscarPorID(ctx context.Context, id string) (*pessoal.Funcionario, error)
 	CriarApontamento(ctx context.Context, input dto.CriarApontamentoInput) (*pessoal.ApontamentoQuinzenal, error)
@@ -86,14 +87,29 @@ func (h *Handler) HandleDeletarFuncionario(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *Handler) HandleListarFuncionarios(w http.ResponseWriter, r *http.Request) {
-	funcionarios, err := h.service.ListarFuncionarios(r.Context())
+	// Parse query parameters for pagination
+	filtros := web.ParseFiltros(r)
+	
+	// Se não há parâmetros de paginação, usar método sem paginação (backward compatibility)
+	if filtros.Pagina == 0 && filtros.TamanhoPagina == 0 {
+		funcionarios, err := h.service.ListarFuncionarios(r.Context())
+		if err != nil {
+			h.logger.ErrorContext(r.Context(), "falha ao listar funcionários", "erro", err)
+			web.RespondError(w, r, "ERRO_LISTAR_FUNCIONARIOS", "Erro ao listar funcionários", http.StatusInternalServerError)
+			return
+		}
+		web.Respond(w, r, funcionarios, http.StatusOK)
+		return
+	}
+	
+	// Usar método com paginação
+	resposta, err := h.service.ListarFuncionariosPaginado(r.Context(), filtros)
 	if err != nil {
-		h.logger.ErrorContext(r.Context(), "falha ao listar funcionários", "erro", err)
+		h.logger.ErrorContext(r.Context(), "falha ao listar funcionários paginados", "erro", err)
 		web.RespondError(w, r, "ERRO_LISTAR_FUNCIONARIOS", "Erro ao listar funcionários", http.StatusInternalServerError)
 		return
 	}
-
-	web.Respond(w, r, funcionarios, http.StatusOK)
+	web.Respond(w, r, resposta, http.StatusOK)
 }
 
 func (h *Handler) HandleAtualizarFuncionario(w http.ResponseWriter, r *http.Request) {

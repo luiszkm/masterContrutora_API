@@ -6,7 +6,7 @@ A API Master Construtora é uma REST API construída em Go que gerencia todos os
 
 **Base URLs**:
 
-- Desenvolvimento: `http://localhost:8080`
+- Desenvolvimento: `http://localhost:8081`
 - Homologação (Staging): `https://staging.api.masterconstrutora.com`
 - Produção: `https://api.masterconstrutora.com`
 
@@ -606,21 +606,15 @@ Aprova um apontamento para pagamento.
 }
 ```
 
-### Pagar Apontamento
+### Cancelar Apontamento
 
-**PATCH** `/apontamentos/{apontamentoId}/pagar`
+**PATCH** `/apontamentos/{apontamentoId}/cancelar`
 
-Registra o pagamento de um apontamento aprovado.
+Cancela um apontamento existente.
 
-**Permissão**: `pessoal:apontamento:pagar`
+**Permissão**: `pessoal:apontamento:escrever`
 
 ```json
-// Request
-{
-  "contaBancariaId": "uuid-conta-bancaria",
-  "apontamentoId": ["uuid-apontamento"]
-}
-
 // Response (200 OK)
 {
   "id": "uuid-apontamento",
@@ -634,7 +628,7 @@ Registra o pagamento de um apontamento aprovado.
   "descontos": 50.00,
   "adiantamentos": 500.00,
   "valorTotalCalculado": 1450.00,
-  "status": "Pago"
+  "status": "Cancelado"
 }
 ```
 
@@ -958,12 +952,15 @@ Cadastra um novo produto/material.
 
 **GET** `/categorias`
 
-Lista todas as categorias de produtos.
+Lista todas as categorias de produtos com suporte opcional a paginação.
 
 **Permissão**: `suprimentos:ler`
 
 ```json
-// Response (200 OK)
+// Query Parameters (opcional para paginação)
+?page=1&limit=10
+
+// Response (200 OK) - Sem paginação
 [
   {
     "id": "uuid-categoria",
@@ -974,6 +971,26 @@ Lista todas as categorias de produtos.
     "nome": "Acabamento"
   }
 ]
+
+// Response (200 OK) - Com paginação
+{
+  "dados": [
+    {
+      "id": "uuid-categoria",
+      "nome": "Materiais Básicos"
+    },
+    {
+      "id": "uuid-categoria-2",
+      "nome": "Acabamento"
+    }
+  ],
+  "paginacao": {
+    "paginaAtual": 1,
+    "totalPaginas": 2,
+    "totalItens": 15,
+    "itensPorPagina": 10
+  }
+}
 ```
 
 ### Criar Categoria
@@ -994,6 +1011,63 @@ Cria uma nova categoria de produtos.
 {
   "id": "uuid-nova-categoria",
   "nome": "Ferramentas"
+}
+```
+
+### Buscar Categoria
+
+**GET** `/categorias/{categoriaId}`
+
+Busca detalhes de uma categoria específica.
+
+**Permissão**: `suprimentos:ler`
+
+```json
+// Response (200 OK)
+{
+  "id": "uuid-categoria",
+  "nome": "Materiais Básicos"
+}
+```
+
+### Atualizar Categoria
+
+**PUT** `/categorias/{categoriaId}`
+
+Atualiza dados de uma categoria existente.
+
+**Permissão**: `suprimentos:escrever`
+
+```json
+// Request
+{
+  "nome": "Materiais Básicos e Estruturais"
+}
+
+// Response (200 OK)
+{
+  "id": "uuid-categoria",
+  "nome": "Materiais Básicos e Estruturais"
+}
+```
+
+### Deletar Categoria
+
+**DELETE** `/categorias/{categoriaId}`
+
+Remove uma categoria do sistema.
+
+**Permissão**: `suprimentos:escrever`
+
+```json
+// Response (204 No Content)
+
+// Response (409 Conflict) - Se categoria estiver em uso
+{
+  "erro": {
+    "codigo": "CONFLITO",
+    "mensagem": "A categoria está em uso e não pode ser deletada"
+  }
 }
 ```
 
@@ -1193,7 +1267,639 @@ Atualiza apenas o status de um orçamento.
 
 ## Módulo Financeiro
 
-### Registrar Pagamento
+### Contas a Receber
+
+#### Criar Conta a Receber
+
+**POST** `/contas-receber`
+
+Cria uma nova conta a receber.
+
+**Permissão**: `financeiro:escrever`
+
+```json
+// Request
+{
+  "obraId": "uuid-obra",
+  "descricao": "Pagamento da 1ª etapa - Fundação",
+  "valorTotal": 15000.00,
+  "dataVencimento": "2024-03-15",
+  "parcela": 1,
+  "totalParcelas": 4
+}
+
+// Response (201 Created)
+{
+  "id": "uuid-conta-receber",
+  "obraId": "uuid-obra",
+  "descricao": "Pagamento da 1ª etapa - Fundação",
+  "valorTotal": 15000.00,
+  "valorRecebido": 0.00,
+  "valorPendente": 15000.00,
+  "dataVencimento": "2024-03-15T00:00:00Z",
+  "status": "Pendente",
+  "parcela": 1,
+  "totalParcelas": 4,
+  "dataCriacao": "2024-02-20T14:30:00Z"
+}
+```
+
+#### Listar Contas a Receber
+
+**GET** `/contas-receber`
+
+Lista todas as contas a receber com paginação.
+
+**Permissão**: `financeiro:ler`
+
+```json
+// Query Parameters
+?page=1&limit=10&status=Pendente&obraId=uuid
+
+// Response (200 OK)
+{
+  "dados": [
+    {
+      "id": "uuid-conta-receber",
+      "obraId": "uuid-obra",
+      "obraNome": "Casa Silva",
+      "descricao": "Pagamento da 1ª etapa",
+      "valorTotal": 15000.00,
+      "valorRecebido": 0.00,
+      "valorPendente": 15000.00,
+      "dataVencimento": "2024-03-15T00:00:00Z",
+      "status": "Pendente",
+      "parcela": 1,
+      "totalParcelas": 4
+    }
+  ],
+  "paginacao": {
+    "paginaAtual": 1,
+    "totalPaginas": 3,
+    "totalItens": 25,
+    "itensPorPagina": 10
+  }
+}
+```
+
+#### Buscar Conta a Receber
+
+**GET** `/contas-receber/{contaId}`
+
+Busca detalhes de uma conta a receber específica.
+
+**Permissão**: `financeiro:ler`
+
+```json
+// Response (200 OK)
+{
+  "id": "uuid-conta-receber",
+  "obraId": "uuid-obra",
+  "obraNome": "Casa Silva",
+  "descricao": "Pagamento da 1ª etapa - Fundação",
+  "valorTotal": 15000.00,
+  "valorRecebido": 7500.00,
+  "valorPendente": 7500.00,
+  "dataVencimento": "2024-03-15T00:00:00Z",
+  "status": "Parcialmente Recebido",
+  "parcela": 1,
+  "totalParcelas": 4,
+  "recebimentos": [
+    {
+      "valor": 7500.00,
+      "dataRecebimento": "2024-03-10T10:00:00Z",
+      "observacoes": "Recebimento parcial via PIX"
+    }
+  ]
+}
+```
+
+#### Registrar Recebimento
+
+**POST** `/contas-receber/{contaId}/recebimentos`
+
+Registra um recebimento para uma conta a receber.
+
+**Permissão**: `financeiro:escrever`
+
+```json
+// Request
+{
+  "valor": 7500.00,
+  "dataRecebimento": "2024-03-10",
+  "observacoes": "Recebimento via PIX"
+}
+
+// Response (201 Created)
+{
+  "id": "uuid-conta-receber",
+  "valorTotal": 15000.00,
+  "valorRecebido": 7500.00,
+  "valorPendente": 7500.00,
+  "status": "Parcialmente Recebido"
+}
+```
+
+#### Listar Contas Vencidas
+
+**GET** `/contas-receber/vencidas`
+
+Lista contas a receber vencidas.
+
+**Permissão**: `financeiro:ler`
+
+```json
+// Response (200 OK)
+[
+  {
+    "id": "uuid-conta-receber",
+    "obraNome": "Casa Silva",
+    "descricao": "Pagamento da 1ª etapa",
+    "valorPendente": 15000.00,
+    "dataVencimento": "2024-02-15T00:00:00Z",
+    "diasVencido": 5
+  }
+]
+```
+
+#### Obter Resumo
+
+**GET** `/contas-receber/resumo`
+
+Obter resumo das contas a receber.
+
+**Permissão**: `financeiro:ler`
+
+```json
+// Response (200 OK)
+{
+  "totalPendente": 45000.00,
+  "totalRecebido": 25000.00,
+  "totalVencido": 10000.00,
+  "quantidadePendente": 8,
+  "quantidadeRecebida": 5,
+  "quantidadeVencida": 2
+}
+```
+
+### Contas a Pagar
+
+#### Criar Conta a Pagar
+
+**POST** `/contas-pagar`
+
+Cria uma nova conta a pagar.
+
+**Permissão**: `financeiro:escrever`
+
+```json
+// Request
+{
+  "fornecedorId": "uuid-fornecedor",
+  "obraId": "uuid-obra",
+  "descricao": "Materiais para fundação",
+  "valorTotal": 8500.00,
+  "dataVencimento": "2024-03-20",
+  "tipo": "FORNECEDOR"
+}
+
+// Response (201 Created)
+{
+  "id": "uuid-conta-pagar",
+  "fornecedorId": "uuid-fornecedor",
+  "obraId": "uuid-obra",
+  "descricao": "Materiais para fundação",
+  "valorTotal": 8500.00,
+  "valorPago": 0.00,
+  "valorPendente": 8500.00,
+  "dataVencimento": "2024-03-20T00:00:00Z",
+  "status": "Pendente",
+  "tipo": "FORNECEDOR"
+}
+```
+
+#### Listar Contas a Pagar
+
+**GET** `/contas-pagar`
+
+Lista todas as contas a pagar com paginação.
+
+**Permissão**: `financeiro:ler`
+
+```json
+// Query Parameters
+?page=1&limit=10&status=Pendente&fornecedorId=uuid
+
+// Response (200 OK)
+{
+  "dados": [
+    {
+      "id": "uuid-conta-pagar",
+      "fornecedorId": "uuid-fornecedor",
+      "fornecedorNome": "Materiais ABC Ltda",
+      "obraId": "uuid-obra",
+      "obraNome": "Casa Silva",
+      "descricao": "Materiais para fundação",
+      "valorTotal": 8500.00,
+      "valorPago": 0.00,
+      "valorPendente": 8500.00,
+      "dataVencimento": "2024-03-20T00:00:00Z",
+      "status": "Pendente",
+      "tipo": "FORNECEDOR"
+    }
+  ],
+  "paginacao": {
+    "paginaAtual": 1,
+    "totalPaginas": 2,
+    "totalItens": 15,
+    "itensPorPagina": 10
+  }
+}
+```
+
+#### Buscar Conta a Pagar
+
+**GET** `/contas-pagar/{contaId}`
+
+Busca detalhes de uma conta a pagar específica.
+
+**Permissão**: `financeiro:ler`
+
+```json
+// Response (200 OK)
+{
+  "id": "uuid-conta-pagar",
+  "fornecedorId": "uuid-fornecedor",
+  "fornecedorNome": "Materiais ABC Ltda",
+  "obraId": "uuid-obra",
+  "obraNome": "Casa Silva",
+  "descricao": "Materiais para fundação",
+  "valorTotal": 8500.00,
+  "valorPago": 4000.00,
+  "valorPendente": 4500.00,
+  "dataVencimento": "2024-03-20T00:00:00Z",
+  "status": "Parcialmente Pago",
+  "tipo": "FORNECEDOR",
+  "pagamentos": [
+    {
+      "valor": 4000.00,
+      "dataPagamento": "2024-03-15T14:00:00Z",
+      "observacoes": "Pagamento parcial"
+    }
+  ]
+}
+```
+
+#### Registrar Pagamento
+
+**POST** `/contas-pagar/{contaId}/pagamentos`
+
+Registra um pagamento para uma conta a pagar.
+
+**Permissão**: `financeiro:escrever`
+
+```json
+// Request
+{
+  "valor": 4000.00,
+  "dataPagamento": "2024-03-15",
+  "observacoes": "Pagamento parcial"
+}
+
+// Response (201 Created)
+{
+  "id": "uuid-conta-pagar",
+  "valorTotal": 8500.00,
+  "valorPago": 4000.00,
+  "valorPendente": 4500.00,
+  "status": "Parcialmente Pago"
+}
+```
+
+#### Criar Conta de Orçamento
+
+**POST** `/contas-pagar/orcamentos`
+
+Cria conta a pagar automaticamente a partir de orçamento aprovado.
+
+**Permissão**: `financeiro:escrever`
+
+```json
+// Request
+{
+  "orcamentoId": "uuid-orcamento"
+}
+
+// Response (201 Created)
+{
+  "id": "uuid-conta-pagar",
+  "orcamentoId": "uuid-orcamento",
+  "fornecedorId": "uuid-fornecedor",
+  "obraId": "uuid-obra",
+  "descricao": "Conta gerada automaticamente do orçamento ORC-2024-001",
+  "valorTotal": 8500.00,
+  "status": "Pendente",
+  "tipo": "FORNECEDOR"
+}
+```
+
+#### Listar Contas Vencidas
+
+**GET** `/contas-pagar/vencidas`
+
+Lista contas a pagar vencidas.
+
+**Permissão**: `financeiro:ler`
+
+```json
+// Response (200 OK)
+[
+  {
+    "id": "uuid-conta-pagar",
+    "fornecedorNome": "Materiais ABC Ltda",
+    "descricao": "Materiais para fundação",
+    "valorPendente": 8500.00,
+    "dataVencimento": "2024-02-15T00:00:00Z",
+    "diasVencido": 10
+  }
+]
+```
+
+#### Obter Resumo
+
+**GET** `/contas-pagar/resumo`
+
+Obter resumo das contas a pagar.
+
+**Permissão**: `financeiro:ler`
+
+```json
+// Response (200 OK)
+{
+  "totalPendente": 35000.00,
+  "totalPago": 18000.00,
+  "totalVencido": 12000.00,
+  "quantidadePendente": 6,
+  "quantidadePaga": 8,
+  "quantidadeVencida": 3
+}
+```
+
+### Consultas por Relacionamentos
+
+#### Listar Contas a Receber por Obra
+
+**GET** `/obras/{obraId}/contas-receber`
+
+Lista contas a receber de uma obra específica.
+
+**Permissão**: `financeiro:ler`
+
+```json
+// Response (200 OK)
+[
+  {
+    "id": "uuid-conta-receber",
+    "descricao": "Pagamento da 1ª etapa",
+    "valorTotal": 15000.00,
+    "valorPendente": 7500.00,
+    "status": "Parcialmente Recebido",
+    "dataVencimento": "2024-03-15T00:00:00Z"
+  }
+]
+```
+
+#### Listar Contas a Pagar por Obra
+
+**GET** `/obras/{obraId}/contas-pagar`
+
+Lista contas a pagar de uma obra específica.
+
+**Permissão**: `financeiro:ler`
+
+```json
+// Response (200 OK)
+[
+  {
+    "id": "uuid-conta-pagar",
+    "fornecedorNome": "Materiais ABC Ltda",
+    "descricao": "Materiais para fundação",
+    "valorTotal": 8500.00,
+    "valorPendente": 4500.00,
+    "status": "Parcialmente Pago",
+    "dataVencimento": "2024-03-20T00:00:00Z"
+  }
+]
+```
+
+#### Listar Contas a Pagar por Fornecedor
+
+**GET** `/fornecedores/{fornecedorId}/contas-pagar`
+
+Lista contas a pagar de um fornecedor específico.
+
+**Permissão**: `financeiro:ler`
+
+```json
+// Response (200 OK)
+[
+  {
+    "id": "uuid-conta-pagar",
+    "obraNome": "Casa Silva",
+    "descricao": "Materiais para fundação",
+    "valorTotal": 8500.00,
+    "valorPendente": 4500.00,
+    "status": "Parcialmente Pago",
+    "dataVencimento": "2024-03-20T00:00:00Z"
+  }
+]
+```
+
+### Cronograma de Recebimentos
+
+#### Criar Cronograma
+
+**POST** `/cronograma-recebimentos`
+
+Cria um cronograma de recebimento.
+
+**Permissão**: `obras:escrever`
+
+```json
+// Request
+{
+  "obraId": "uuid-obra",
+  "etapaId": "uuid-etapa",
+  "descricao": "Pagamento da fundação",
+  "valorPrevisto": 15000.00,
+  "dataVencimentoPrevista": "2024-03-15",
+  "parcela": 1,
+  "totalParcelas": 4
+}
+
+// Response (201 Created)
+{
+  "id": "uuid-cronograma",
+  "obraId": "uuid-obra",
+  "etapaId": "uuid-etapa",
+  "descricao": "Pagamento da fundação",
+  "valorPrevisto": 15000.00,
+  "valorRecebido": 0.00,
+  "dataVencimentoPrevista": "2024-03-15T00:00:00Z",
+  "status": "Pendente",
+  "parcela": 1,
+  "totalParcelas": 4
+}
+```
+
+#### Criar Cronogramas em Lote
+
+**POST** `/cronograma-recebimentos/lote`
+
+Cria múltiplos cronogramas de uma vez.
+
+**Permissão**: `obras:escrever`
+
+```json
+// Request
+{
+  "obraId": "uuid-obra",
+  "cronogramas": [
+    {
+      "etapaId": "uuid-etapa-1",
+      "descricao": "Pagamento da fundação",
+      "valorPrevisto": 15000.00,
+      "dataVencimentoPrevista": "2024-03-15",
+      "parcela": 1
+    },
+    {
+      "etapaId": "uuid-etapa-2",
+      "descricao": "Pagamento da estrutura",
+      "valorPrevisto": 25000.00,
+      "dataVencimentoPrevista": "2024-04-15",
+      "parcela": 2
+    }
+  ]
+}
+
+// Response (201 Created)
+[
+  {
+    "id": "uuid-cronograma-1",
+    "obraId": "uuid-obra",
+    "descricao": "Pagamento da fundação",
+    "valorPrevisto": 15000.00,
+    "status": "Pendente"
+  }
+]
+```
+
+#### Buscar Cronograma
+
+**GET** `/cronograma-recebimentos/{cronogramaId}`
+
+Busca detalhes de um cronograma específico.
+
+**Permissão**: `obras:ler`
+
+```json
+// Response (200 OK)
+{
+  "id": "uuid-cronograma",
+  "obraId": "uuid-obra",
+  "obraNome": "Casa Silva",
+  "etapaId": "uuid-etapa",
+  "etapaNome": "Fundação",
+  "descricao": "Pagamento da fundação",
+  "valorPrevisto": 15000.00,
+  "valorRecebido": 7500.00,
+  "dataVencimentoPrevista": "2024-03-15T00:00:00Z",
+  "status": "Parcialmente Recebido",
+  "recebimentos": [
+    {
+      "valor": 7500.00,
+      "dataRecebimento": "2024-03-10T10:00:00Z",
+      "observacoes": "Recebimento parcial"
+    }
+  ]
+}
+```
+
+#### Registrar Recebimento
+
+**POST** `/cronograma-recebimentos/{cronogramaId}/recebimentos`
+
+Registra um recebimento para um cronograma.
+
+**Permissão**: `obras:escrever`
+
+```json
+// Request
+{
+  "valor": 7500.00,
+  "dataRecebimento": "2024-03-10",
+  "observacoes": "Recebimento parcial via PIX"
+}
+
+// Response (201 Created)
+{
+  "id": "uuid-cronograma",
+  "valorPrevisto": 15000.00,
+  "valorRecebido": 7500.00,
+  "status": "Parcialmente Recebido"
+}
+```
+
+#### Listar Cronogramas por Obra
+
+**GET** `/obras/{obraId}/cronograma-recebimentos`
+
+Lista cronogramas de uma obra específica.
+
+**Permissão**: `obras:ler`
+
+```json
+// Query Parameters
+?page=1&limit=10
+
+// Response (200 OK) - Com paginação
+{
+  "dados": [
+    {
+      "id": "uuid-cronograma",
+      "etapaId": "uuid-etapa",
+      "etapaNome": "Fundação",
+      "descricao": "Pagamento da fundação",
+      "valorPrevisto": 15000.00,
+      "valorRecebido": 7500.00,
+      "dataVencimentoPrevista": "2024-03-15T00:00:00Z",
+      "status": "Parcialmente Recebido"
+    }
+  ],
+  "paginacao": {
+    "paginaAtual": 1,
+    "totalPaginas": 2,
+    "totalItens": 12,
+    "itensPorPagina": 10
+  }
+}
+
+// Response (200 OK) - Sem paginação (backward compatibility)
+[
+  {
+    "id": "uuid-cronograma",
+    "etapaId": "uuid-etapa",
+    "etapaNome": "Fundação",
+    "valorPrevisto": 15000.00,
+    "valorRecebido": 7500.00,
+    "status": "Parcialmente Recebido"
+  }
+]
+```
+
+### Registros de Pagamento (Funcionários)
+
+#### Registrar Pagamento
 
 **POST** `/pagamentos`
 
@@ -1223,50 +1929,312 @@ Registra um pagamento individual.
 }
 ```
 
-### Registrar Pagamentos em Lote
+#### Registrar Pagamentos em Lote
 
 **POST** `/pagamentos/lote`
 
-Registra múltiplos pagamentos de uma vez.
+Registra múltiplos pagamentos de funcionários.
 
 **Permissão**: `financeiro:escrever`
 
 ```json
 // Request
 {
-  "pagamentos": [
-    {
-      "funcionarioId": "uuid-funcionario-1",
-      "obraId": "uuid-obra",
-      "periodoReferencia": "Fevereiro/2024",
-      "valorCalculado": 1450.00,
-      "contaBancariaId": "uuid-conta-bancaria"
-    },
-    {
-      "funcionarioId": "uuid-funcionario-2",
-      "obraId": "uuid-obra",
-      "periodoReferencia": "Fevereiro/2024",
-      "valorCalculado": 1800.00,
-      "contaBancariaId": "uuid-conta-bancaria"
-    }
-  ]
+  "apontamentoIds": [
+    "uuid-apontamento-1",
+    "uuid-apontamento-2"
+  ],
+  "contaBancariaId": "uuid-conta-bancaria",
+  "dataDeEfetivacao": "2024-02-21"
 }
 
 // Response (207 Multi-Status)
 {
   "sucessos": [
     {
+      "apontamentoId": "uuid-apontamento-1",
       "funcionarioId": "uuid-funcionario-1",
-      "pagamentoId": "uuid-pagamento-1",
-      "valor": 1450.00
+      "valor": 1450.00,
+      "pagamentoId": "uuid-pagamento-1"
     }
   ],
   "erros": [
     {
-      "funcionarioId": "uuid-funcionario-2",
-      "erro": "Funcionário não encontrado"
+      "apontamentoId": "uuid-apontamento-2",
+      "erro": "Apontamento não encontrado ou não aprovado"
     }
   ]
+}
+```
+
+#### Listar Pagamentos
+
+**GET** `/pagamentos`
+
+Lista todos os pagamentos de funcionários.
+
+**Permissão**: `financeiro:ler`
+
+```json
+// Query Parameters
+?page=1&limit=10&funcionarioId=uuid&obraId=uuid
+
+// Response (200 OK)
+{
+  "dados": [
+    {
+      "id": "uuid-pagamento",
+      "funcionarioId": "uuid-funcionario",
+      "funcionarioNome": "Carlos Santos",
+      "obraId": "uuid-obra",
+      "obraNome": "Casa Silva",
+      "periodoReferencia": "Fevereiro/2024",
+      "valorCalculado": 1450.00,
+      "dataDeEfetivacao": "2024-02-21T14:30:00Z"
+    }
+  ],
+  "paginacao": {
+    "paginaAtual": 1,
+    "totalPaginas": 3,
+    "totalItens": 25,
+    "itensPorPagina": 10
+  }
+}
+```
+
+## Módulo Dashboard
+
+### Dashboard Completo
+
+**GET** `/dashboard/`
+
+Retorna dashboard completo com todas as seções.
+
+**Autenticação**: Não requerida (debug)
+
+```json
+// Response (200 OK)
+{
+  "financeiro": {
+    "totalReceber": 150000.00,
+    "totalPagar": 85000.00,
+    "fluxoCaixa": 65000.00,
+    "contasVencidas": 5
+  },
+  "obras": {
+    "totalObras": 8,
+    "obrasAtivas": 5,
+    "obrasFinalizadas": 3,
+    "faturamentoTotal": 750000.00
+  },
+  "funcionarios": {
+    "totalFuncionarios": 15,
+    "funcionariosAtivos": 12,
+    "totalApontamentos": 45,
+    "folhaPagamento": 28000.00
+  },
+  "fornecedores": {
+    "totalFornecedores": 25,
+    "fornecedoresAtivos": 20,
+    "orcamentosAbertos": 8,
+    "valorTotalOrcamentos": 95000.00
+  }
+}
+```
+
+### Dashboard Financeiro
+
+**GET** `/dashboard/financeiro`
+
+Retorna métricas financeiras consolidadas.
+
+**Autenticação**: Não requerida (debug)
+
+```json
+// Response (200 OK)
+{
+  "contasReceber": {
+    "total": 150000.00,
+    "pendente": 120000.00,
+    "vencido": 30000.00,
+    "quantidade": 12
+  },
+  "contasPagar": {
+    "total": 85000.00,
+    "pendente": 65000.00,
+    "vencido": 20000.00,
+    "quantidade": 8
+  },
+  "fluxoCaixa": {
+    "saldo": 65000.00,
+    "entradas": 180000.00,
+    "saidas": 115000.00,
+    "projecao": 85000.00
+  }
+}
+```
+
+### Dashboard de Obras
+
+**GET** `/dashboard/obras`
+
+Retorna métricas de obras.
+
+**Autenticação**: Não requerida (debug)
+
+```json
+// Response (200 OK)
+{
+  "resumo": {
+    "total": 8,
+    "ativas": 5,
+    "finalizadas": 3,
+    "planejamento": 2
+  },
+  "financeiro": {
+    "faturamentoTotal": 750000.00,
+    "valorRecebido": 450000.00,
+    "valorPendente": 300000.00
+  },
+  "cronograma": {
+    "noPrazo": 3,
+    "atrasadas": 2,
+    "concluidas": 3
+  }
+}
+```
+
+### Dashboard de Funcionários
+
+**GET** `/dashboard/funcionarios`
+
+Retorna métricas de funcionários.
+
+**Autenticação**: Não requerida (debug)
+
+```json
+// Response (200 OK)
+{
+  "resumo": {
+    "total": 15,
+    "ativos": 12,
+    "inativos": 3
+  },
+  "apontamentos": {
+    "total": 45,
+    "aprovados": 38,
+    "pendentes": 7,
+    "valorTotal": 28000.00
+  },
+  "produtividade": {
+    "horasTotal": 1800,
+    "mediaDiaria": 7.5,
+    "funcionarioMaisAtivo": "Carlos Santos"
+  }
+}
+```
+
+### Dashboard de Fornecedores
+
+**GET** `/dashboard/fornecedores`
+
+Retorna métricas de fornecedores.
+
+**Autenticação**: Não requerida (debug)
+
+```json
+// Response (200 OK)
+{
+  "resumo": {
+    "total": 25,
+    "ativos": 20,
+    "inativos": 5
+  },
+  "orcamentos": {
+    "total": 15,
+    "aprovados": 7,
+    "pendentes": 8,
+    "valorTotal": 95000.00
+  },
+  "avaliacoes": {
+    "mediaGeral": 4.2,
+    "melhorAvaliado": "Materiais ABC Ltda",
+    "piorAvaliado": "Fornecedor XYZ"
+  }
+}
+```
+
+### Fluxo de Caixa
+
+**GET** `/dashboard/fluxo-caixa`
+
+Retorna fluxo de caixa consolidado.
+
+**Autenticação**: Não requerida (debug)
+
+```json
+// Response (200 OK)
+{
+  "saldoAtual": 65000.00,
+  "entradas": {
+    "mes": 45000.00,
+    "trimestre": 120000.00,
+    "ano": 380000.00
+  },
+  "saidas": {
+    "mes": 32000.00,
+    "trimestre": 85000.00,
+    "ano": 280000.00
+  },
+  "projecoes": {
+    "proximoMes": 75000.00,
+    "proximoTrimestre": 95000.00
+  },
+  "principais": {
+    "maiorEntrada": {
+      "descricao": "Pagamento Casa Silva - 2ª etapa",
+      "valor": 25000.00
+    },
+    "maiorSaida": {
+      "descricao": "Folha de pagamento quinzenal",
+      "valor": 15000.00
+    }
+  }
+}
+```
+
+### Dashboard por Seção
+
+**GET** `/dashboard/{secao}`
+
+Retorna dados de uma seção específica do dashboard.
+
+**Parâmetros**: `secao` pode ser `financeiro`, `obras`, `funcionarios` ou `fornecedores`
+
+**Autenticação**: Não requerida (debug)
+
+```json
+// Response (200 OK)
+// Retorna os mesmos dados das rotas específicas acima
+```
+
+### Parâmetros de Cache
+
+**GET** `/dashboard/cache-info`
+
+Retorna informações sobre cache do dashboard.
+
+**Autenticação**: Não requerida (debug)
+
+```json
+// Response (200 OK)
+{
+  "cacheAtivo": true,
+  "tempoExpiracao": "5m",
+  "ultimaAtualizacao": "2024-02-20T14:30:00Z",
+  "proximaAtualizacao": "2024-02-20T14:35:00Z",
+  "hits": 245,
+  "misses": 12
 }
 ```
 

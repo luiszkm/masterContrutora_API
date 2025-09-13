@@ -16,7 +16,8 @@
       "Bash(pkill:*)",
       "Bash(timeout 10 go run ./cmd/server/main.go)",
       "Bash(cmd.exe:*)",
-      "Bash(timeout 5 go run ./cmd/server/main.go)"
+      "Bash(timeout 5 go run ./cmd/server/main.go)",
+      "Bash(timeout 3 go run ./cmd/server/main.go)"
     ],
     "deny": [],
     "additionalDirectories": [

@@ -3,6 +3,12 @@ package dto
 
 import "time"
 
+// CategoriaDTO representa uma categoria com ID e Nome para retorno da API
+type CategoriaDTO struct {
+	ID   string `json:"ID"`
+	Nome string `json:"Nome"`
+}
+
 // CriarOrcamentoInput é o DTO para o caso de uso de criação de orçamento.
 type CriarOrcamentoInput struct {
 	FornecedorID string
@@ -30,7 +36,7 @@ type OrcamentoListItemDTO struct {
 	FornecedorID   string    `json:"fornecedorId" db:"fornecedor_id"`
 	FornecedorNome string    `json:"fornecedorNome" db:"fornecedor_nome"` // CAMPO ADICIONADO
 	ItensCount     int       `json:"itensCount" db:"itens_count"`         // NOVO CAMPO
-	Categorias     []string  `json:"categorias" db:"categorias"`          // ARRAY DE CATEGORIAS
+	Categorias     []CategoriaDTO `json:"categorias"`                       // ARRAY DE CATEGORIAS COM ID E NOME
 }
 
 type OrcamentoDetalhadoDTO struct {

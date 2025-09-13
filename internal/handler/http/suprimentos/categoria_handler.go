@@ -32,13 +32,29 @@ func (h *Handler) HandleCriarCategoria(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) HandleListarCategorias(w http.ResponseWriter, r *http.Request) {
-	categorias, err := h.service.ListarCategorias(r.Context())
+	// Parse query parameters for pagination
+	filtros := web.ParseFiltros(r)
+	
+	// Se não há parâmetros de paginação, usar método sem paginação (backward compatibility)
+	if filtros.Pagina == 0 && filtros.TamanhoPagina == 0 {
+		categorias, err := h.service.ListarCategorias(r.Context())
+		if err != nil {
+			h.logger.ErrorContext(r.Context(), "falha ao listar categorias", "erro", err)
+			web.RespondError(w, r, "ERRO_INTERNO", "Erro ao listar categorias", http.StatusInternalServerError)
+			return
+		}
+		web.Respond(w, r, categorias, http.StatusOK)
+		return
+	}
+	
+	// Usar método com paginação
+	resposta, err := h.service.ListarCategoriasPaginado(r.Context(), filtros)
 	if err != nil {
-		h.logger.ErrorContext(r.Context(), "falha ao listar categorias", "erro", err)
+		h.logger.ErrorContext(r.Context(), "falha ao listar categorias paginadas", "erro", err)
 		web.RespondError(w, r, "ERRO_INTERNO", "Erro ao listar categorias", http.StatusInternalServerError)
 		return
 	}
-	web.Respond(w, r, categorias, http.StatusOK)
+	web.Respond(w, r, resposta, http.StatusOK)
 }
 
 func (h *Handler) HandleBuscarCategoria(w http.ResponseWriter, r *http.Request) {

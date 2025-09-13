@@ -3,10 +3,12 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/luiszkm/masterCostrutora/internal/domain/common"
 	"github.com/luiszkm/masterCostrutora/internal/domain/obras"
 	"github.com/luiszkm/masterCostrutora/internal/platform/bus/db"
 )
@@ -211,6 +213,96 @@ func (r *CronogramaRecebimentoRepositoryPostgres) ListarPorObraID(ctx context.Co
 	}
 
 	return cronogramas, nil
+}
+
+func (r *CronogramaRecebimentoRepositoryPostgres) ListarPorObraIDPaginado(ctx context.Context, obraID string, filtros common.ListarFiltros) ([]*obras.CronogramaRecebimento, *common.PaginacaoInfo, error) {
+	const op = "repository.postgres.cronograma_recebimento.ListarPorObraIDPaginado"
+
+	// Definir valores padrão de paginação
+	pagina := filtros.Pagina
+	tamanhoPagina := filtros.TamanhoPagina
+	if pagina <= 0 {
+		pagina = 1
+	}
+	if tamanhoPagina <= 0 {
+		tamanhoPagina = 10
+	}
+
+	// Construir a cláusula WHERE baseada nos filtros
+	whereConditions := []string{"obra_id = $1"}
+	args := []interface{}{obraID}
+	argIndex := 2
+
+	if filtros.Status != "" {
+		whereConditions = append(whereConditions, fmt.Sprintf("status = $%d", argIndex))
+		args = append(args, filtros.Status)
+		argIndex++
+	}
+
+	whereClause := strings.Join(whereConditions, " AND ")
+
+	// Query para contar o total de registros
+	countQuery := fmt.Sprintf(`
+		SELECT COUNT(*) 
+		FROM cronograma_recebimentos 
+		WHERE %s`, whereClause)
+
+	var totalItens int
+	err := r.dbpool.QueryRow(ctx, countQuery, args...).Scan(&totalItens)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s: falha ao contar cronogramas: %w", op, err)
+	}
+
+	// Query principal com paginação
+	offset := (pagina - 1) * tamanhoPagina
+	query := fmt.Sprintf(`
+		SELECT id, obra_id, numero_etapa, descricao_etapa, valor_previsto, 
+			   data_vencimento, status, data_recebimento, valor_recebido, 
+			   observacoes_recebimento, created_at, updated_at
+		FROM cronograma_recebimentos 
+		WHERE %s
+		ORDER BY numero_etapa ASC
+		LIMIT $%d OFFSET $%d`, whereClause, argIndex, argIndex+1)
+
+	args = append(args, tamanhoPagina, offset)
+
+	rows, err := r.dbpool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s: %w", op, err)
+	}
+	defer rows.Close()
+
+	var cronogramas []*obras.CronogramaRecebimento
+	for rows.Next() {
+		cronograma := &obras.CronogramaRecebimento{}
+		err := rows.Scan(
+			&cronograma.ID,
+			&cronograma.ObraID,
+			&cronograma.NumeroEtapa,
+			&cronograma.DescricaoEtapa,
+			&cronograma.ValorPrevisto,
+			&cronograma.DataVencimento,
+			&cronograma.Status,
+			&cronograma.DataRecebimento,
+			&cronograma.ValorRecebido,
+			&cronograma.ObservacoesRecebimento,
+			&cronograma.CreatedAt,
+			&cronograma.UpdatedAt,
+		)
+		if err != nil {
+			return nil, nil, fmt.Errorf("%s: erro ao escanear cronograma: %w", op, err)
+		}
+		cronogramas = append(cronogramas, cronograma)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, nil, fmt.Errorf("%s: erro ao iterar sobre linhas: %w", op, err)
+	}
+
+	// Criar info de paginação
+	paginacaoInfo := common.NewPaginacaoInfo(totalItens, pagina, tamanhoPagina)
+
+	return cronogramas, paginacaoInfo, nil
 }
 
 func (r *CronogramaRecebimentoRepositoryPostgres) ListarVencidosPorPeriodo(ctx context.Context, dataInicio, dataFim time.Time) ([]*obras.CronogramaRecebimento, error) {

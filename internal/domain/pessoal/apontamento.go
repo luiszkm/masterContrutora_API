@@ -63,14 +63,14 @@ func (a *ApontamentoQuinzenal) recalcularTotal() {
 }
 
 func (a *ApontamentoQuinzenal) AtualizarValores(diasTrabalhados int,
-	adicionais, descontos, adiantamentos, valorDiaria float64,
+	diaria, adicionais, descontos, adiantamentos float64,
 	periodoInicio, periodoFim time.Time, obraId string,
 ) error {
 	if a.Status != StatusApontamentoEmAberto {
 		return errors.New("só é possível editar um apontamento que está 'Em Aberto'")
 	}
 
-	a.Diaria = valorDiaria
+	a.Diaria = diaria
 	a.DiasTrabalhados = diasTrabalhados
 	a.Adicionais = adicionais
 	a.Descontos = descontos

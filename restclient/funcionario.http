@@ -2,10 +2,10 @@
 # @name Variáveis Globais
 # Estas variáveis serão preenchidas dinamicamente ao executar as requisições em ordem.
 @hostname = http://localhost:8084
-@token =eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTc0NjMzNzcsImlhdCI6MTc1NzQzNDU3NywicGVybWlzc29lcyI6WyJmaW5hbmNlaXJvOmxlciIsImZpbmFuY2Vpcm86ZXNjcmV2ZXIiLCJwZXNzb2FsOmFwb250YW1lbnRvOmFwcm92YXIiLCJwZXNzb2FsOmFwb250YW1lbnRvOnBhZ2FyIiwib2JyYXM6bGVyIiwicGVzc29hbDpsZXIiLCJwZXNzb2FsOmFwb250YW1lbnRvOmVzY3JldmVyIiwicGVzc29hbDphcG9udGFtZW50bzpsZXIiLCJvYnJhczplc2NyZXZlciIsInBlc3NvYWw6ZXNjcmV2ZXIiLCJzdXByaW1lbnRvczpsZXIiLCJzdXByaW1lbnRvczplc2NyZXZlciJdLCJzdWIiOiI5YjFkZTc4Ny00YThkLTQzYjctOWFiOS0xZTZjYzVmNmQ4MDYifQ.5Hg4VvbPF7ewuEcd9_y1aFwD9lkvOZ3FGcon8l-LEFY
+@token =eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTc5MjIyODAsImlhdCI6MTc1Nzg5MzQ4MCwicGVybWlzc29lcyI6WyJmaW5hbmNlaXJvOmxlciIsImZpbmFuY2Vpcm86ZXNjcmV2ZXIiLCJwZXNzb2FsOmFwb250YW1lbnRvOmFwcm92YXIiLCJwZXNzb2FsOmFwb250YW1lbnRvOnBhZ2FyIiwib2JyYXM6bGVyIiwicGVzc29hbDpsZXIiLCJwZXNzb2FsOmFwb250YW1lbnRvOmVzY3JldmVyIiwicGVzc29hbDphcG9udGFtZW50bzpsZXIiLCJvYnJhczplc2NyZXZlciIsInBlc3NvYWw6ZXNjcmV2ZXIiLCJzdXByaW1lbnRvczpsZXIiLCJzdXByaW1lbnRvczplc2NyZXZlciJdLCJzdWIiOiI5YjFkZTc4Ny00YThkLTQzYjctOWFiOS0xZTZjYzVmNmQ4MDYifQ.LLDUEyZMAnux5jRDhVtX8Eu7LrRb5TXeT6ZwHjsazAs
 @obraId =437ee5aa-75ef-4e88-958a-2369482bb009
 @etapaId =
-@funcionarioId =7afef6dd-9374-4131-b6b5-6ac3743711c7
+@funcionarioId =e958beba-6e90-41bc-8963-0ee6544b0f64
 @funcionarioParaDeletarId =
 @fornecedorId =
 @materialId =
@@ -27,8 +27,8 @@ Content-Type: application/json
 Cookie: jwt-token={{token}}
 
 {
-    "nome": "João da Silva (Eng. Chefe)",
-    "cpf": "211.512.313-11",
+    "nome": "João  (Eng. Chefe)",
+    "cpf": "211.552.313-21",
     "cargo": "Engenheiro Civil",
     "departamento": "Construção Civil",
     "telefone": "11987654321",
@@ -95,12 +95,11 @@ Cookie: jwt-token={{token}}
 {
    "id": "e549f8a3-342f-4f3d-bdda-1627b3b18755",
   "nome": "João da Silva (Eng. Chefe Atualizado)",
-  "cpf": "211.512.313-11",
+  "cpf": "211.512.313-33",
   "telefone": "11987654321",
   "cargo": "Engenheiro Civil",
   "departamento": "Construção Civil",
   "dataContratacao": "2025-06-21T00:00:00Z",
-  "valorDiaria": 0,
   "chavePix": "ffsfsfsfsfsfs",
   "status": "Ativo",
   "motivoDesligamento": "muito gay",
@@ -110,14 +109,13 @@ Cookie: jwt-token={{token}}
 }
 
 # @name criarApontamentoLote1
-# Criando o primeiro apontamento para o lote
+### Criando o primeiro apontamento para o lote
 POST {{hostname}}/apontamentos
 Content-Type: application/json
 Cookie: jwt-token={{token}}
 
 {
     "funcionarioId": "{{funcionarioId}}",
-    "obraId": "{{obraId}}",
     "periodoInicio": "2025-05-01",
     "periodoFim": "2025-06-15",
     "diaria": 250.00,
@@ -186,3 +184,87 @@ Cookie: jwt-token={{token}}
         client.assert(falha.motivo.includes("'Em Aberto'"), "Motivo da falha incorreto");
     });
 %}
+
+###
+# ==============================================================================
+#  TESTES DE FILTROS DE DATA EM APONTAMENTOS
+# ==============================================================================
+
+### @name ListarApontamentosPorPeriodo
+# Lista todos os apontamentos em um período específico
+GET {{hostname}}/apontamentos?dataInicio=2025-05-01&dataFim=2025-06-30&page=1&pageSize=10
+Cookie: jwt-token={{token}}
+
+### @name ListarApontamentosPorStatus
+# Lista apontamentos por status
+GET {{hostname}}/apontamentos
+Cookie: jwt-token={{token}}
+
+### @name ListarApontamentosPorStatusEPeriodo
+# Combina filtro de status com período
+GET {{hostname}}/apontamentos?status=APROVADO&dataInicio=2025-05-01&dataFim=2025-12-31&page=1&pageSize=10
+Cookie: jwt-token={{token}}
+
+### @name ListarApontamentosDeUmFuncionarioPorPeriodo
+# Lista apontamentos de um funcionário específico em um período
+GET {{hostname}}/funcionarios/{{funcionarioId}}/apontamentos?dataInicio=2025-05-01&dataFim=2025-06-30&page=1&pageSize=10
+Cookie: jwt-token={{token}}
+
+### @name ListarApontamentosComDataInicio
+# Lista apontamentos a partir de uma data específica
+GET {{hostname}}/apontamentos?dataInicio=2025-08-01&page=1&pageSize=10
+Cookie: jwt-token={{token}}
+
+### @name ListarApontamentosAteDataFim
+# Lista apontamentos até uma data específica
+GET {{hostname}}/apontamentos?dataFim=2025-06-30&page=1&pageSize=10
+Cookie: jwt-token={{token}}
+
+###
+# ==============================================================================
+#  TESTES PARA OBRA OPCIONAL EM APONTAMENTOS
+# ==============================================================================
+
+### @name CriarApontamentoSemObra
+# Teste: Criar apontamento sem informar obraId (deve funcionar)
+POST {{hostname}}/apontamentos
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "funcionarioId": "{{funcionarioId}}",
+    "periodoInicio": "2025-12-01",
+    "periodoFim": "2025-12-15",
+    "diaria": 300.00,
+    "diasTrabalhados": 10
+}
+
+### @name CriarApontamentoComObraVazia
+# Teste: Criar apontamento com obraId como string vazia
+POST {{hostname}}/apontamentos
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "funcionarioId": "{{funcionarioId}}",
+    "obraId": "",
+    "periodoInicio": "2025-12-16",
+    "periodoFim": "2025-12-31",
+    "diaria": 300.00,
+    "diasTrabalhados": 10
+}
+
+### @name CriarApontamentoComObraNull
+# Teste: Criar apontamento com obraId como null
+POST {{hostname}}/apontamentos
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "funcionarioId": "{{funcionarioId}}",
+    "obraId": null,
+    "periodoInicio": "2025-11-01",
+    "periodoFim": "2025-11-15",
+    "diaria": 280.00,
+    "diasTrabalhados": 12
+}

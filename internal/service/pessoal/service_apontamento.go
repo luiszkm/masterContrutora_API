@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -38,8 +39,12 @@ func (s *Service) CriarApontamento(ctx context.Context, input dto.CriarApontamen
 	if _, err := s.repo.BuscarPorID(ctx, input.FuncionarioID); err != nil {
 		return nil, fmt.Errorf("%s: funcionário com id [%s] não encontrado: %w", op, input.FuncionarioID, err)
 	}
-	if _, err := s.obraFinder.BuscarPorID(ctx, input.ObraID); err != nil {
-		return nil, fmt.Errorf("%s: obra com id [%s] não encontrada: %w", op, input.ObraID, err)
+	// Validar obra apenas se foi informada
+	obraID := strings.TrimSpace(input.ObraID)
+	if obraID != "" {
+		if _, err := s.obraFinder.BuscarPorID(ctx, obraID); err != nil {
+			return nil, fmt.Errorf("%s: obra com id [%s] não encontrada: %w", op, obraID, err)
+		}
 	}
 
 	inicio, err := time.Parse("2006-01-02", input.PeriodoInicio)
@@ -55,7 +60,7 @@ func (s *Service) CriarApontamento(ctx context.Context, input dto.CriarApontamen
 	apontamento := &pessoal.ApontamentoQuinzenal{
 		ID:                  uuid.NewString(),
 		FuncionarioID:       input.FuncionarioID,
-		ObraID:              input.ObraID,
+		ObraID:              obraID, // Usa a variável já validada e trimmed
 		PeriodoInicio:       inicio,
 		PeriodoFim:          fim,
 		Status:              pessoal.StatusApontamentoEmAberto,
@@ -205,13 +210,13 @@ func (s *Service) AtualizarApontamento(ctx context.Context, id string, input dto
 		obraID = apontamento.ObraID
 	}
 
-	// 2. Executa o método de negócio do agregado. A diária não é mais necessária aqui.
+	// 2. Executa o método de negócio do agregado
 	err = apontamento.AtualizarValores(
 		input.DiasTrabalhados,
 		input.Diaria,
+		input.ValorAdicional,
 		input.Descontos,
 		input.Adiantamento,
-		input.ValorAdicional,
 		periodoInicio,
 		periodoFim,
 		obraID,

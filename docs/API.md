@@ -372,7 +372,6 @@ Lista todos os funcionários ativos.
     "telefone": "(11) 99999-9999",
     "email": "carlos@empresa.com",
     "dataContratacao": "2023-06-15T00:00:00Z",
-    "valorDiaria": 180.00,
     "chavePix": "carlos@email.com",
     "status": "Ativo"
   }
@@ -410,7 +409,6 @@ Cadastra um novo funcionário.
   "telefone": "(11) 88888-8888",
   "email": "maria@empresa.com",
   "dataContratacao": "2024-02-20T00:00:00Z",
-  "valorDiaria": 200.00,
   "chavePix": "maria@email.com",
   "status": "Ativo"
 }
@@ -435,7 +433,6 @@ Busca detalhes de um funcionário específico.
   "telefone": "(11) 99999-9999",
   "email": "carlos@empresa.com",
   "dataContratacao": "2023-06-15T00:00:00Z",
-  "valorDiaria": 180.00,
   "chavePix": "carlos@email.com",
   "status": "Ativo"
 }
@@ -471,7 +468,6 @@ Atualiza dados de um funcionário.
   "telefone": "(11) 99999-9999",
   "email": "carlos.santos@empresa.com",
   "dataContratacao": "2023-06-15T00:00:00Z",
-  "valorDiaria": 220.00,
   "chavePix": "carlos.santos@email.com",
   "status": "Ativo"
 }
@@ -692,7 +688,6 @@ Lista funcionários com dados do último apontamento.
     "cargo": "Pedreiro",
     "departamento": "Construção",
     "dataContratacao": "2023-06-15T00:00:00Z",
-    "valorDiaria": 180.00,
     "diasTrabalhados": 10,
     "valorAdicional": 200.00,
     "descontos": 50.00,

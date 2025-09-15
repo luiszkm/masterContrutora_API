@@ -33,8 +33,18 @@ func (r *ApontamentoRepositoryPostgres) Salvar(ctx context.Context, db db.DBTX, 
 			valor_total_calculado, status, created_at, updated_at, diaria
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 	`
-	_, err := r.db.Exec(ctx, query,
-		a.ID, a.FuncionarioID, a.ObraID, a.PeriodoInicio, a.PeriodoFim,
+
+	// Handle empty ObraID by sending NULL to database
+	var obraID interface{}
+	trimmedObraID := strings.TrimSpace(a.ObraID)
+	if trimmedObraID == "" {
+		obraID = nil // Send NULL to database
+	} else {
+		obraID = trimmedObraID
+	}
+
+	_, err := db.Exec(ctx, query,
+		a.ID, a.FuncionarioID, obraID, a.PeriodoInicio, a.PeriodoFim,
 		a.DiasTrabalhados, a.Adicionais, a.Descontos, a.Adiantamentos,
 		a.ValorTotalCalculado, a.Status, a.CreatedAt, a.UpdatedAt, a.Diaria,
 	)
@@ -55,12 +65,20 @@ func (r *ApontamentoRepositoryPostgres) BuscarPorID(ctx context.Context, id stri
 
 	row := r.db.QueryRow(ctx, query, id)
 	var a pessoal.ApontamentoQuinzenal
+	var obraID *string // Use nullable string for database scanning
 
 	err := row.Scan(
-		&a.ID, &a.FuncionarioID, &a.ObraID, &a.PeriodoInicio, &a.PeriodoFim,
+		&a.ID, &a.FuncionarioID, &obraID, &a.PeriodoInicio, &a.PeriodoFim,
 		&a.DiasTrabalhados, &a.Adicionais, &a.Descontos, &a.Adiantamentos,
 		&a.ValorTotalCalculado, &a.Status, &a.CreatedAt, &a.UpdatedAt, &a.Diaria,
 	)
+
+	// Convert nullable string to regular string
+	if obraID != nil {
+		a.ObraID = *obraID
+	} else {
+		a.ObraID = ""
+	}
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNaoEncontrado
@@ -78,9 +96,18 @@ func (r *ApontamentoRepositoryPostgres) Atualizar(ctx context.Context, dbtx db.D
 			valor_total_calculado = $5, status = $6, updated_at = $7, obra_id = $8, periodo_inicio = $9, periodo_fim = $10
 		WHERE id = $11`
 
+	// Handle empty ObraID by sending NULL to database
+	var obraID interface{}
+	trimmedObraID := strings.TrimSpace(a.ObraID)
+	if trimmedObraID == "" {
+		obraID = nil
+	} else {
+		obraID = trimmedObraID
+	}
+
 	cmd, err := dbtx.Exec(ctx, query,
 		a.DiasTrabalhados, a.Adicionais, a.Descontos, a.Adiantamentos,
-		a.ValorTotalCalculado, a.Status, a.UpdatedAt, a.ObraID, a.PeriodoInicio, a.PeriodoFim, a.ID,
+		a.ValorTotalCalculado, a.Status, a.UpdatedAt, obraID, a.PeriodoInicio, a.PeriodoFim, a.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
@@ -127,12 +154,25 @@ func (r *ApontamentoRepositoryPostgres) listarComFiltros(ctx context.Context, ba
 	}
 
 	if status, ok := filterArgs["status"]; ok {
-		whereClauses = append(whereClauses, "status = @status")
+		whereClauses = append(whereClauses, "a.status = @status")
 		args["status"] = status
 	}
-	if filtros.ApontamentoStatus != "" {
-		whereClauses = append(whereClauses, "a.status = @apontamentoStatus")
-		args["apontamentoStatus"] = filtros.ApontamentoStatus
+	if filtros.Status != "" {
+		_, statusFromArgs := filterArgs["status"]
+		if !statusFromArgs {
+			whereClauses = append(whereClauses, "a.status = @statusFiltro")
+			args["statusFiltro"] = filtros.Status
+		}
+	}
+
+	// Filtros de data
+	if filtros.DataInicio != "" {
+		whereClauses = append(whereClauses, "a.periodo_inicio >= @dataInicio")
+		args["dataInicio"] = filtros.DataInicio
+	}
+	if filtros.DataFim != "" {
+		whereClauses = append(whereClauses, "a.periodo_fim <= @dataFim")
+		args["dataFim"] = filtros.DataFim
 	}
 
 	// Monta a string final da cláusula WHERE
@@ -141,19 +181,14 @@ func (r *ApontamentoRepositoryPostgres) listarComFiltros(ctx context.Context, ba
 		whereString = " WHERE " + strings.Join(whereClauses, " AND ")
 	}
 
-	joinQuery := "LEFT JOIN funcionarios f ON a.funcionario_id = f.id"
-
 	countQueryBuilder := strings.Builder{}
 	countQueryBuilder.WriteString("SELECT COUNT(*) ")
 	countQueryBuilder.WriteString(baseQuery)
 	countQueryBuilder.WriteString(whereString)
 
 	queryBuilder := strings.Builder{}
-	queryBuilder.WriteString("SELECT a.id, a.funcionario_id, a.obra_id, a.periodo_inicio, a.periodo_fim, a.diaria, a.dias_trabalhados, a.adicionais, a.descontos, a.adiantamentos, a.valor_total_calculado, a.status, a.created_at, a.updated_at, f.nome ")
+	queryBuilder.WriteString("SELECT a.id, a.funcionario_id, a.obra_id, a.periodo_inicio, a.periodo_fim, a.diaria, a.dias_trabalhados, a.adicionais, a.descontos, a.adiantamentos, a.valor_total_calculado, a.status, a.created_at, a.updated_at ")
 	queryBuilder.WriteString(baseQuery)
-	queryBuilder.WriteString(" ")
-	queryBuilder.WriteString(joinQuery)
-	queryBuilder.WriteString("")
 	queryBuilder.WriteString(whereString)
 
 	var totalItens int
@@ -177,9 +212,33 @@ func (r *ApontamentoRepositoryPostgres) listarComFiltros(ctx context.Context, ba
 		return nil, nil, fmt.Errorf("%s: %w", op, err)
 	}
 	defer rows.Close()
-	apontamentos, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByPos[pessoal.ApontamentoQuinzenal])
-	if err != nil {
-		return nil, nil, fmt.Errorf("%s: falha ao escanear apontamentos: %w", op, err)
+
+	var apontamentos []*pessoal.ApontamentoQuinzenal
+	for rows.Next() {
+		var a pessoal.ApontamentoQuinzenal
+		var obraID *string // Use nullable string for database scanning
+
+		err := rows.Scan(
+			&a.ID, &a.FuncionarioID, &obraID, &a.PeriodoInicio, &a.PeriodoFim,
+			&a.Diaria, &a.DiasTrabalhados, &a.Adicionais, &a.Descontos, &a.Adiantamentos,
+			&a.ValorTotalCalculado, &a.Status, &a.CreatedAt, &a.UpdatedAt,
+		)
+		if err != nil {
+			return nil, nil, fmt.Errorf("%s: falha ao escanear apontamentos: %w", op, err)
+		}
+
+		// Convert nullable string to regular string
+		if obraID != nil {
+			a.ObraID = *obraID
+		} else {
+			a.ObraID = ""
+		}
+
+		apontamentos = append(apontamentos, &a)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, nil, fmt.Errorf("%s: erro ao iterar rows: %w", op, err)
 	}
 
 	return apontamentos, paginacao, nil
@@ -210,12 +269,20 @@ func (r *ApontamentoRepositoryPostgres) BuscarUltimoPorFuncionarioID(ctx context
 
 	row := r.db.QueryRow(ctx, query, funcionarioID)
 	var a pessoal.ApontamentoQuinzenal
+	var obraID *string // Use nullable string for database scanning
 
 	err := row.Scan(
-		&a.ID, &a.FuncionarioID, &a.ObraID, &a.PeriodoInicio, &a.PeriodoFim,
+		&a.ID, &a.FuncionarioID, &obraID, &a.PeriodoInicio, &a.PeriodoFim,
 		&a.DiasTrabalhados, &a.Adicionais, &a.Descontos, &a.Adiantamentos,
 		&a.ValorTotalCalculado, &a.Status, &a.CreatedAt, &a.UpdatedAt, &a.Diaria,
 	)
+
+	// Convert nullable string to regular string
+	if obraID != nil {
+		a.ObraID = *obraID
+	} else {
+		a.ObraID = ""
+	}
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNaoEncontrado

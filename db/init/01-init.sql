@@ -35,7 +35,6 @@ CREATE TABLE IF NOT EXISTS funcionarios (
     departamento VARCHAR(100) NOT NULL DEFAULT '',
     email VARCHAR(100) NOT NULL DEFAULT '',
     data_contratacao DATE NOT NULL,
-    valor_diaria NUMERIC(10, 2) NOT NULL,
     chave_pix VARCHAR(255) NOT NULL DEFAULT '',
     status VARCHAR(50) NOT NULL,
     desligamento_data TIMESTAMPTZ,

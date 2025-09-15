@@ -83,11 +83,18 @@ func ParseFiltros(r *http.Request) common.ListarFiltros {
 
 	fornecedorID := q.Get("fornecedorId")
 	obraID := q.Get("obraId")
+	funcionarioID := q.Get("funcionarioId")
+	dataInicio := q.Get("dataInicio")
+	dataFim := q.Get("dataFim")
+
 	return common.ListarFiltros{
 		Status:        status,
 		Pagina:        pagina,
 		FornecedorID:  fornecedorID,
+		FuncionarioID: funcionarioID,
 		ObraID:        obraID,
+		DataInicio:    dataInicio,
+		DataFim:       dataFim,
 		TamanhoPagina: tamanhoPagina,
 	}
 }

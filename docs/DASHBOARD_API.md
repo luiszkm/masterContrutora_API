@@ -231,8 +231,7 @@ Authorization: Bearer <token>
           "cargo": "Pedreiro",
           "custoTotal": 8500.00,
           "custoMedio": 850.00,
-          "valorDiaria": 120.00,
-          "periodosTrabalho": 10
+            "periodosTrabalho": 10
         }
       ],
       "custosPorObra": [
@@ -516,7 +515,6 @@ GET /dashboard/funcionarios
         "cargo": "Pedreiro",
         "custoTotal": 8500.00,
         "custoMedio": 850.00,
-        "valorDiaria": 120.00,
         "periodosTrabalho": 10
       }
     ],

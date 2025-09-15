@@ -28,9 +28,9 @@ func NovoFuncionarioRepository(db *pgxpool.Pool, logger *slog.Logger) *Funcionar
 func (r *FuncionarioRepositoryPostgres) BuscarPorID(ctx context.Context, funcionarioID string) (*pessoal.Funcionario, error) {
 	const op = "repository.postgres.funcionario.BuscarPorID"
 	query := `
-		SELECT 
-			id, nome, cpf, telefone, cargo, departamento, data_contratacao, 
-			valor_diaria, chave_pix, status, desligamento_data, motivo_desligamento, 
+		SELECT
+			id, nome, cpf, telefone, cargo, departamento, data_contratacao,
+			chave_pix, status, desligamento_data, motivo_desligamento,
 			observacoes, avaliacao_desempenho, email,
 			created_at, updated_at
 		FROM funcionarios
@@ -46,7 +46,7 @@ func (r *FuncionarioRepositoryPostgres) BuscarPorID(ctx context.Context, funcion
 	// CORREÇÃO: A chamada Scan agora usa as variáveis Null* para os campos anuláveis.
 	err := row.Scan(
 		&f.ID, &f.Nome, &f.CPF, &telefone, &f.Cargo, &departamento, &f.DataContratacao,
-		&f.ValorDiaria, &chavePix, &f.Status, &desligamentoData, &motivoDesligamento,
+		&chavePix, &f.Status, &desligamentoData, &motivoDesligamento,
 		&f.Observacoes, &f.AvaliacaoDesempenho, &f.Email,
 		&f.CreatedAt, &f.UpdatedAt,
 	)
@@ -89,14 +89,14 @@ func (r *FuncionarioRepositoryPostgres) BuscarPorID(ctx context.Context, funcion
 func (r *FuncionarioRepositoryPostgres) Salvar(ctx context.Context, f *pessoal.Funcionario) error {
 	const op = "repository.postgres.funcionario.Salvar"
 	query := `
-		INSERT INTO funcionarios 
-		    (id, nome, cpf, telefone, cargo, departamento, data_contratacao, valor_diaria, chave_pix, status, created_at, updated_at)
-		VALUES 
-		    ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+		INSERT INTO funcionarios
+		    (id, nome, cpf, telefone, cargo, departamento, data_contratacao, chave_pix, status, created_at, updated_at)
+		VALUES
+		    ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
 	`
 	_, err := r.db.Exec(ctx, query,
 		f.ID, f.Nome, f.CPF, f.Telefone, f.Cargo, f.Departamento,
-		f.DataContratacao, f.ValorDiaria, f.ChavePix, f.Status,
+		f.DataContratacao, f.ChavePix, f.Status,
 	)
 	if err != nil {
 		// TODO: Tratar erro de violação de constraint UNIQUE do CPF
@@ -123,17 +123,17 @@ func (r *FuncionarioRepositoryPostgres) Atualizar(ctx context.Context, f *pessoa
 	const op = "repository.postgres.funcionario.Atualizar"
 	query := `
 		UPDATE funcionarios
-		SET 
-		    nome = $1, cpf = $2, telefone = $3, cargo = $4, departamento = $5, 
-		    valor_diaria = $6, chave_pix = $7, status = $8, avaliacao_desempenho = $9,
-			motivo_desligamento = $10, observacoes = $11,
-			email = $12,
+		SET
+		    nome = $1, cpf = $2, telefone = $3, cargo = $4, departamento = $5,
+		    chave_pix = $6, status = $7, avaliacao_desempenho = $8,
+			motivo_desligamento = $9, observacoes = $10,
+			email = $11,
 			updated_at = NOW()
-		WHERE id = $13 
+		WHERE id = $12
 	`
 	cmd, err := r.db.Exec(ctx, query,
 		f.Nome, f.CPF, f.Telefone, f.Cargo, f.Departamento,
-		f.ValorDiaria, f.ChavePix, f.Status, f.AvaliacaoDesempenho,
+		f.ChavePix, f.Status, f.AvaliacaoDesempenho,
 		f.MotivoDesligamento, f.Observacoes,
 		f.Email, f.ID,
 	)
@@ -327,7 +327,7 @@ func (r *FuncionarioRepositoryPostgres) ListarComUltimoApontamento(ctx context.C
 	queryBuilder.WriteString(`
 		SELECT
 			f.id, f.nome, f.cargo, f.departamento, f.data_contratacao, f.avaliacao_desempenho , f.observacoes,
-			a.diaria, a.id,
+			a.id,
 			f.chave_pix,
 			a.dias_trabalhados, a.adicionais, a.descontos, a.adiantamentos, a.status
 	`)
@@ -352,14 +352,14 @@ func (r *FuncionarioRepositoryPostgres) ListarComUltimoApontamento(ctx context.C
 		// Variáveis para receber valores que podem ser nulos
 		var departamento, chavePix, statusApontamento, avaliacaoDesempenho, observacoes sql.NullString
 		var diasTrabalhados sql.NullInt32
-		var adicionais, descontos, adiantamento, diariaApontamento sql.NullFloat64
+		var adicionais, descontos, adiantamento sql.NullFloat64
 
 		// --- INÍCIO DA CORREÇÃO NO SCAN ---
 		// A ordem e quantidade dos campos agora correspondem ao SELECT
 		err := rows.Scan(
 			&dto.ID, &dto.Nome, &dto.Cargo, &departamento, &dto.DataContratacao,
 			&avaliacaoDesempenho, &observacoes,
-			&diariaApontamento, &dto.ApontamentoId, &chavePix, &diasTrabalhados, &adicionais,
+			&dto.ApontamentoId, &chavePix, &diasTrabalhados, &adicionais,
 			&descontos, &adiantamento, &statusApontamento,
 		)
 		// --- FIM DA CORREÇÃO NO SCAN ---
@@ -391,10 +391,7 @@ func (r *FuncionarioRepositoryPostgres) ListarComUltimoApontamento(ctx context.C
 		if adiantamento.Valid {
 			dto.Adiantamento = &adiantamento.Float64
 		}
-		// O campo 'ValorDiaria' do DTO agora é preenchido com a diária do apontamento.
-		if diariaApontamento.Valid {
-			dto.Diaria = diariaApontamento.Float64
-		}
+		// Diária removida - valor deve vir apenas do apontamento quando necessário
 		if avaliacaoDesempenho.Valid {
 			dto.AvaliacaoDesempenho = &avaliacaoDesempenho.String
 		}

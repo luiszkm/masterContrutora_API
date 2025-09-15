@@ -8,7 +8,6 @@ type ListagemFuncionarioDTO struct {
 	Cargo               string    `json:"cargo"`
 	Departamento        *string   `json:"departamento"`
 	DataContratacao     time.Time `json:"dataContratacao"`
-	Diaria              float64   `json:"valorDiaria"`
 	DiasTrabalhados     *int      `json:"diasTrabalhados"`
 	ValorAdicional      *float64  `json:"valorAdicional"`
 	Descontos           *float64  `json:"descontos"`

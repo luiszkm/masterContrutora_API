@@ -258,7 +258,6 @@ interface Funcionario {
   telefone: string;
   email: string;
   dataContratacao: string;
-  valorDiaria: number;
   chavePix: string;
   status: 'Ativo' | 'Inativo' | 'Desligado';
 }

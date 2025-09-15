@@ -185,7 +185,6 @@ CREATE TABLE funcionarios (
     departamento VARCHAR(100) NOT NULL DEFAULT '',
     email VARCHAR(100) NOT NULL DEFAULT '',
     data_contratacao DATE NOT NULL,
-    valor_diaria NUMERIC(10, 2) NOT NULL,
     chave_pix VARCHAR(255) NOT NULL DEFAULT '',
     status VARCHAR(50) NOT NULL,
     desligamento_data TIMESTAMPTZ,
@@ -207,7 +206,6 @@ CREATE TABLE funcionarios (
 - `departamento`: Departamento de trabalho
 - `email`: Email do funcionário
 - `data_contratacao`: Data de contratação
-- `valor_diaria`: Valor da diária de trabalho
 - `chave_pix`: Chave PIX para pagamentos
 - `status`: Status atual (`Ativo`, `Inativo`, `Desligado`)
 - `desligamento_data`: Data de desligamento (se aplicável)

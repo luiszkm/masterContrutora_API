@@ -556,18 +556,17 @@ func (q *DashboardQuerierPostgres) ObterCustosMaoObra(ctx context.Context, dataI
 
 	// Custos por funcionário
 	queryFuncionarios := `
-		SELECT 
+		SELECT
 			f.id as funcionario_id,
 			f.nome as nome_funcionario,
 			f.cargo,
-			f.valor_diaria,
 			COUNT(aq.id) as periodos_trabalho,
 			SUM(aq.valor_total_calculado) as custo_total,
 			AVG(aq.valor_total_calculado) as custo_medio
 		FROM funcionarios f
-		LEFT JOIN apontamentos_quinzenais aq ON f.id = aq.funcionario_id 
+		LEFT JOIN apontamentos_quinzenais aq ON f.id = aq.funcionario_id
 			AND aq.created_at BETWEEN $1 AND $2
-		GROUP BY f.id, f.nome, f.cargo, f.valor_diaria
+		GROUP BY f.id, f.nome, f.cargo
 		HAVING SUM(aq.valor_total_calculado) > 0
 		ORDER BY SUM(aq.valor_total_calculado) DESC`
 

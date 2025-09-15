@@ -318,21 +318,21 @@ func seedOrcamentos(ctx context.Context, db *pgxpool.Pool, logger *slog.Logger, 
 
 func seedFuncionarios(ctx context.Context, db *pgxpool.Pool, logger *slog.Logger, data *SeedData) error {
 	funcionarios := []map[string]interface{}{
-		{"nome": "Carlos Pereira", "cpf": "111.111.111-11", "cargo": "Pedreiro", "valor_diaria": 180.50},
-		{"nome": "Mariana Costa", "cpf": "222.222.222-22", "cargo": "Engenheira Civil", "valor_diaria": 350.00},
-		{"nome": "Roberto Silva", "cpf": "333.333.333-33", "cargo": "Eletricista", "valor_diaria": 220.00},
-		{"nome": "Juliana Almeida", "cpf": "444.444.444-44", "cargo": "Servente", "valor_diaria": 120.00},
+		{"nome": "Carlos Pereira", "cpf": "111.111.111-11", "cargo": "Pedreiro"},
+		{"nome": "Mariana Costa", "cpf": "222.222.222-22", "cargo": "Engenheira Civil"},
+		{"nome": "Roberto Silva", "cpf": "333.333.333-33", "cargo": "Eletricista"},
+		{"nome": "Juliana Almeida", "cpf": "444.444.444-44", "cargo": "Servente"},
 	}
 
 	query := `
-		INSERT INTO funcionarios (id, nome, cpf, cargo, valor_diaria, data_contratacao, status)
-		VALUES ($1, $2, $3, $4, $5, NOW(), 'Ativo')
+		INSERT INTO funcionarios (id, nome, cpf, cargo, data_contratacao, status)
+		VALUES ($1, $2, $3, $4, NOW(), 'Ativo')
 		ON CONFLICT (cpf) DO NOTHING RETURNING id
 	`
 
 	for _, f := range funcionarios {
 		var id string
-		err := db.QueryRow(ctx, query, uuid.NewString(), f["nome"], f["cpf"], f["cargo"], f["valor_diaria"]).Scan(&id)
+		err := db.QueryRow(ctx, query, uuid.NewString(), f["nome"], f["cpf"], f["cargo"]).Scan(&id)
 
 		if err == pgx.ErrNoRows {
 			querySelect := `SELECT id FROM funcionarios WHERE cpf = $1`

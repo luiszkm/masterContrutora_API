@@ -71,7 +71,7 @@ type AlocacaoFinder interface {
 	ExistemAlocacoesAtivasParaFuncionario(ctx context.Context, funcionarioID string) (bool, error)
 }
 
-func (s *Service) CadastrarFuncionario(ctx context.Context, nome, cpf, cargo, departamento, telefone, ChavePix string, diaria float64) (*pessoal.Funcionario, error) {
+func (s *Service) CadastrarFuncionario(ctx context.Context, nome, cpf, cargo, departamento, telefone, ChavePix string) (*pessoal.Funcionario, error) {
 	const op = "service.pessoal.CadastrarFuncionario"
 
 	novoFuncionario := &pessoal.Funcionario{
@@ -84,7 +84,6 @@ func (s *Service) CadastrarFuncionario(ctx context.Context, nome, cpf, cargo, de
 		Status:          "Ativo",
 		ChavePix:        ChavePix, // Inicialmente vazio, pode ser atualizado depois
 		Telefone:        telefone, // Inicialmente vazio, pode ser atualizado depois
-		Diaria:          diaria,
 	}
 
 	if err := s.repo.Salvar(ctx, novoFuncionario); err != nil {
@@ -178,9 +177,6 @@ func (s *Service) AtualizarFuncionario(ctx context.Context, id string, input dto
 	}
 	if input.Departamento != nil {
 		funcionario.Departamento = *input.Departamento
-	}
-	if input.ValorDiaria != nil {
-		funcionario.ValorDiaria = *input.ValorDiaria
 	}
 	if input.ChavePix != nil {
 		funcionario.ChavePix = *input.ChavePix

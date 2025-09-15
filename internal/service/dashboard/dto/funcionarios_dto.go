@@ -29,7 +29,6 @@ type CustoMaoObraFuncionarioDTO struct {
 	Cargo           string  `json:"cargo" db:"cargo"`
 	CustoTotal      float64 `json:"custoTotal" db:"custo_total"`
 	CustoMedio      float64 `json:"custoMedio" db:"custo_medio"`
-	ValorDiaria     float64 `json:"valorDiaria" db:"valor_diaria"`
 	PeriodosTrabalho int    `json:"periodosTrabalho" db:"periodos_trabalho"`
 }
 

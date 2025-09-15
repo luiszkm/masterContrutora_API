@@ -20,7 +20,7 @@ import (
 )
 
 type Service interface {
-	CadastrarFuncionario(ctx context.Context, nome, cpf, cargo, departamento, telefone, chavePix string, diaria float64) (*pessoal.Funcionario, error)
+	CadastrarFuncionario(ctx context.Context, nome, cpf, cargo, departamento, telefone, chavePix string) (*pessoal.Funcionario, error)
 	DeletarFuncionario(ctx context.Context, id string) error
 	ListarFuncionarios(ctx context.Context) ([]*pessoal.Funcionario, error)
 	ListarFuncionariosPaginado(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*pessoal.Funcionario], error)
@@ -54,7 +54,7 @@ func (h *Handler) HandleCadastrarFuncionario(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	f, err := h.service.CadastrarFuncionario(r.Context(), req.Nome, req.CPF, req.Cargo, req.Departamento, req.Telefone, req.ChavePix, req.Diaria)
+	f, err := h.service.CadastrarFuncionario(r.Context(), req.Nome, req.CPF, req.Cargo, req.Departamento, req.Telefone, req.ChavePix)
 	if err != nil {
 		h.logger.ErrorContext(r.Context(), "falha ao cadastrar funcionário", "erro", err)
 		web.RespondError(w, r, "ERRO_CADASTRAR_FUNCIONARIO", "Erro ao cadastrar funcionário", http.StatusInternalServerError)
@@ -132,7 +132,6 @@ func (h *Handler) HandleAtualizarFuncionario(w http.ResponseWriter, r *http.Requ
 		Telefone:            req.Telefone,
 		Cargo:               req.Cargo,
 		Departamento:        req.Departamento,
-		ValorDiaria:         req.ValorDiaria,
 		ChavePix:            req.ChavePix,
 		Status:              req.Status,
 		DesligamentoData:    req.DesligamentoData,

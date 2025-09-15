@@ -1,5 +1,5 @@
 @hostname = http://localhost:8084
-@token =
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTc4Mzg2NjksImlhdCI6MTc1NzgwOTg2OSwicGVybWlzc29lcyI6WyJmaW5hbmNlaXJvOmxlciIsImZpbmFuY2Vpcm86ZXNjcmV2ZXIiLCJwZXNzb2FsOmFwb250YW1lbnRvOmFwcm92YXIiLCJwZXNzb2FsOmFwb250YW1lbnRvOnBhZ2FyIiwib2JyYXM6bGVyIiwicGVzc29hbDpsZXIiLCJwZXNzb2FsOmFwb250YW1lbnRvOmVzY3JldmVyIiwicGVzc29hbDphcG9udGFtZW50bzpsZXIiLCJvYnJhczplc2NyZXZlciIsInBlc3NvYWw6ZXNjcmV2ZXIiLCJzdXByaW1lbnRvczpsZXIiLCJzdXByaW1lbnRvczplc2NyZXZlciJdLCJzdWIiOiI5YjFkZTc4Ny00YThkLTQzYjctOWFiOS0xZTZjYzVmNmQ4MDYifQ.k_i7lMpyeDWkNBjb6224l05j30EfNTV7x0HAvmuN5vQ
 @obraId =b8a89a55-fa43-4e79-a2ac-99608db1baf7
 @etapaId =e830a43a-bbb3-49ec-8171-9f86a062f30f
 @funcionarioId =fb0677ac-4c9a-49a9-b601-c0ed35f5b9fb
@@ -10,7 +10,7 @@
 @orcamentoId =19b50d8a-333e-4829-8731-1235e3f0e55d
 @apontamentoId = c1377600-6c9d-42cd-aaba-a85b5df3d217
 @etapaPadraoId = 4525251c-999c-4417-aa9e-72d7a9809b09
-@cronogramaId = 1e798bbe-bb25-43e9-ab2a-6d212ba40723
+@cronogramaId = 54119916-b64f-45bc-8f38-1646cf75fbcb
 # ===================================================================
 # [FLUXO 2] - CENÁRIO DE UMA OBRA COMPLETA
 # ===================================================================
@@ -67,7 +67,7 @@ Cookie: jwt-token={{token}}
 
 ###
 # @name ListarTodasAsObras
-GET {{hostname}}/obras?page=2&pageSize=10
+GET {{hostname}}/obras?page=1&pageSize=20
 Cookie: jwt-token={{token}}
 ###
 
@@ -106,7 +106,7 @@ Cookie: jwt-token={{token}}
 
 {
     "obraId": "{{obraId}}",
-    "numeroEtapa": 1,
+    "numeroEtapa": 2,
     "descricaoEtapa": "Primeira etapa - Fundação",
     "valorPrevisto": 15000.00,
     "dataVencimento": "2025-09-15T00:00:00Z"
@@ -117,39 +117,6 @@ Cookie: jwt-token={{token}}
 %}
 
 ###
-# @name CriarCronogramasEmLote
-# Cria múltiplos cronogramas de recebimento de uma vez
-POST {{hostname}}/cronograma-recebimentos/lote
-Content-Type: application/json
-Cookie: jwt-token={{token}}
-
-{
-    "obraId": "{{obraId}}",
-    "substituirExistente": true,
-    "cronogramas": [
-        {
-            "obraId": "{{obraId}}",
-            "numeroEtapa": 2,
-            "descricaoEtapa": "Segunda etapa - Estrutura",
-            "valorPrevisto": 25000.00,
-            "dataVencimento": "2025-10-15T00:00:00Z"
-        },
-        {
-            "obraId": "{{obraId}}",
-            "numeroEtapa": 3,
-            "descricaoEtapa": "Terceira etapa - Cobertura",
-            "valorPrevisto": 20000.00,
-            "dataVencimento": "2025-11-15T00:00:00Z"
-        },
-        {
-            "obraId": "{{obraId}}",
-            "numeroEtapa": 4,
-            "descricaoEtapa": "Quarta etapa - Acabamento",
-            "valorPrevisto": 18000.00,
-            "dataVencimento": "2025-12-15T00:00:00Z"
-        }
-    ]
-}
 
 ###
 # @name BuscarCronograma

@@ -130,10 +130,12 @@ func (s *ContaReceberService) RegistrarRecebimento(ctx context.Context, contaID 
 		Payload: payload,
 	})
 
-	s.logger.InfoContext(ctx, "recebimento registrado", 
-		"conta_id", conta.ID, 
-		"valor", input.Valor, 
-		"status", conta.Status)
+	s.logger.InfoContext(ctx, "recebimento registrado e evento publicado",
+		"conta_id", conta.ID,
+		"cronograma_id", conta.CronogramaRecebimentoID,
+		"valor", input.Valor,
+		"status", conta.Status,
+		"evento", "ContaReceberPaga")
 
 	return s.toOutput(conta), nil
 }

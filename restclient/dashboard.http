@@ -54,7 +54,7 @@ GET {{baseUrl}}/dashboard/fornecedores
 Authorization: {{authToken}}
 
 ### Dashboard Fornecedores com Período
-GET {{baseUrl}}/dashboard/fornecedores?dataInicio=2024-01-01&dataFim=2024-12-31
+GET {{baseUrl}}/dashboard/fornecedores?dataInicio=2024-05-01&dataFim=2024-12-31
 Authorization: {{authToken}}
 
 ### ===== ENDPOINTS ESPECÍFICOS =====
@@ -65,7 +65,7 @@ GET {{baseUrl}}/dashboard/fluxo-caixa
 Authorization: {{authToken}}
 
 ### Fluxo de Caixa com Período Específico
-GET {{baseUrl}}/dashboard/fluxo-caixa?dataInicio=2024-01-01&dataFim=2024-03-31
+GET {{baseUrl}}/dashboard/fluxo-caixa?dataInicio=2025-05-15
 Authorization: {{authToken}}
 
 ### ===== ENDPOINTS GENÉRICOS =====

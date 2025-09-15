@@ -31,11 +31,11 @@ func NovoEtapaRepository(db *pgxpool.Pool, logger *slog.Logger) obras.EtapaRepos
 func (r *EtapaRepositoryPostgres) Salvar(ctx context.Context, dbtx db.DBTX, etapa *obras.Etapa) error {
 	const op = "repository.postgres.etapa.Salvar"
 	query := `
-		INSERT INTO etapas (id, obra_id, nome, data_inicio_prevista, data_fim_prevista, status)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO etapas (id, obra_id, nome, ordem, data_inicio_prevista, data_fim_prevista, status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 	`
 	_, err := dbtx.Exec(ctx, query,
-		etapa.ID, etapa.ObraID, etapa.Nome,
+		etapa.ID, etapa.ObraID, etapa.Nome, etapa.Ordem,
 		etapa.DataInicioPrevista, etapa.DataFimPrevista, etapa.Status,
 	)
 	if err != nil {
@@ -46,7 +46,7 @@ func (r *EtapaRepositoryPostgres) Salvar(ctx context.Context, dbtx db.DBTX, etap
 
 func (r *EtapaRepositoryPostgres) BuscarPorID(ctx context.Context, etapaID string) (*obras.Etapa, error) {
 	const op = "repository.postgres.etapa.BuscarPorID"
-	query := `SELECT id, obra_id, nome, data_inicio_prevista, data_fim_prevista, status FROM etapas WHERE id = $1`
+	query := `SELECT id, obra_id, nome, ordem, data_inicio_prevista, data_fim_prevista, status FROM etapas WHERE id = $1`
 	row := r.db.QueryRow(ctx, query, etapaID)
 
 	var etapa obras.Etapa
@@ -54,6 +54,7 @@ func (r *EtapaRepositoryPostgres) BuscarPorID(ctx context.Context, etapaID strin
 		&etapa.ID,
 		&etapa.ObraID,
 		&etapa.Nome,
+		&etapa.Ordem,
 		&etapa.DataInicioPrevista,
 		&etapa.DataFimPrevista,
 		&etapa.Status,
@@ -95,10 +96,10 @@ func (r *EtapaRepositoryPostgres) Atualizar(ctx context.Context, etapa *obras.Et
 func (r *EtapaRepositoryPostgres) ListarPorObraID(ctx context.Context, obraID string) ([]*obras.Etapa, error) {
 	const op = "repository.postgres.etapa.ListarPorObraID"
 	query := `
-		SELECT id, obra_id, nome, data_inicio_prevista, data_fim_prevista, status
+		SELECT id, obra_id, nome, ordem, data_inicio_prevista, data_fim_prevista, status
 		FROM etapas
 		WHERE obra_id = $1
-		ORDER BY data_inicio_prevista, nome ASC
+		ORDER BY ordem ASC, nome ASC
 	`
 	rows, err := r.db.Query(ctx, query, obraID)
 	if err != nil {
@@ -156,10 +157,10 @@ func (r *EtapaRepositoryPostgres) ListarPorObraIDPaginado(ctx context.Context, o
 	// Query principal com paginação
 	offset := (pagina - 1) * tamanhoPagina
 	query := fmt.Sprintf(`
-		SELECT id, obra_id, nome, data_inicio_prevista, data_fim_prevista, status
-		FROM etapas 
+		SELECT id, obra_id, nome, ordem, data_inicio_prevista, data_fim_prevista, status
+		FROM etapas
 		WHERE %s
-		ORDER BY data_inicio_prevista, nome ASC
+		ORDER BY ordem ASC, nome ASC
 		LIMIT $%d OFFSET $%d`, whereClause, argIndex, argIndex+1)
 
 	args = append(args, tamanhoPagina, offset)

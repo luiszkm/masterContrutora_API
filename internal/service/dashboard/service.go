@@ -41,11 +41,16 @@ func (s *Service) ObterDashboardCompleto(ctx context.Context, parametros dto.Par
 	dataInicio := parametros.DataInicio
 	dataFim := parametros.DataFim
 	if dataInicio == nil {
-		inicio := time.Now().AddDate(0, -6, 0) // 6 meses atrás
+		// Início: primeiro dia de 6 meses atrás
+		agora := time.Now()
+		inicio := time.Date(agora.Year(), agora.Month(), 1, 0, 0, 0, 0, agora.Location()).AddDate(0, -6, 0)
 		dataInicio = &inicio
 	}
 	if dataFim == nil {
-		fim := time.Now()
+		// Fim: último segundo do mês atual
+		agora := time.Now()
+		proximoMes := agora.AddDate(0, 1, 0)
+		fim := time.Date(proximoMes.Year(), proximoMes.Month(), 1, 0, 0, 0, 0, proximoMes.Location()).Add(-time.Second)
 		dataFim = &fim
 	}
 

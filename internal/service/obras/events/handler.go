@@ -48,16 +48,25 @@ func (h *ObrasEventHandler) HandleOrcamentoStatusAtualizado(ctx context.Context,
 
 // HandleContaReceberPaga processa evento de conta a receber paga para sincronizar cronograma
 func (h *ObrasEventHandler) HandleContaReceberPaga(ctx context.Context, evento bus.Evento) {
+	h.logger.InfoContext(ctx, "EVENTO RECEBIDO: ContaReceberPaga", "evento", evento.Nome)
+
 	payload, ok := evento.Payload.(events.ContaReceberPagaPayload)
 	if !ok {
 		h.logger.ErrorContext(ctx, "payload de evento inválido", "evento", evento.Nome)
 		return
 	}
 
+	h.logger.InfoContext(ctx, "processando evento ContaReceberPaga",
+		"conta_id", payload.ContaReceberID,
+		"cronograma_id", payload.CronogramaRecebimentoID,
+		"valor", payload.ValorRecebido,
+		"status", payload.Status)
+
 	// Se não há cronograma vinculado, não há o que sincronizar
 	if payload.CronogramaRecebimentoID == nil {
-		h.logger.InfoContext(ctx, "conta recebida sem cronograma vinculado, nada para sincronizar", 
-			"conta_id", payload.ContaReceberID)
+		h.logger.WarnContext(ctx, "conta recebida sem cronograma vinculado - SINCRONIZAÇÃO IGNORADA",
+			"conta_id", payload.ContaReceberID,
+			"obra_id", payload.ObraID)
 		return
 	}
 

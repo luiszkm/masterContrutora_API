@@ -240,10 +240,10 @@ func (q *DashboardQuerierPostgres) ObterProgressoObras(ctx context.Context) (*dt
 				o.data_inicio,
 				o.data_fim as data_fim_prevista,
 				COUNT(e.id) as etapas_total,
-				COUNT(CASE WHEN e.status = 'Concluída' THEN 1 END) as etapas_concluidas,
+				COUNT(CASE WHEN e.status = 'Completa' THEN 1 END) as etapas_concluidas,
 				CASE 
 					WHEN COUNT(e.id) > 0 THEN 
-						(COUNT(CASE WHEN e.status = 'Concluída' THEN 1 END)::float / COUNT(e.id)::float) * 100
+						(COUNT(CASE WHEN e.status = 'Completa' THEN 1 END)::float / COUNT(e.id)::float) * 100
 					ELSE 0 
 				END as percentual_concluido
 			FROM obras o
@@ -286,7 +286,7 @@ func (q *DashboardQuerierPostgres) ObterProgressoObras(ctx context.Context) (*dt
 		switch obra.Status {
 		case "Em Andamento":
 			progresso.ObrasEmAndamento++
-		case "Concluída":
+		case "Completa":
 			progresso.ObrasConcluidas++
 		}
 	}
@@ -414,7 +414,7 @@ func (q *DashboardQuerierPostgres) ObterTendenciasObras(ctx context.Context, mes
 		SELECT 
 			COUNT(CASE WHEN status = 'Em Andamento' AND data_fim < CURRENT_DATE THEN 1 END) as obras_em_atraso,
 			COUNT(CASE WHEN status = 'Em Andamento' AND data_fim >= CURRENT_DATE THEN 1 END) as obras_no_prazo,
-			COUNT(CASE WHEN status IN ('Em Andamento', 'Concluída') AND data_fim BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days' THEN 1 END) as previsao_conclusao_mes
+			COUNT(CASE WHEN status IN ('Em Andamento', 'Completa') AND data_fim BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days' THEN 1 END) as previsao_conclusao_mes
 		FROM obras 
 		WHERE deleted_at IS NULL`
 
@@ -1034,7 +1034,7 @@ func (q *DashboardQuerierPostgres) ObterResumoGeral(ctx context.Context) (*dto.R
 		LEFT JOIN (
 			SELECT obra_id, COUNT(*) as concluidas
 			FROM etapas 
-			WHERE status = 'Concluída'
+			WHERE status = 'Completa'
 			GROUP BY obra_id
 		) etapas_concluidas ON o.id = etapas_concluidas.obra_id
 		WHERE o.deleted_at IS NULL AND o.status = 'Em Andamento'`).Scan(&progressoMedio)

@@ -81,7 +81,7 @@ func (r *ObraRepositoryPostgres) ListarObras(ctx context.Context, filtros common
 		) etapa_atual ON true
 		LEFT JOIN LATERAL (
 			SELECT
-				(CAST(COUNT(CASE WHEN e.status = 'Concluída' THEN 1 END) AS FLOAT) / GREATEST(COUNT(e.id), 1)) * 100 AS percentual_concluido
+				(CAST(COUNT(CASE WHEN e.status = 'Completa' THEN 1 END) AS FLOAT) / GREATEST(COUNT(e.id), 1)) * 100 AS percentual_concluido
 			FROM etapas e
 			WHERE e.obra_id = o.id
 		) etapa_stats ON true
@@ -119,7 +119,7 @@ func (r *ObraRepositoryPostgres) BuscarDashboardPorID(ctx context.Context, id st
         -- CTE para calcular o percentual de conclusão
         SELECT
             obra_id,
-            CAST(COUNT(CASE WHEN status = 'Concluída' THEN 1 END) AS FLOAT) / GREATEST(COUNT(*), 1) * 100 AS percentual_concluido
+            CAST(COUNT(CASE WHEN status = 'Completa' THEN 1 END) AS FLOAT) / GREATEST(COUNT(*), 1) * 100 AS percentual_concluido
         FROM etapas
         GROUP BY obra_id
     ),

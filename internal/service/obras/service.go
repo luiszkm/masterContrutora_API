@@ -127,16 +127,14 @@ func (s *Service) CriarNovaObra(ctx context.Context, input dto.CriarNovaObraInpu
 
 	// 3. Cria uma instância de cada etapa padrão para a nova obra
 	for _, etapaPadrao := range etapasPadrao {
-		// Regra de negócio: A primeira etapa ("Fundações") começa em planejamento, as outras pendentes.
+		// Regra de negócio: Todas as etapas começam com status "Pendente"
 		status := obras.StatusEtapaPendente
-		if etapaPadrao.Nome == "Fundações" {
-			status = obras.StatusEtapaEmAndamento // Corrigido para "Em Andamento" para ser mais realista
-		}
 
 		novaEtapa := &obras.Etapa{
 			ID:                 uuid.NewString(),
 			ObraID:             novaObra.ID,
 			Nome:               etapaPadrao.Nome,
+			Ordem:              etapaPadrao.Ordem, // Copia a ordem da etapa padrão
 			DataInicioPrevista: &time.Time{}, // Data padrão, pode ser ajustada depois
 			DataFimPrevista:    &time.Time{}, // Previsão de 1 mês
 			Status:             status,
@@ -275,6 +273,7 @@ func (s *Service) AdicionarEtapa(ctx context.Context, obraID string, input dto.A
 		ID:                 uuid.NewString(),
 		ObraID:             obraID,
 		Nome:               etapaPadrao.Nome, // O nome vem do catálogo
+		Ordem:              etapaPadrao.Ordem, // Copia a ordem da etapa padrão
 		DataInicioPrevista: &inicio,
 		DataFimPrevista:    &fim,
 		Status:             obras.StatusEtapaPendente, // Status inicial padrão

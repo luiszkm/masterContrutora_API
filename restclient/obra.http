@@ -1,43 +1,54 @@
+# ===================================================================
+# TESTES COMPLETOS DO MÓDULO OBRAS
+# ===================================================================
+# Este arquivo contém todos os endpoints do módulo de obras para teste
+# Executar em ordem para testar fluxo completo
+# ===================================================================
+
+### VARIÁVEIS GLOBAIS
 @hostname = http://localhost:8084
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTc4Mzg2NjksImlhdCI6MTc1NzgwOTg2OSwicGVybWlzc29lcyI6WyJmaW5hbmNlaXJvOmxlciIsImZpbmFuY2Vpcm86ZXNjcmV2ZXIiLCJwZXNzb2FsOmFwb250YW1lbnRvOmFwcm92YXIiLCJwZXNzb2FsOmFwb250YW1lbnRvOnBhZ2FyIiwib2JyYXM6bGVyIiwicGVzc29hbDpsZXIiLCJwZXNzb2FsOmFwb250YW1lbnRvOmVzY3JldmVyIiwicGVzc29hbDphcG9udGFtZW50bzpsZXIiLCJvYnJhczplc2NyZXZlciIsInBlc3NvYWw6ZXNjcmV2ZXIiLCJzdXByaW1lbnRvczpsZXIiLCJzdXByaW1lbnRvczplc2NyZXZlciJdLCJzdWIiOiI5YjFkZTc4Ny00YThkLTQzYjctOWFiOS0xZTZjYzVmNmQ4MDYifQ.k_i7lMpyeDWkNBjb6224l05j30EfNTV7x0HAvmuN5vQ
-@obraId =b8a89a55-fa43-4e79-a2ac-99608db1baf7
-@etapaId =e830a43a-bbb3-49ec-8171-9f86a062f30f
-@funcionarioId =fb0677ac-4c9a-49a9-b601-c0ed35f5b9fb
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTc5OTI0NDgsImlhdCI6MTc1Nzk2MzY0OCwicGVybWlzc29lcyI6WyJmaW5hbmNlaXJvOmxlciIsImZpbmFuY2Vpcm86ZXNjcmV2ZXIiLCJwZXNzb2FsOmFwb250YW1lbnRvOmFwcm92YXIiLCJwZXNzb2FsOmFwb250YW1lbnRvOnBhZ2FyIiwib2JyYXM6bGVyIiwicGVzc29hbDpsZXIiLCJwZXNzb2FsOmFwb250YW1lbnRvOmVzY3JldmVyIiwicGVzc29hbDphcG9udGFtZW50bzpsZXIiLCJvYnJhczplc2NyZXZlciIsInBlc3NvYWw6ZXNjcmV2ZXIiLCJzdXByaW1lbnRvczpsZXIiLCJzdXByaW1lbnRvczplc2NyZXZlciJdLCJzdWIiOiI5YjFkZTc4Ny00YThkLTQzYjctOWFiOS0xZTZjYzVmNmQ4MDYifQ.htcRj9lrZQ26iYtdNFH66j7ZTwJ_NyCYcbEhE40agic
+@obraId = d6d08480-cb67-4fae-8cae-d2be5808ffd4
+@etapaId = bebb1ead-b773-476b-b40d-9bbfe123c9c5
+@funcionarioId = fb0677ac-4c9a-49a9-b601-c0ed35f5b9fb
 @funcionarioParaDeletarId =
 @fornecedorId =
 @materialId =
 @materialId2 =
-@orcamentoId =19b50d8a-333e-4829-8731-1235e3f0e55d
+@orcamentoId = 19b50d8a-333e-4829-8731-1235e3f0e55d
 @apontamentoId = c1377600-6c9d-42cd-aaba-a85b5df3d217
 @etapaPadraoId = 4525251c-999c-4417-aa9e-72d7a9809b09
-@cronogramaId = 54119916-b64f-45bc-8f38-1646cf75fbcb
+@cronogramaId = 57866d2e-9175-49fa-b44e-3d821560f28a
+@contaReceberId = 902ef014-2c45-4270-a7c1-f7e403598834
 # ===================================================================
-# [FLUXO 2] - CENÁRIO DE UMA OBRA COMPLETA
+# SEÇÃO 1: GESTÃO DE OBRAS
 # ===================================================================
 
 ###
 # @name CriarObraPrincipal
-# 7. Cria a obra principal para os testes.
+# Cria a obra principal para os testes
 POST {{hostname}}/obras
 Content-Type: application/json
 Cookie: jwt-token={{token}}
 
 {
-    "nome": "Obra teste de sync",
-    "cliente": "ncorporadora Morar Bem",
+    "nome": "Nova Era 44",
+    "cliente": "Incorporadora Morar Bem",
     "endereco": "Rua das Palmeiras, 100",
     "dataInicio": "2025-08-01",
-    "DataFim": "2025-12-31",
-    "descricao": "Obra de teste para o fluxo completo"
+    "dataFim": "2025-12-31",
+    "descricao": "Obra residencial completa para teste do sistema",
+    "valorContrato": 750000.00,
+    "status": "Planejada"
 }
 
 > {%
-    client.global.set("obraId", response.body.ID);
+    client.global.set("obraId", response.body.id);
 %}
 
 ###
-# @name AdicionarEtapaPrincipal
-# 8. Adiciona uma etapa à obra.
+# @name AdicionarEtapaNaObra
+# Adiciona uma etapa à obra criada
 POST {{hostname}}/obras/{{obraId}}/etapas
 Content-Type: application/json
 Cookie: jwt-token={{token}}
@@ -49,12 +60,12 @@ Cookie: jwt-token={{token}}
 }
 
 > {%
-    client.global.set("etapaId", response.body.ID);
+    client.global.set("etapaId", response.body.id);
 %}
 
 ###
-# @name AlocarFuncionarioPrincipal
-# 9. Aloca o funcionário principal na obra.
+# @name AlocarFuncionarioNaObra
+# Aloca funcionários na obra
 POST {{hostname}}/obras/{{obraId}}/alocacoes
 Content-Type: application/json
 Cookie: jwt-token={{token}}
@@ -67,34 +78,126 @@ Cookie: jwt-token={{token}}
 
 ###
 # @name ListarTodasAsObras
+# Lista todas as obras com paginação
 GET {{hostname}}/obras?page=1&pageSize=20
 Cookie: jwt-token={{token}}
-###
 
 ###
-# @name ListarTodasAsObras
+# @name BuscarDashboardObra
+# Busca dashboard com informações resumidas da obra
 GET {{hostname}}/obras/{{obraId}}/dashboard
 Cookie: jwt-token={{token}}
-###
 
 ###
-# @name ListarTodasAsObras
+# @name BuscarObraPorID
+# Busca uma obra específica por ID
 GET {{hostname}}/obras/{{obraId}}
 Cookie: jwt-token={{token}}
+
 ###
-
-
-# @name ListarEtapasPadrao
-GET {{hostname}}/etapas-padroes
+# @name AtualizarObra
+# Atualiza dados de uma obra existente
+PUT {{hostname}}/obras/{{obraId}}
+Content-Type: application/json
 Cookie: jwt-token={{token}}
-###
 
+{
+    "nome": "Obra Atualizada - Residencial Nova Era",
+    "cliente": "Incorporadora Morar Bem Atualizada",
+    "endereco": "Rua das Palmeiras, 200 - Atualizado",
+    "dataInicio": "2025-08-01",
+    "dataFim": "2025-12-31",
+    "descricao": "Obra atualizada para teste de endpoint PUT",
+    "valorContrato": 850000.00,
+    "status": "Em Andamento"
+}
+
+###
+# @name DeletarObra
+# Remove uma obra do sistema (soft delete)
+DELETE {{hostname}}/obras/{{obraId}}
+Cookie: jwt-token={{token}}
+
+
+# ===================================================================
+# SEÇÃO 2: ETAPAS DA OBRA
+# ===================================================================
+
+###
+# @name ListarEtapasPorObra
+# Lista todas as etapas de uma obra específica
 GET {{hostname}}/obras/{{obraId}}/etapas
 Content-Type: application/json
 Cookie: jwt-token={{token}}
 
+###
+# @name AtualizarStatusEtapa
+# Atualiza o status de uma etapa específica
+PATCH {{hostname}}/etapas/{{etapaId}}
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "status": "Completa",
+    "dataInicioReal": "2025-08-06"
+}
+
 # ===================================================================
-# CRONOGRAMA DE RECEBIMENTOS
+# SEÇÃO 3: ETAPAS PADRÃO (TEMPLATES)
+# ===================================================================
+
+###
+# @name ListarEtapasPadrao
+# Lista todas as etapas padrão disponíveis
+GET {{hostname}}/etapas-padroes
+Cookie: jwt-token={{token}}
+
+###
+# @name BuscarEtapaPadrao
+# Busca uma etapa padrão específica por ID
+GET {{hostname}}/etapas-padroes/{{etapaPadraoId}}
+Cookie: jwt-token={{token}}
+
+###
+# @name CriarEtapaPadrao
+# Cria uma nova etapa padrão (template)
+POST {{hostname}}/etapas-padroes
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "nome": "Instalações Elétricas",
+    "descricao": "Execução completa das instalações elétricas",
+    "duracaoEstimadaDias": 15,
+    "ordem": 5
+}
+
+> {%
+    client.global.set("novaEtapaPadraoId", response.body.id);
+%}
+
+###
+# @name AtualizarEtapaPadrao
+# Atualiza uma etapa padrão existente
+PUT {{hostname}}/etapas-padroes/{{etapaPadraoId}}
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "nome": "Instalações Elétricas Atualizada",
+    "descricao": "Execução completa das instalações elétricas com novos padrões",
+    "duracaoEstimadaDias": 18,
+    "ordem": 5
+}
+
+###
+# @name DeletarEtapaPadrao
+# Remove uma etapa padrão do sistema
+DELETE {{hostname}}/etapas-padroes/{{etapaPadraoId}}
+Cookie: jwt-token={{token}}
+
+# ===================================================================
+# SEÇÃO 4: CRONOGRAMA DE RECEBIMENTOS
 # ===================================================================
 
 ###
@@ -117,6 +220,29 @@ Cookie: jwt-token={{token}}
 %}
 
 ###
+# @name CriarCronogramaEmLote
+# Cria múltiplos cronogramas de recebimento para uma obra
+POST {{hostname}}/cronograma-recebimentos/lote
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "obraId": "{{obraId}}",
+    "cronogramas": [
+        {
+            "numeroEtapa": 3,
+            "descricaoEtapa": "Estrutura",
+            "valorPrevisto": 25000.00,
+            "dataVencimento": "2025-10-15T00:00:00Z"
+        },
+        {
+            "numeroEtapa": 4,
+            "descricaoEtapa": "Acabamento",
+            "valorPrevisto": 35000.00,
+            "dataVencimento": "2025-11-30T00:00:00Z"
+        }
+    ]
+}
 
 ###
 # @name BuscarCronograma
@@ -129,7 +255,7 @@ Cookie: jwt-token={{token}}
 # Registra um recebimento parcial ou total em um cronograma
 POST {{hostname}}/cronograma-recebimentos/{{cronogramaId}}/recebimentos
 Content-Type: application/json
-    Cookie: jwt-token={{token}}
+Cookie: jwt-token={{token}}
 
 {
     "valor": 7500.00,
@@ -137,17 +263,57 @@ Content-Type: application/json
 }
 
 ###
-POST {{hostname}}/ccontas-receber/{{cronogramaId}}/recebimentos
-Content-Type: application/json
-    Cookie: jwt-token={{token}}
-{
-  "valor": 25000.00,
-  "observacoes": "Recebimento parcial da primeira etapa"
-}
-
-
-###
 # @name ListarCronogramasPorObra
 # Lista todos os cronogramas de recebimento de uma obra específica
 GET {{hostname}}/obras/{{obraId}}/cronograma-recebimentos
+Cookie: jwt-token={{token}}
+
+# ===================================================================
+# SEÇÃO 5: TESTE DE SINCRONIZAÇÃO CRONOGRAMA ↔ CONTA A RECEBER
+# ===================================================================
+
+###
+# @name CriarContaReceberVinculada
+# Cria uma conta a receber vinculada ao cronograma para testar sincronização
+POST {{hostname}}/contas-receber
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "obraId": "{{obraId}}",
+    "cronogramaRecebimentoId": "{{cronogramaId}}",
+    "cliente": "Incorporadora Morar Bem",
+    "tipoContaReceber": "CRONOGRAMA_OBRA",
+    "descricao": "Pagamento etapa - Fundação",
+    "valorOriginal": 15000.00,
+    "dataVencimento": "2025-09-15"
+}
+
+> {%
+    client.global.set("contaReceberId", response.body.id);
+%}
+
+###
+# @name RegistrarRecebimentoContaReceber
+# Registra recebimento na conta a receber (deve sincronizar automaticamente com cronograma)
+POST {{hostname}}/contas-receber/{{contaReceberId}}/recebimentos
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "valor": 7500.00,
+    "formaPagamento": "PIX",
+    "observacoes": "Recebimento parcial via PIX - deve sincronizar com cronograma"
+}
+
+###
+# @name VerificarCronogramaPosRecebimento
+# Verifica se o cronograma foi atualizado automaticamente após recebimento
+GET {{hostname}}/cronograma-recebimentos/{{cronogramaId}}
+Cookie: jwt-token={{token}}
+
+###
+# @name VerificarContaReceber
+# Verifica status da conta a receber
+GET {{hostname}}/contas-receber/{{contaReceberId}}
 Cookie: jwt-token={{token}}

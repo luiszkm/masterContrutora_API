@@ -411,3 +411,15 @@ func (s *Service) CancelarApontamento(ctx context.Context, apontamentoID string,
 	s.logger.InfoContext(ctx, "apontamento cancelado e evento publicado", "apontamento_id", apontamento.ID, "status_anterior", statusAnterior)
 	return apontamento, nil
 }
+
+func (s *Service) BuscarApontamentoPorID(ctx context.Context, apontamentoID string) (*pessoal.ApontamentoQuinzenal, error) {
+	const op = "service.pessoal.BuscarApontamentoPorID"
+
+	apontamento, err := s.apontamentoRepo.BuscarPorID(ctx, apontamentoID)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	s.logger.InfoContext(ctx, "apontamento encontrado", "apontamento_id", apontamentoID)
+	return apontamento, nil
+}

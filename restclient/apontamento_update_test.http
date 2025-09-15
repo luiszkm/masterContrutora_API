@@ -3,11 +3,14 @@
 
 ### Variables for testing
 @baseUrl = http://localhost:8084
-@apontamentoId = aaa42c95-99ec-4a24-bfd5-ef5538c6df09
+@apontamentoId = 669c69a3-f37e-4291-a6dc-9eeb6cbf4452
+
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTc5NjE2ODYsImlhdCI6MTc1NzkzMjg4NiwicGVybWlzc29lcyI6WyJmaW5hbmNlaXJvOmxlciIsImZpbmFuY2Vpcm86ZXNjcmV2ZXIiLCJwZXNzb2FsOmFwb250YW1lbnRvOmFwcm92YXIiLCJwZXNzb2FsOmFwb250YW1lbnRvOnBhZ2FyIiwib2JyYXM6bGVyIiwicGVzc29hbDpsZXIiLCJwZXNzb2FsOmFwb250YW1lbnRvOmVzY3JldmVyIiwicGVzc29hbDphcG9udGFtZW50bzpsZXIiLCJvYnJhczplc2NyZXZlciIsInBlc3NvYWw6ZXNjcmV2ZXIiLCJzdXByaW1lbnRvczpsZXIiLCJzdXByaW1lbnRvczplc2NyZXZlciJdLCJzdWIiOiI5YjFkZTc4Ny00YThkLTQzYjctOWFiOS0xZTZjYzVmNmQ4MDYifQ.rmnAxgwnxHqW7zXVrEF4IazeRToYg-Sq74lzl9kkHhc
 
 ### 1. Valid update with all fields
 PUT {{baseUrl}}/funcionarios/apontamentos/{{apontamentoId}}
 Content-Type: application/json
+Cookie: jwt-token={{token}}
 
 {
   "obraId": "123e4567-e89b-12d3-a456-426614174000",
@@ -23,6 +26,7 @@ Content-Type: application/json
 ### 2. Update without obraId (should use existing)
 PUT {{baseUrl}}/funcionarios/apontamentos/{{apontamentoId}}
 Content-Type: application/json
+Cookie: jwt-token={{token}}
 
 {
   "periodoInicio": "2025-01-16",
@@ -37,6 +41,7 @@ Content-Type: application/json
 ### 3. Update with empty obraId (should use existing)
 PUT {{baseUrl}}/funcionarios/apontamentos/{{apontamentoId}}
 Content-Type: application/json
+Cookie: jwt-token={{token}}
 
 {
   "obraId": "",
@@ -52,6 +57,7 @@ Content-Type: application/json
 ### 4. Update with invalid UUID (should return validation error)
 PUT {{baseUrl}}/funcionarios/apontamentos/{{apontamentoId}}
 Content-Type: application/json
+Cookie: jwt-token={{token}}
 
 {
   "obraId": "invalid-uuid-format",
@@ -66,6 +72,11 @@ Content-Type: application/json
 
 ### 5. Get updated apontamento to verify changes
 GET {{baseUrl}}/funcionarios/apontamentos/{{apontamentoId}}
+Cookie: jwt-token={{token}}
+
+### 6. Buscar apontamento específico por ID (novo endpoint)
+GET {{baseUrl}}/apontamentos/{{apontamentoId}}
+Cookie: jwt-token={{token}}
 
 ### Expected Results:
 ### - Test 1: Should succeed with all fields updated

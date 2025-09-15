@@ -113,6 +113,8 @@ func New(c Config) *chi.Mux {
 		r.With(auth.Authorize(authz.PermissaoPessoalApontamentoLer)).
 			Get("/apontamentos", c.PessoalHandler.HandleListarApontamentos)
 		r.Route("/apontamentos/{apontamentoId}", func(r chi.Router) {
+			r.With(auth.Authorize(authz.PermissaoPessoalApontamentoLer)).
+				Get("/", c.PessoalHandler.HandleBuscarApontamento)
 			r.With(auth.Authorize(authz.PermissaoPessoalApontamentoAprovar)).
 				Patch("/aprovar", c.PessoalHandler.HandleAprovarApontamento)
 			r.With(auth.Authorize(authz.PermissaoPessoalApontamentoEscrever)).

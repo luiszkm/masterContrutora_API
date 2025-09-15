@@ -28,6 +28,7 @@ type Service interface {
 	BuscarPorID(ctx context.Context, id string) (*pessoal.Funcionario, error)
 	CriarApontamento(ctx context.Context, input dto.CriarApontamentoInput) (*pessoal.ApontamentoQuinzenal, error)
 	AprovarApontamento(ctx context.Context, apontamentoID string) (*pessoal.ApontamentoQuinzenal, error)
+	BuscarApontamentoPorID(ctx context.Context, apontamentoID string) (*pessoal.ApontamentoQuinzenal, error)
 	ListarApontamentos(ctx context.Context, filtros common.ListarFiltros) (*common.RespostaPaginada[*pessoal.ApontamentoQuinzenal], error)
 	ListarApontamentosPorFuncionario(ctx context.Context, funcionarioID string, filtros common.ListarFiltros) (*common.RespostaPaginada[*pessoal.ApontamentoQuinzenal], error)
 	ListarComUltimoApontamento(ctx context.Context, filtros common.ListarFiltros) ([]*dto.ListagemFuncionarioDTO, *common.PaginacaoInfo, error)
@@ -212,5 +213,21 @@ func (h *Handler) HandleCancelarApontamento(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	web.Respond(w, r, apontamento, http.StatusOK)
+}
+
+func (h *Handler) HandleBuscarApontamento(w http.ResponseWriter, r *http.Request) {
+	apontamentoID := chi.URLParam(r, "apontamentoId")
+
+	apontamento, err := h.service.BuscarApontamentoPorID(r.Context(), apontamentoID)
+	if err != nil {
+		if errors.Is(err, postgres.ErrNaoEncontrado) {
+			web.RespondError(w, r, "APONTAMENTO_NAO_ENCONTRADO", "Apontamento não encontrado", http.StatusNotFound)
+			return
+		}
+		h.logger.ErrorContext(r.Context(), "falha ao buscar apontamento", "erro", err)
+		web.RespondError(w, r, "ERRO_BUSCAR_APONTAMENTO", "Erro ao buscar apontamento", http.StatusInternalServerError)
+		return
+	}
 	web.Respond(w, r, apontamento, http.StatusOK)
 }

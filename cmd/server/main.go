@@ -104,6 +104,7 @@ func main() {
 	financeiroRepo := postgres.NovoRegistroPagamentoRepository(dbpool, logger)
 	apontamentoRepo := postgres.NovoApontamentoRepository(dbpool, logger)
 	categoriaRepo := postgres.NovoCategoriaRepository(dbpool, logger)
+	servicoRepo := postgres.NovoServicoRepository(dbpool, logger)
 	etapaPadraoRepo := postgres.NovoEtapaPadraoRepository(dbpool, logger) // NOVO
 	dashboardQuerier := postgres.NovoDashboardQuerier(dbpool, logger)     // NOVO
 	contaReceberRepo := postgres.NovoContaReceberRepositoryPostgres(dbpool)
@@ -156,6 +157,7 @@ func main() {
 		produtoRepo,
 		orcamentoRepo,
 		categoriaRepo,
+		servicoRepo,
 		etapaRepo,      // EtapaRepository implementa a interface EtapaFinder
 		fornecedorRepo, // FornecedorRepository implementa a interface FornecedorFinder
 		produtoRepo,    // MaterialRepository implementa a interface MaterialFinder

@@ -1,0 +1,98 @@
+@hostname = http://localhost:8084
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTg0MDA1NzQsImlhdCI6MTc1ODM3MTc3NCwicGVybWlzc29lcyI6WyJmaW5hbmNlaXJvOmxlciIsImZpbmFuY2Vpcm86ZXNjcmV2ZXIiLCJwZXNzb2FsOmFwb250YW1lbnRvOmFwcm92YXIiLCJwZXNzb2FsOmFwb250YW1lbnRvOnBhZ2FyIiwib2JyYXM6bGVyIiwicGVzc29hbDpsZXIiLCJwZXNzb2FsOmFwb250YW1lbnRvOmVzY3JldmVyIiwicGVzc29hbDphcG9udGFtZW50bzpsZXIiLCJvYnJhczplc2NyZXZlciIsInBlc3NvYWw6ZXNjcmV2ZXIiLCJzdXByaW1lbnRvczpsZXIiLCJzdXByaW1lbnRvczplc2NyZXZlciJdLCJzdWIiOiI5YjFkZTc4Ny00YThkLTQzYjctOWFiOS0xZTZjYzVmNmQ4MDYifQ.gt3-sy4FUu5hB8Fx6llQi8OggK7mstAE8MkeIstwzQ4
+@servicoId =5fe59444-59fd-41c8-bf7f-6de84369f706
+
+###
+# @name CriarServico
+# Cria um novo serviço
+POST {{hostname}}/servicos
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "nome": "Instalação Elétrica Residencial"
+}
+
+###
+# @name ListarServicos
+# Lista todos os serviços (sem paginação)
+GET {{hostname}}/servicos
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+###
+# @name ListarServicosPaginado
+# Lista serviços com paginação - Primeira página
+GET {{hostname}}/servicos?pagina=1&tamanhoPagina=5
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+###
+# @name ListarServicosPaginadoSegundaPagina
+# Lista serviços com paginação - Segunda página
+GET {{hostname}}/servicos?pagina=2&tamanhoPagina=5
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+###
+# @name BuscarServicoPorID
+# Busca um serviço por ID (substitua o valor de @servicoId)
+GET {{hostname}}/servicos/{{servicoId}}
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+###
+# @name AtualizarServico
+# Atualiza um serviço (substitua o valor de @servicoId)
+PUT {{hostname}}/servicos/{{servicoId}}
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "nome": "Instalação Elétrica Residencial e Comercial"
+}
+
+###
+# @name DeletarServico
+# Deleta um serviço (substitua o valor de @servicoId)
+DELETE {{hostname}}/servicos/{{servicoId}}
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+###
+# @name CriarServicosPredefinidos
+# Cria alguns serviços para teste
+POST {{hostname}}/servicos
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "nome": "Pintura Externa"
+}
+
+###
+POST {{hostname}}/servicos
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "nome": "Instalação Hidráulica"
+}
+
+###
+POST {{hostname}}/servicos
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "nome": "Alvenaria Estrutural"
+}
+
+###
+POST {{hostname}}/servicos
+Content-Type: application/json
+Cookie: jwt-token={{token}}
+
+{
+    "nome": "Reboco e Acabamento"
+}

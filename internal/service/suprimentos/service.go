@@ -39,6 +39,7 @@ type Service struct {
 	produtoRepo      suprimentos.ProdutoRepository
 	orcamentoRepo    suprimentos.OrcamentoRepository
 	categoriaRepo    suprimentos.CategoriaRepository
+	servicoRepo      suprimentos.ServicoRepository
 	etapaFinder      EtapaFinder
 	fornecedorFinder FornecedorFinder
 	materialFinder   MaterialFinder
@@ -51,6 +52,7 @@ func NovoServico(
 	mRepo suprimentos.ProdutoRepository,
 	oRepo suprimentos.OrcamentoRepository,
 	catRepo suprimentos.CategoriaRepository,
+	sRepo suprimentos.ServicoRepository,
 	eFinder EtapaFinder,
 	fFinder FornecedorFinder,
 	mFinder MaterialFinder,
@@ -62,6 +64,7 @@ func NovoServico(
 		produtoRepo:      mRepo,
 		orcamentoRepo:    oRepo,
 		categoriaRepo:    catRepo,
+		servicoRepo:      sRepo,
 		etapaFinder:      eFinder,
 		fornecedorFinder: fFinder,
 		materialFinder:   mFinder,

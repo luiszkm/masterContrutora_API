@@ -53,3 +53,12 @@ type CategoriaRepository interface {
 	Atualizar(ctx context.Context, categoria *Categoria) error
 	Deletar(ctx context.Context, id string) error
 }
+
+type ServicoRepository interface {
+	Salvar(ctx context.Context, servico *Servico) error
+	BuscarPorID(ctx context.Context, id string) (*Servico, error)
+	ListarTodos(ctx context.Context) ([]*Servico, error)
+	Listar(ctx context.Context, filtros common.ListarFiltros) ([]*Servico, *common.PaginacaoInfo, error)
+	Atualizar(ctx context.Context, servico *Servico) error
+	Deletar(ctx context.Context, id string) error
+}

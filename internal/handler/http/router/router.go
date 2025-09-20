@@ -138,6 +138,12 @@ func New(c Config) *chi.Mux {
 		r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).Get("/categorias/{categoriaId}", c.SuprimentosHandler.HandleBuscarCategoria)
 		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).Put("/categorias/{categoriaId}", c.SuprimentosHandler.HandleAtualizarCategoria)
 		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).Delete("/categorias/{categoriaId}", c.SuprimentosHandler.HandleDeletarCategoria)
+		// servicos
+		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).Post("/servicos", c.SuprimentosHandler.HandleCriarServico)
+		r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).Get("/servicos", c.SuprimentosHandler.HandleListarServicos)
+		r.With(auth.Authorize(authz.PermissaoSuprimentosLer)).Get("/servicos/{servicoId}", c.SuprimentosHandler.HandleBuscarServico)
+		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).Put("/servicos/{servicoId}", c.SuprimentosHandler.HandleAtualizarServico)
+		r.With(auth.Authorize(authz.PermissaoSuprimentosEscrever)).Delete("/servicos/{servicoId}", c.SuprimentosHandler.HandleDeletarServico)
 
 		// --- Recursos de Obras ---
 		r.Route("/obras", func(r chi.Router) {
